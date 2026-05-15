@@ -1,0 +1,35 @@
+-- ============================================================
+-- GymFlow — Seed data (run after schema.sql)
+-- ============================================================
+
+insert into exercises (name, description, category, muscle_groups, difficulty) values
+  ('Barbell Back Squat', 'Classic compound lower body movement targeting quads, glutes and hamstrings.', 'strength', '{"quads","glutes","hamstrings","core"}', 'intermediate'),
+  ('Deadlift', 'Full-body posterior chain exercise. King of compound movements.', 'strength', '{"hamstrings","glutes","back","traps"}', 'intermediate'),
+  ('Bench Press', 'Horizontal push. Primary chest developer with tricep and front delt involvement.', 'strength', '{"chest","triceps","front delts"}', 'beginner'),
+  ('Pull-up', 'Vertical pull. Best bodyweight back exercise.', 'strength', '{"lats","biceps","rear delts"}', 'intermediate'),
+  ('Overhead Press', 'Vertical push targeting shoulders and triceps.', 'strength', '{"shoulders","triceps","upper chest"}', 'intermediate'),
+  ('Romanian Deadlift', 'Hip-hinge movement emphasizing hamstrings and glutes.', 'strength', '{"hamstrings","glutes","lower back"}', 'beginner'),
+  ('Dumbbell Row', 'Unilateral horizontal pull for back thickness.', 'strength', '{"lats","rhomboids","biceps"}', 'beginner'),
+  ('Incline Dumbbell Press', 'Upper chest emphasis horizontal push.', 'strength', '{"upper chest","front delts","triceps"}', 'beginner'),
+  ('Goblet Squat', 'Beginner-friendly squat variation with dumbbell or kettlebell.', 'strength', '{"quads","glutes","core"}', 'beginner'),
+  ('Hip Thrust', 'Glute isolation movement for maximum glute development.', 'strength', '{"glutes","hamstrings"}', 'beginner'),
+  ('Treadmill Run', 'Steady-state cardiovascular training.', 'cardio', '{"cardiovascular","legs"}', 'beginner'),
+  ('Rowing Machine', 'Full-body cardiovascular exercise with upper body focus.', 'cardio', '{"back","arms","cardiovascular"}', 'beginner'),
+  ('Jump Rope', 'High-intensity cardiovascular exercise improving coordination.', 'cardio', '{"cardiovascular","calves","shoulders"}', 'beginner'),
+  ('Cycling', 'Low-impact cardiovascular training on stationary bike.', 'cardio', '{"cardiovascular","quads","glutes"}', 'beginner'),
+  ('Burpees', 'Full-body explosive cardio movement.', 'hiit', '{"full body","cardiovascular"}', 'intermediate'),
+  ('Box Jumps', 'Explosive lower body plyometric training.', 'hiit', '{"quads","glutes","calves"}', 'intermediate'),
+  ('Battle Ropes', 'Upper body cardiovascular conditioning.', 'hiit', '{"shoulders","arms","core","cardiovascular"}', 'intermediate'),
+  ('Kettlebell Swing', 'Hip-hinge power development with cardiovascular benefit.', 'hiit', '{"glutes","hamstrings","core","cardiovascular"}', 'intermediate'),
+  ('Downward Dog', 'Full body stretch targeting hamstrings, calves and shoulders.', 'flexibility', '{"hamstrings","calves","shoulders","back"}', 'beginner'),
+  ('Hip Flexor Stretch', 'Essential stretch for desk workers. Targets hip flexors and quads.', 'flexibility', '{"hip flexors","quads"}', 'beginner'),
+  ('Pigeon Pose', 'Deep hip opener targeting glutes and piriformis.', 'flexibility', '{"glutes","hip flexors","piriformis"}', 'intermediate'),
+  ('Thoracic Rotation', 'Spinal mobility drill for upper back rotation.', 'flexibility', '{"thoracic spine","core"}', 'beginner'),
+  ('Single Leg Balance', 'Proprioception and ankle stability training.', 'balance', '{"ankles","core","stabilizers"}', 'beginner'),
+  ('Bosu Ball Squat', 'Squat variation on unstable surface for balance development.', 'balance', '{"quads","glutes","core","stabilizers"}', 'intermediate'),
+  ('Plank', 'Core stability exercise building anterior chain strength.', 'strength', '{"core","shoulders","glutes"}', 'beginner'),
+  ('Russian Twist', 'Rotational core exercise targeting obliques.', 'strength', '{"obliques","core"}', 'beginner'),
+  ('Leg Raises', 'Lower ab isolation movement.', 'strength', '{"lower abs","hip flexors"}', 'beginner'),
+  ('Face Pull', 'Rear delt and external rotator strengthening for shoulder health.', 'strength', '{"rear delts","rotator cuff","upper back"}', 'beginner'),
+  ('Cable Lateral Raise', 'Shoulder width builder targeting medial delts.', 'strength', '{"medial delts","shoulders"}', 'beginner'),
+  ('Tricep Pushdown', 'Cable isolation for tricep development.', 'strength', '{"triceps"}', 'beginner');

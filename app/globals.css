@@ -1,0 +1,181 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #0A0A0A;
+  }
+
+  :root {
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 262.1 83.3% 57.8%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 5%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 5%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 263.4 70% 50.4%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 263.4 70% 50.4%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes border-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(213, 0, 0, 0), 0 0 6px 0 rgba(213, 0, 0, 0.04); }
+  50% { box-shadow: 0 0 0 1px rgba(213, 0, 0, 0.18), 0 0 18px 3px rgba(213, 0, 0, 0.10); }
+}
+
+/* Skip link */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  z-index: 200;
+  padding: 0.5rem 1.25rem;
+  background: #D50000;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 0 0 0.5rem 0.5rem;
+  transition: top 0.15s ease-out;
+}
+.skip-link:focus {
+  top: 0;
+  outline: none;
+}
+
+/* Global focus ring */
+:focus-visible {
+  outline: 2px solid #D50000;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Scroll offset for fixed header */
+section[id] {
+  scroll-margin-top: 4rem;
+}
+
+@layer utilities {
+  /* Button press feedback — applies to all non-disabled buttons */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    transition-property: color, background-color, border-color,
+      text-decoration-color, fill, stroke, transform, opacity;
+    transition-timing-function: var(--ease-out);
+    transition-duration: 160ms;
+  }
+
+  button:not(:disabled):active,
+  [role="button"]:not(:disabled):active {
+    transform: scale(0.97);
+  }
+
+  /* Avatar shimmer skeleton */
+  .animate-skeleton-loading {
+    background: linear-gradient(270deg, #27272a, #3f3f46, #3f3f46, #27272a);
+    background-size: 400% 100%;
+    animation: skeleton-loading 2s infinite ease-in-out;
+  }
+
+  /* Card float */
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  /* Stagger fade-up for grid items */
+  .animate-fade-up {
+    animation: fade-up 300ms var(--ease-out) both;
+  }
+
+  /* Pulsing red border glow */
+  .animate-border-glow {
+    animation: border-glow 2.4s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-fade-up {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
