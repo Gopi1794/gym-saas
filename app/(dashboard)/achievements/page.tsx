@@ -13,11 +13,12 @@ export default async function AchievementsPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: profile } = await supabase
+  const { data: profileData } = await supabase
     .from("profiles")
     .select("gym_id, role")
     .eq("id", user!.id)
     .single()
+  const profile = profileData as { gym_id: string | null; role: string } | null
 
   // Role guard: only admin or trainer may access this page (ADR-6)
   if (!profile || (profile.role !== "admin" && profile.role !== "trainer")) {

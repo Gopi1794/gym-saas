@@ -12,11 +12,12 @@ export default async function StaffPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
-  const { data: profile } = await supabase
+  const { data: profileData } = await supabase
     .from("profiles")
     .select("role, gym_id")
     .eq("id", user.id)
     .single()
+  const profile = profileData as { role: string; gym_id: string | null } | null
 
   if (profile?.role !== "admin") redirect("/dashboard")
 
