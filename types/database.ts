@@ -46,6 +46,15 @@ export interface Database {
           gender: "male" | "female" | "other" | null
           created_at: string
           total_xp: number
+          date_of_birth: string | null
+          phone: string | null
+          weight_kg: number | null
+          height_cm: number | null
+          goal: "lose_weight" | "gain_muscle" | "performance" | "maintain" | null
+          medical_conditions: string | null
+          training_frequency: "never" | "1-2" | "3-4" | "5+" | null
+          emergency_name: string | null
+          emergency_phone: string | null
         }
         Insert: {
           id: string
@@ -59,6 +68,15 @@ export interface Database {
           gender?: "male" | "female" | "other" | null
           created_at?: string
           total_xp?: number
+          date_of_birth?: string | null
+          phone?: string | null
+          weight_kg?: number | null
+          height_cm?: number | null
+          goal?: "lose_weight" | "gain_muscle" | "performance" | "maintain" | null
+          medical_conditions?: string | null
+          training_frequency?: "never" | "1-2" | "3-4" | "5+" | null
+          emergency_name?: string | null
+          emergency_phone?: string | null
         }
         Update: Partial<Omit<Database["public"]["Tables"]["profiles"]["Insert"], "id">>
         Relationships: []
