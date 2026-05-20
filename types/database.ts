@@ -323,23 +323,23 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          gym_id: string | null
           type: string
           title: string
-          body: string | null
-          metadata: Json | null
+          body: string
+          metadata: Json
           read: boolean
+          dedup_key: string | null
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          gym_id?: string | null
           type: string
           title: string
-          body?: string | null
-          metadata?: Json | null
+          body: string
+          metadata?: Json
           read?: boolean
+          dedup_key?: string | null
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]>
