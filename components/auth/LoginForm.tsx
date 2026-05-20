@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import { Loader2, Eye, EyeOff } from "lucide-react"
 export default function LoginForm() {
   const router = useRouter()
   const supabase = createClient()
+  const emailRef = useRef<HTMLInputElement>(null)
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -32,6 +33,7 @@ export default function LoginForm() {
     if (error) {
       setError(error.message)
       setLoading(false)
+      emailRef.current?.focus()
       return
     }
 
@@ -40,15 +42,19 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md space-y-8">
+    <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900/70 px-8 py-10 shadow-[0_0_80px_rgba(213,0,0,0.10)] backdrop-blur-xl space-y-8">
       <div className="text-center">
-        <h1 className="text-3xl font-bold text-zinc-50">Welcome back</h1>
-        <p className="mt-2 text-zinc-400">Sign in to your GymFlow account</p>
+        <h1 className="text-3xl font-bold text-zinc-50">Bienvenido</h1>
+        <p className="mt-2 text-sm text-zinc-400">Iniciá sesión en tu cuenta</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="rounded-lg border border-red-900/50 bg-red-950/50 px-4 py-3 text-sm text-red-400">
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="rounded-lg border border-red-900/50 bg-red-950/50 px-4 py-3 text-sm text-red-400"
+          >
             {error}
           </div>
         )}
@@ -58,20 +64,30 @@ export default function LoginForm() {
             Email
           </Label>
           <Input
+            ref={emailRef}
             id="email"
             type="email"
-            placeholder="you@example.com"
+            placeholder="vos@ejemplo.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
+            className="bg-zinc-800/60 border-zinc-700 placeholder:text-zinc-600 focus:border-brand-600"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password" className="text-zinc-300">
-            Password
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password" className="text-zinc-300">
+              Contraseña
+            </Label>
+            <Link
+              href="/forgot-password"
+              className="text-xs text-zinc-500 hover:text-brand-400 transition-colors"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
           <div className="relative">
             <Input
               id="password"
@@ -81,12 +97,13 @@ export default function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="pr-10"
+              className="pr-10 bg-zinc-800/60 border-zinc-700 placeholder:text-zinc-600 focus:border-brand-600"
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-zinc-500 hover:text-zinc-300 transition-colors"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -95,27 +112,27 @@ export default function LoginForm() {
 
         <Button
           type="submit"
-          className="w-full bg-brand-700 text-white hover:bg-brand-700"
+          className="w-full bg-brand-700 text-white hover:bg-brand-600 active:bg-brand-800 transition-colors font-semibold"
           disabled={loading}
         >
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Signing in…
+              Ingresando…
             </>
           ) : (
-            "Sign in"
+            "Ingresar"
           )}
         </Button>
       </form>
 
       <p className="text-center text-sm text-zinc-500">
-        Don&apos;t have an account?{" "}
+        ¿No tenés cuenta?{" "}
         <Link
           href="/register"
-          className="font-medium text-brand-500 hover:text-brand-400"
+          className="font-medium text-brand-400 hover:text-brand-300 transition-colors"
         >
-          Create one
+          Creá una
         </Link>
       </p>
     </div>

@@ -1,4 +1,5 @@
-<img width="1376" height="768" alt="image_459a9feb" src="https://github.com/user-attachments/assets/02a2ed97-0147-4570-b900-0e65493e97d5" />
+<img width="1376" height="768" alt="GymFlow preview" src="https://github.com/user-attachments/assets/02a2ed97-0147-4570-b900-0e65493e97d5" />
+
 # GymFlow
 
 ![Next.js](https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js)

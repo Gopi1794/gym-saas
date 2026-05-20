@@ -107,18 +107,18 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     if (days[dow].id) return days[dow].id!
     // Check DB first to avoid creating duplicates
     const { data: existing } = await supabase
-      .from("workout_plan_days" as never)
+      .from("workout_plan_days")
       .select("id")
       .eq("plan_id", plan.id)
       .eq("day_of_week", dow)
-      .order("id" as never)
+      .order("id")
       .limit(1) as unknown as { data: { id: string }[] | null }
     if (existing?.[0]) {
       setDays((prev) => ({ ...prev, [dow]: { ...prev[dow], id: existing[0].id } }))
       return existing[0].id
     }
     const { data, error } = await supabase
-      .from("workout_plan_days" as never)
+      .from("workout_plan_days")
       .insert({ plan_id: plan.id, day_of_week: dow })
       .select("id")
       .single() as unknown as { data: { id: string } | null; error: unknown }
@@ -135,7 +135,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       const order = days[selectedDay].exercises.length
 
       const { data, error } = await supabase
-        .from("workout_plan_exercises" as never)
+        .from("workout_plan_exercises")
         .insert({ day_id: dayId, exercise_id: exercise.id, sets: 3, reps: 10, rest_seconds: 60, order_index: order })
         .select("id, sets, reps, rest_seconds, order_index, notes")
         .single() as unknown as { data: Omit<PlanExercise, "exercises"> | null; error: unknown }
@@ -157,7 +157,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   }
 
   async function removeExercise(peId: string) {
-    await supabase.from("workout_plan_exercises" as never).delete().eq("id", peId)
+    await supabase.from("workout_plan_exercises").delete().eq("id", peId)
     setDays((prev) => ({
       ...prev,
       [selectedDay]: {
@@ -186,8 +186,8 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       }))
 
       const { data, error } = (await supabase
-        .from("workout_plan_exercises" as never)
-        .insert(inserts as never)
+        .from("workout_plan_exercises")
+        .insert(inserts)
         .select("id, sets, reps, rest_seconds, order_index, notes, exercise_id")
       ) as unknown as { data: (Omit<PlanExercise, "exercises"> & { exercise_id: string })[] | null; error: unknown }
 
@@ -211,7 +211,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
 
   async function updateField(peId: string, field: "sets" | "reps" | "rest_seconds", value: number) {
     setSaving(peId)
-    await supabase.from("workout_plan_exercises" as never).update({ [field]: value } as never).eq("id", peId)
+    await supabase.from("workout_plan_exercises").update({ [field]: value } as unknown as { sets?: number; reps?: number; rest_seconds?: number }).eq("id", peId)
     setDays((prev) => ({
       ...prev,
       [selectedDay]: {
@@ -228,10 +228,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     setDeleting(true)
     const dayIds = Object.values(days).map((d) => d.id).filter(Boolean) as string[]
     if (dayIds.length > 0) {
-      await supabase.from("workout_plan_exercises" as never).delete().in("day_id", dayIds)
-      await supabase.from("workout_plan_days" as never).delete().eq("plan_id", plan.id)
+      await supabase.from("workout_plan_exercises").delete().in("day_id", dayIds)
+      await supabase.from("workout_plan_days").delete().eq("plan_id", plan.id)
     }
-    await supabase.from("workout_plans" as never).delete().eq("id", plan.id)
+    await supabase.from("workout_plans").delete().eq("id", plan.id)
     router.push("/planes")
   }
 

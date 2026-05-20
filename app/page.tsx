@@ -1,6 +1,6 @@
 import React from "react"
 import Link from "next/link"
-import Image from "next/image"
+import { GymFlowLogo } from "@/components/ui/GymFlowLogo"
 import { Badge } from "@/components/ui/badge"
 import { NeonButton } from "@/components/ui/neon-button"
 import { GymTechCard } from "@/components/ui/gym-tech-card"
@@ -32,7 +32,7 @@ export default function LandingPage() {
       <header className="fixed top-0 z-50 w-full border-b border-white/5 bg-zinc-950/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center">
-            <Image src="/logo-vector.png" alt="Flash Mega Gym" width={140} height={42} className="h-10 w-auto object-contain" priority />
+            <GymFlowLogo size={24} textSize="text-2xl" />
           </div>
 
           <nav className="hidden items-center gap-6 md:flex">
@@ -269,7 +269,7 @@ export default function LandingPage() {
       <footer className="border-t border-white/5 py-12">
         <div className="container flex flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex items-center">
-            <Image src="/logo-vector.png" alt="Flash Mega Gym" width={100} height={30} className="h-7 w-auto object-contain" />
+            <GymFlowLogo size={18} textSize="text-lg" />
           </div>
           <p className="text-sm text-zinc-500">
             © 2026 GymFlow. Todos los derechos reservados.

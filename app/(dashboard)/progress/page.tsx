@@ -46,10 +46,10 @@ export default async function ProgressPage() {
   }
 
   return (
-    <div className="space-y-5 pb-2">
+    <div className="space-y-5 pb-8">
       <div>
-        <h1 className="text-2xl font-bold text-white">Mi progreso</h1>
-        <p className="mt-0.5 text-sm text-zinc-500">Tu historial de entrenamientos</p>
+        <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">Mi progreso</h1>
+        <p className="text-sm text-muted-foreground">Tu historial de entrenamientos</p>
       </div>
       <ProgressView
         sessions={sessions ?? []}

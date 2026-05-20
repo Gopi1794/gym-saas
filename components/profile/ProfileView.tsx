@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
+import { GymFlowLogo } from "@/components/ui/GymFlowLogo";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,15 +12,12 @@ import {
   Camera,
   Edit3,
   Loader2,
-  Mail,
   CreditCard,
   Hash,
-  User,
   Dumbbell,
   Heart,
   Activity,
   Zap,
-  BarChart2,
   Star,
   Target,
   Calendar,
@@ -75,33 +73,16 @@ type Medal = {
   glow: string;
   required: number;
   image: string;
+  condition: string;
+  description: string;
 };
 const MEDALS: Medal[] = [
-  { id: "hierro",       label: "Hierro",       glow: "shadow-amber-500/60",  required: 0,  image: "/medallas/medalla_hierro.png" },
-  { id: "cardio",       label: "Cardio",       glow: "shadow-rose-500/60",   required: 5,  image: "/medallas/medalla_cardio.png" },
-  { id: "movilidad",    label: "Movilidad",    glow: "shadow-emerald-500/60",required: 15, image: "/medallas/medalla_movilidad.png" },
-  { id: "fuerza",       label: "Fuerza",       glow: "shadow-brand-500/60",  required: 30, image: "/medallas/medalla_fuerza.png" },
-  { id: "constancia",   label: "Constancia",   glow: "shadow-brand-700/60",  required: 50, image: "/medallas/medalla_consistencia.png" },
+  { id: "hierro", label: "Hierro", glow: "shadow-amber-500/60", required: 0, image: "/medallas/medalla_hierro.png", condition: "Medalla inicial", description: "Tu primera marca dentro de GymFlow. Arrancaste el camino, ahora toca sostenerlo." },
+  { id: "cardio", label: "Cardio", glow: "shadow-rose-500/60", required: 5, image: "/medallas/medalla_cardio.png", condition: "5 asistencias", description: "Primer bloque de constancia. No es magia: es repetición, presencia y entrenamiento real." },
+  { id: "movilidad", label: "Movilidad", glow: "shadow-emerald-500/60", required: 15, image: "/medallas/medalla_movilidad.png", condition: "15 asistencias", description: "Ya no estás probando: estás construyendo hábito. La movilidad también es progreso." },
+  { id: "fuerza", label: "Fuerza", glow: "shadow-brand-500/60", required: 30, image: "/medallas/medalla_fuerza.png", condition: "30 asistencias", description: "Fuerza no es solo peso. Es disciplina repetida hasta que el cuerpo aprende." },
+  { id: "constancia", label: "Constancia", glow: "shadow-brand-700/60", required: 50, image: "/medallas/medalla_consistencia.png", condition: "50 asistencias", description: "La medalla que importa: aparecer incluso cuando no tenés ganas. Ahí se separa el impulso del compromiso." },
 ];
-
-const HEX = "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)";
-
-function Sparkline({ color = "#d50000" }: { color?: string }) {
-  const pts = [0.8, 0.3, 0.6, 0.2, 0.7, 0.4, 0.9]
-    .map((v, i) => `${(i / 6) * 56},${20 - v * 18}`)
-    .join(" ");
-  return (
-    <svg width="56" height="20" className="opacity-60">
-      <polyline
-        points={pts}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 function computeLevel(checkIns: number) {
   return { level: Math.floor(checkIns / 5) + 1, xpInLevel: checkIns % 5 };
@@ -122,6 +103,7 @@ export default function ProfileView({
 }: ProfileViewProps) {
   const [editing, setEditing] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [selectedMedal, setSelectedMedal] = useState<Medal | null>(null);
   const [fullName, setFullName] = useState(profile.full_name ?? "");
   const [gender, setGender] = useState<"male" | "female" | "other" | null>(
     (profile.gender as "male" | "female" | "other" | null) ?? null
@@ -162,11 +144,11 @@ export default function ProfileView({
     const file = e.target.files?.[0];
     if (!file) return;
     setAvatarUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${profile.id}.${ext}`;
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const path = `${profile.id}/avatar.${ext}`;
 
     const { error: storageError } = await supabase.storage
-      .from("avatars")
+      .from("avatar")
       .upload(path, file, { upsert: true });
     if (storageError) {
       console.error("[avatar] storage:", storageError);
@@ -176,7 +158,7 @@ export default function ProfileView({
       return;
     }
 
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    const { data } = supabase.storage.from("avatar").getPublicUrl(path);
     const url = `${data.publicUrl}?t=${Date.now()}`;
     const { error: dbError } = await supabase
       .from("profiles")
@@ -194,348 +176,234 @@ export default function ProfileView({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ══ TRAINER CARD ══ */}
-      <div className="relative overflow-hidden rounded-2xl border border-brand-700/30 bg-zinc-950 shadow-[0_0_60px_rgba(213,0,0,0.14),0_0_120px_rgba(255,34,34,0.08)]">
-        {/* Circuit board pattern */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23d50000' stroke-width='0.8'%3E%3Cpath d='M0 40h20M60 40h20M40 0v20M40 60v20M20 40h20v-20M60 40H40v20'/%3E%3Ccircle cx='20' cy='40' r='2' fill='%23d50000'/%3E%3Ccircle cx='60' cy='40' r='2' fill='%23d50000'/%3E%3Ccircle cx='40' cy='20' r='2' fill='%23d50000'/%3E%3Ccircle cx='40' cy='60' r='2' fill='%23d50000'/%3E%3C/g%3E%3C/svg%3E")`,
-            backgroundSize: "80px 80px",
-          }}
-        />
+      {/* Profile card */}
+      <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-zinc-950/70 shadow-2xl shadow-black/30 backdrop-blur-xl">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(213,0,0,0.24),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_28%)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-500/70 to-transparent" />
 
-        {/* Logo watermark */}
-        <div className="pointer-events-none absolute right-5 top-4 z-10" style={{ filter: "drop-shadow(0 0 8px rgba(213,0,0,0.7))" }}>
-          <Image src="/logo-vector.png" alt="Flash Mega Gym" width={100} height={30} className="h-8 w-auto object-contain select-none" />
-        </div>
-
-        {/* Corner neon accents */}
-        <div className="pointer-events-none absolute left-0 top-0 h-16 w-16 rounded-tl-2xl border-l-2 border-t-2 border-brand-500/60" />
-        <div className="pointer-events-none absolute right-0 top-0 h-16 w-16 rounded-tr-2xl border-r-2 border-t-2 border-brand-500/20" />
-        <div className="pointer-events-none absolute bottom-0 left-0 h-16 w-16 rounded-bl-2xl border-b-2 border-l-2 border-brand-700/60" />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-16 w-16 rounded-br-2xl border-b-2 border-r-2 border-brand-700/20" />
-
-        {/* ── GRID ── */}
-        <div className="relative grid grid-cols-1 md:grid-cols-[220px_1fr_200px]">
-          {/* LEFT: Identity */}
-          <div className="flex flex-col items-center gap-4 border-r border-white/5 bg-gradient-to-b from-zinc-900/80 to-zinc-950/80 p-6">
-            {/* Logo */}
-            <div className="flex w-full items-center">
-              <Image src="/logo-vector.png" alt="Flash Mega Gym" width={110} height={34} className="h-8 w-auto object-contain" />
-            </div>
-
-            {/* Hex avatar */}
-            <div className="relative mt-2" style={{ width: 130, height: 130 }}>
-              {/* Glow blob */}
-              <div
-                className="absolute inset-[-6px] blur-xl bg-gradient-to-br from-brand-500/50 to-brand-800/50"
-                style={{ clipPath: HEX }}
-              />
-              {/* Gradient border */}
-              <div
-                className="absolute inset-[-2px] bg-gradient-to-br from-brand-400 to-brand-700"
-                style={{ clipPath: HEX }}
-              />
-              {/* Photo */}
-              <div
-                className="absolute inset-0 overflow-hidden bg-zinc-800"
-                style={{ clipPath: HEX }}
-              >
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt="avatar"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-brand-950/70 text-3xl font-black text-white">
-                    {getInitials(profile.full_name)}
+        <div className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="p-5 sm:p-7">
+            <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+              <div className="flex min-w-0 gap-4 sm:gap-5">
+                <div className="relative h-24 w-24 shrink-0 sm:h-28 sm:w-28">
+                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-brand-500 to-brand-800 p-[2px] shadow-[0_18px_50px_rgba(213,0,0,0.28)]">
+                    <div className="h-full w-full overflow-hidden rounded-[1.35rem] bg-zinc-900">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt="avatar"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-950 to-zinc-900 text-3xl font-black text-white">
+                          {getInitials(profile.full_name)}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* Camera button */}
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
-              />
-              <button
-                onClick={() => avatarInputRef.current?.click()}
-                disabled={avatarUploading}
-                className="absolute right-3 top-1 flex h-7 w-7 items-center justify-center rounded-full border border-brand-700/40 bg-zinc-900/90 backdrop-blur-sm transition-all hover:border-brand-500 hover:bg-brand-950/60"
-              >
-                {avatarUploading ? (
-                  <Loader2 className="h-3 w-3 animate-spin text-brand-500" />
-                ) : (
-                  <Camera className="h-3 w-3 text-brand-500" />
-                )}
-              </button>
-            </div>
-
-            {/* Name & level */}
-            <div className="text-center">
-              <p className="text-lg font-black uppercase tracking-wide text-white">
-                {profile.full_name ?? "—"}
-              </p>
-              <p className="text-xs font-semibold tracking-wider text-brand-500">
-                Nivel {level} - {ROLE_LABEL[profile.role ?? "member"]}
-              </p>
-            </div>
-
-            {/* XP bar (10 segments) */}
-            <div className="w-full">
-              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                XP
-              </span>
-              <div className="flex gap-1">
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "h-2 flex-1 rounded-sm",
-                      i < xpInLevel * 2
-                        ? "bg-brand-500 shadow-[0_0_4px_rgba(213,0,0,0.9)]"
-                        : "bg-zinc-700/50",
-                    )}
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
                   />
-                ))}
-              </div>
-            </div>
-          </div>
+                  <button
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={avatarUploading}
+                    className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-zinc-900/95 text-brand-400 shadow-lg shadow-black/30 backdrop-blur transition-[transform,background-color,border-color] duration-150 hover:border-brand-500/50 hover:bg-brand-950 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="Cambiar foto de perfil"
+                  >
+                    {avatarUploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Camera className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
 
-          {/* CENTER: Data + Medals */}
-          <div className="flex flex-col border-r border-white/5">
-            {/* Personal data + Training stats */}
-            <div className="grid grid-cols-1 gap-0 border-b border-white/5 sm:grid-cols-2">
-              {/* Personal data */}
-              <div className="border-r border-white/5 p-5">
-                <div className="mb-3 flex items-center gap-2">
-                  <User className="h-3.5 w-3.5 text-brand-500" />
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-brand-500">
-                    Datos Personales
+                <div className="min-w-0 pt-1">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-brand-500/25 bg-brand-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-brand-300">
+                      Nivel {level}
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold text-zinc-300">
+                      {ROLE_LABEL[profile.role ?? "member"]}
+                    </span>
+                  </div>
+                  <h2 className="truncate text-3xl font-black tracking-tight text-white sm:text-4xl">
+                    {profile.full_name ?? "Sin nombre"}
+                  </h2>
+                  <p className="mt-2 truncate text-sm text-zinc-400">{email}</p>
+
+                  <div className="mt-5 max-w-md">
+                    <div className="mb-2 flex items-center justify-between text-xs">
+                      <span className="font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                        Progreso XP
+                      </span>
+                      <span className="font-bold text-brand-300">
+                        {xpInLevel}/5 asistencias
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-brand-700 via-brand-500 to-red-400 shadow-[0_0_18px_rgba(213,0,0,0.55)]"
+                        style={{ width: `${(xpInLevel / 5) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2 self-start rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                <Hash className="h-4 w-4 text-brand-400" />
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                    ID miembro
+                  </p>
+                  <p className="font-mono text-sm font-semibold text-zinc-100">
+                    {cardId}
                   </p>
                 </div>
-                <div className="space-y-2.5">
-                  {[
-                    { Icon: Mail, label: "Email", value: email },
-                    {
-                      Icon: CreditCard,
-                      label: "Membresía",
-                      value: MEMBERSHIP_LABEL[membership],
-                    },
-                    { Icon: Hash, label: "ID Único", value: cardId },
-                    {
-                      Icon: User,
-                      label: "Rol",
-                      value: ROLE_LABEL[profile.role ?? "member"],
-                    },
-                  ].map(({ Icon, label, value }) => (
-                    <div key={label} className="flex items-start gap-2">
-                      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-600/60" />
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                          {label}:
-                        </p>
-                        <p className="truncate text-xs font-semibold text-zinc-200">
-                          {value}
-                        </p>
-                      </div>
+              </div>
+            </div>
+
+            <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[
+                { label: "Asistencias", value: totalCheckIns, Icon: Activity },
+                { label: "Favoritos", value: totalFavorites, Icon: Heart },
+                { label: "Planes", value: totalPlans, Icon: Star },
+              ].map(({ label, value, Icon }) => (
+                <div
+                  key={label}
+                  className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition-colors hover:bg-white/[0.055]"
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-sm font-medium text-zinc-400">{label}</p>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-700/15 text-brand-400">
+                      <Icon className="h-4 w-4" />
                     </div>
+                  </div>
+                  <p className="text-3xl font-black tabular-nums tracking-tight text-white">
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.15fr]">
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/45 p-4">
+                <div className="mb-4 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-brand-400" />
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-400">
+                    Membresía
+                  </p>
+                </div>
+                <p className="text-lg font-black text-white">
+                  {MEMBERSHIP_LABEL[membership]}
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {training.map(({ Icon, label }) => (
+                    <span
+                      key={label}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-zinc-300"
+                    >
+                      <Icon className="h-3.5 w-3.5 text-brand-400" />
+                      {label}
+                    </span>
                   ))}
                 </div>
               </div>
 
-              {/* Training stats */}
-              <div className="p-5">
-                <div className="mb-3 flex items-center gap-2">
-                  <BarChart2 className="h-3.5 w-3.5 text-brand-500" />
-                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-brand-500">
-                    Estadísticas de Entrenamiento
-                  </p>
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/45 p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-brand-400" />
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-400">
+                      Próximo objetivo
+                    </p>
+                  </div>
+                  <span className="text-xs text-zinc-500">Desde {memberSince}</span>
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                      Tipos de Entrenamiento:
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                      {training.map(({ Icon, label }, i) => (
-                        <span key={i} className="flex items-center gap-1">
-                          <Icon className="h-3.5 w-3.5 text-brand-500" />
-                          <span className="text-xs font-semibold text-zinc-200">
-                            {label}
-                          </span>
-                          {i < training.length - 1 && (
-                            <span className="text-zinc-600 text-xs">+</span>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                      Próximo Objetivo:
-                    </p>
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                      <Target className="h-3.5 w-3.5 text-brand-600" />
-                      <p className="text-xs font-semibold text-zinc-200">
-                        {nextObjective}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                      Inscrito Desde:
-                    </p>
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                      <Calendar className="h-3.5 w-3.5 text-brand-600" />
-                      <p className="text-xs font-semibold text-zinc-200">
-                        {memberSince}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Medals */}
-            <div className="p-5">
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-brand-500">
-                Medallas
-              </p>
-              <div className="flex items-start gap-3">
-                {MEDALS.map((medal) => {
-                  const earned = totalCheckIns >= medal.required;
-                  return (
-                    <div
-                      key={medal.id}
-                      className="flex flex-col items-center gap-1.5"
-                    >
-                      <div
+                <p className="text-lg font-black text-white">{nextObjective}</p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {MEDALS.map((medal) => {
+                    const earned = totalCheckIns >= medal.required;
+                    const remaining = Math.max(medal.required - totalCheckIns, 0);
+                    return (
+                      <button
+                        key={medal.id}
+                        type="button"
+                        onClick={() => setSelectedMedal(medal)}
                         className={cn(
-                          "flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all",
+                          "group flex items-center gap-2 rounded-2xl border px-3 py-2 text-left transition-[transform,background-color,border-color] duration-150 hover:-translate-y-0.5 active:scale-[0.98]",
                           earned
-                            ? `border-white/30 shadow-lg ${medal.glow}`
-                            : "border-zinc-700/40 bg-zinc-900/60 opacity-35 grayscale",
+                            ? "border-white/10 bg-white/[0.04] text-zinc-200"
+                            : "border-white/5 bg-white/[0.02] text-zinc-600 hover:text-zinc-400",
                         )}
+                        aria-label={`Ver detalle de medalla ${medal.label}${earned ? "" : `. Faltan ${remaining} asistencias`}`}
                       >
                         <Image
                           src={medal.image}
                           alt={medal.label}
-                          width={36}
-                          height={36}
-                          className="object-contain"
+                          width={28}
+                          height={28}
+                          className={cn(
+                            "object-contain transition-transform duration-150 group-hover:scale-105",
+                            !earned && "grayscale opacity-35",
+                          )}
                         />
-                      </div>
-                      <span
-                        className={cn(
-                          "text-[9px] font-bold uppercase tracking-wide",
-                          earned ? "text-zinc-300" : "text-zinc-600",
-                        )}
-                      >
-                        {medal.label}
-                      </span>
-                    </div>
-                  );
-                })}
+                        <span className="text-xs font-semibold">{medal.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* RIGHT: Stats + QR */}
-          <div className="flex flex-col bg-gradient-to-b from-zinc-900/60 to-zinc-950/80">
-            {/* Stats */}
-            <div className="border-b border-white/5 p-5">
-              <div className="mb-3 flex items-center gap-2">
-                <BarChart2 className="h-3.5 w-3.5 text-brand-500" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-brand-500">
-                  Estadísticas
-                </p>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-end justify-between">
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                      Asistencias:
-                    </p>
-                    <p className="text-2xl font-black tabular-nums leading-none text-white">
-                      {totalCheckIns}
-                    </p>
-                  </div>
-                  <Sparkline color="#d50000" />
-                </div>
-                <div className="flex items-end justify-between">
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                      Favoritos:
-                    </p>
-                    <p className="text-2xl font-black tabular-nums leading-none text-white">
-                      {totalFavorites}
-                    </p>
-                  </div>
-                  <Sparkline color="#ff6464" />
-                </div>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">
-                  Última semana
-                </p>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                      Planes:
-                    </p>
-                    <p className="text-2xl font-black tabular-nums leading-none text-white">
-                      {totalPlans}
-                    </p>
-                  </div>
-                  <Star className="h-5 w-5 text-amber-400" />
-                </div>
-              </div>
+          <aside className="border-t border-white/10 bg-zinc-950/55 p-5 sm:p-7 lg:border-l lg:border-t-0">
+            <div className="mb-5 flex items-center justify-between">
+              <GymFlowLogo size={18} textSize="text-base" />
+              <button
+                onClick={() => setShowInfo(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xs font-black text-zinc-400 transition-[transform,color,border-color] duration-150 hover:border-brand-500/40 hover:text-brand-300 active:scale-95"
+                aria-label="Información del sistema de XP"
+              >
+                !
+              </button>
             </div>
 
-            {/* QR */}
-            <div className="p-5">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-brand-500 shadow-[0_0_6px_rgba(213,0,0,0.9)]" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-brand-500">
-                  Check-in Rápido
-                </p>
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4 text-center">
+              <div className="mx-auto w-fit rounded-2xl bg-white p-3 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                <QRCodeSVG value={profile.qr_code} size={150} level="H" />
               </div>
-              <div className="flex flex-col items-center gap-2">
-                <div className="rounded-lg border border-brand-700/30 bg-white p-2 shadow-[0_0_20px_rgba(213,0,0,0.25)]">
-                  <QRCodeSVG value={profile.qr_code} size={110} level="H" />
-                </div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-brand-600/60">
-                  Escanear para check-in
-                </p>
-              </div>
+              <p className="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-brand-300">
+                Check-in rápido
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Escaneá este código al llegar al gym.
+              </p>
             </div>
-          </div>
-        </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-brand-700/10 bg-zinc-950/80 px-6 py-2.5">
-          <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-600">
-            © GYM FLASH 2026
-          </span>
-          <button
-            onClick={() => setShowInfo(true)}
-            className="flex h-5 w-5 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 text-[10px] font-black text-zinc-400 transition-all hover:border-brand-500 hover:text-brand-400"
-            aria-label="Información del sistema de XP"
-          >
-            !
-          </button>
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="mb-2 flex items-center gap-2 text-zinc-400">
+                <Calendar className="h-4 w-4 text-brand-400" />
+                <span className="text-xs font-bold uppercase tracking-[0.18em]">
+                  Miembro desde
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-zinc-100">{memberSince}</p>
+            </div>
+          </aside>
         </div>
       </div>
-
       {/* Info modal */}
       <AnimatePresence>
         {showInfo && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -547,10 +415,10 @@ export default function ProfileView({
 
             {/* Card */}
             <motion.div
-              className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/8 bg-zinc-900 shadow-[0_0_80px_rgba(213,0,0,0.18)]"
-              initial={{ scale: 0.92, opacity: 0, y: 24 }}
+              className="relative max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/8 bg-zinc-900 shadow-[0_0_80px_rgba(213,0,0,0.18)]"
+              initial={{ scale: 0.94, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.94, opacity: 0, y: 16 }}
+              exit={{ scale: 0.96, opacity: 0, y: 8 }}
               transition={{ type: "spring", damping: 22, stiffness: 260 }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -655,6 +523,101 @@ export default function ProfileView({
                   El admin del gym puede ajustar estas condiciones.
                 </p>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Medal detail modal */}
+      <AnimatePresence>
+        {selectedMedal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={() => setSelectedMedal(null)}
+          >
+            <div className="absolute inset-0 bg-zinc-950/75 backdrop-blur-sm" />
+
+            <motion.div
+              className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-zinc-900 p-5 text-center shadow-[0_0_90px_rgba(213,0,0,0.2)]"
+              initial={{ scale: 0.94, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 8 }}
+              transition={{ type: "spring", damping: 22, stiffness: 260 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(213,0,0,0.2),transparent_42%)]" />
+              <button
+                onClick={() => setSelectedMedal(null)}
+                className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-[transform,color,border-color] duration-150 hover:border-brand-500/40 hover:text-zinc-200 active:scale-95"
+                aria-label="Cerrar detalle de medalla"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+
+              {(() => {
+                const earned = totalCheckIns >= selectedMedal.required;
+                const remaining = Math.max(selectedMedal.required - totalCheckIns, 0);
+                const progress =
+                  selectedMedal.required === 0
+                    ? 100
+                    : Math.min((totalCheckIns / selectedMedal.required) * 100, 100);
+
+                return (
+                  <div className="relative">
+                    <div className={cn("mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-[2rem] border border-white/10 bg-white/[0.04] shadow-2xl", earned && selectedMedal.glow)}>
+                      <Image
+                        src={selectedMedal.image}
+                        alt={selectedMedal.label}
+                        width={92}
+                        height={92}
+                        className={cn("object-contain", !earned && "grayscale opacity-45")}
+                      />
+                    </div>
+
+                    <span className={cn(
+                      "inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em]",
+                      earned
+                        ? "border-brand-500/30 bg-brand-500/10 text-brand-300"
+                        : "border-white/10 bg-white/[0.04] text-zinc-400",
+                    )}>
+                      {earned ? "Desbloqueada" : `Faltan ${remaining} asistencias`}
+                    </span>
+
+                    <h3 className="mt-4 text-3xl font-black tracking-tight text-white">
+                      {selectedMedal.label}
+                    </h3>
+                    <p className="mt-2 text-sm font-semibold text-brand-300">
+                      {selectedMedal.condition}
+                    </p>
+                    <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-zinc-400">
+                      {selectedMedal.description}
+                    </p>
+
+                    <div className="mt-5 text-left">
+                      <div className="mb-2 flex items-center justify-between text-xs">
+                        <span className="font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                          Progreso
+                        </span>
+                        <span className="font-bold text-zinc-300">
+                          {totalCheckIns}/{selectedMedal.required || totalCheckIns} asistencias
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                        <motion.div
+                          className="h-full rounded-full bg-gradient-to-r from-brand-700 via-brand-500 to-red-400 shadow-[0_0_18px_rgba(213,0,0,0.5)]"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progress}%` }}
+                          transition={{ duration: 0.45, ease: "easeOut" }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </motion.div>
           </motion.div>
         )}

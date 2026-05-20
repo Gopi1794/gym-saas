@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import ExerciseGrid from "@/components/exercises/ExerciseGrid"
-import SyncButton from "@/components/exercises/SyncButton"
 import AddExerciseDialog from "@/components/exercises/AddExerciseDialog"
 import MemberWorkoutView from "@/components/planes/MemberWorkoutView"
 import { Dumbbell } from "lucide-react"
@@ -139,12 +138,11 @@ export default async function ExercisesPage() {
         <div>
           <h1 className="text-2xl font-bold text-zinc-50">Biblioteca de ejercicios</h1>
           <p className="text-zinc-400">
-            {exercises.length} ejercicios · explorá, filtrá y guardá tus favoritos
+            Más de {exercises.length} ejercicios para todos tus objetivos
           </p>
         </div>
         <div className="flex gap-2">
           {canManage && <AddExerciseDialog />}
-          {isAdmin && <SyncButton />}
         </div>
       </div>
 
@@ -152,7 +150,6 @@ export default async function ExercisesPage() {
         exercises={exercisesWithFavorite as never}
         userId={user!.id}
         isAdmin={isAdmin}
-        userGender={userGender}
       />
     </div>
   )

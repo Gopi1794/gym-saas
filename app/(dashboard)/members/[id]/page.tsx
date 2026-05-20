@@ -8,6 +8,7 @@ import { isMembershipActive } from "@/lib/utils"
 import PlanCard from "@/components/planes/PlanCard"
 import CreatePlanForMember from "@/components/members/CreatePlanForMember"
 import MemberPhysicalEdit from "@/components/members/MemberPhysicalEdit"
+import MemberMembershipEdit from "@/components/members/MemberMembershipEdit"
 
 interface Props {
   params: { id: string }
@@ -119,6 +120,13 @@ export default async function MemberDetailPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Membership */}
+      <MemberMembershipEdit
+        memberId={params.id}
+        initialType={member.membership_type as "basic" | "premium" | "vip" | null}
+        initialExpiresAt={member.membership_expires_at}
+      />
 
       {/* Physical data */}
       <MemberPhysicalEdit

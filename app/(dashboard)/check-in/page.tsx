@@ -2,6 +2,7 @@
 import { createClient } from "@/lib/supabase/server"
 import CheckInTabs from "@/components/check-in/CheckInTabs"
 
+export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Check-in" }
 
 export default async function CheckInPage() {
@@ -19,14 +20,21 @@ export default async function CheckInPage() {
   const profile = profileData as any
 
   const today = new Date().toISOString().split("T")[0]
+  const isMember = profile?.role === "member"
+  const gymId: string = profile?.gym_id ?? ""
 
-  const { data: todayCheckIns } = await supabase
+  const checkInsQuery = supabase
     .from("check_ins")
     .select("*, profiles(full_name, avatar_url, membership_type)")
-    .eq("gym_id", profile?.gym_id ?? "")
     .gte("checked_in_at", today)
     .order("checked_in_at", { ascending: false })
-    .limit(20)
+    .limit(50)
+
+  const { data: todayCheckIns, error: checkInsError } = isMember
+    ? await checkInsQuery.eq("user_id", user!.id)
+    : await checkInsQuery.eq("gym_id", gymId)
+
+  if (checkInsError) console.error("[CheckInPage] query error:", checkInsError.message, checkInsError.details)
 
   return (
     <div className="space-y-6">
@@ -35,16 +43,14 @@ export default async function CheckInPage() {
           Check-in
         </h1>
         <p className="text-muted-foreground">
-          {profile?.role === "member"
-            ? "Show your QR code at the gym entrance"
-            : "Scan member QR codes or check in manually"}
+          {isMember ? "Mostrá tu QR en la entrada del gym" : "Escaneá QR de socios o registrá ingreso manual"}
         </p>
       </div>
 
       <CheckInTabs
         profile={profile!}
         todayCheckIns={todayCheckIns ?? []}
-        gymId={profile?.gym_id ?? ""}
+        gymId={gymId}
       />
     </div>
   )

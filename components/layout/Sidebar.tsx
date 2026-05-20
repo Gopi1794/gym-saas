@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { usePathname } from "next/navigation"
+import { GymFlowLogo } from "@/components/ui/GymFlowLogo"
 import {
   LayoutDashboard,
   Users,
@@ -13,21 +13,30 @@ import {
   ClipboardList,
   TrendingUp,
   Trophy,
+  Upload,
+  UserCog,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { useState } from "react"
+import NotificationBell from "@/components/notifications/NotificationBell"
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog"
 import type { Profile } from "@/types"
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/members", label: "Miembros", icon: Users, adminOnly: true },
+  { href: "/staff", label: "Staff", icon: UserCog, adminOnly: true },
   { href: "/planes", label: "Planes", icon: ClipboardList, trainerOnly: true },
   { href: "/exercises", label: "Ejercicios", icon: BookOpen },
   { href: "/progress", label: "Progreso", icon: TrendingUp, memberOnly: true },
   { href: "/achievements", label: "Logros", icon: Trophy, adminOnly: true },
+  { href: "/admin/import-exercises", label: "Importar ejercicios", icon: Upload, adminOnly: true },
   { href: "/check-in", label: "Check-in", icon: QrCode },
   { href: "/profile", label: "Perfil", icon: User },
 ]
@@ -41,10 +50,14 @@ export default function Sidebar({ profile }: SidebarProps) {
   const router = useRouter()
   const supabase = createClient()
 
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+
   const role = profile?.role ?? "member"
   const isAdminOrTrainer = role === "admin" || role === "trainer"
 
   async function handleSignOut() {
+    setSigningOut(true)
     await supabase.auth.signOut()
     router.push("/login")
     router.refresh()
@@ -60,8 +73,9 @@ export default function Sidebar({ profile }: SidebarProps) {
   return (
     <aside className="hidden w-64 flex-col border-r border-zinc-800/60 bg-zinc-950/70 backdrop-blur-md md:flex">
       {/* Logo */}
-      <div className="flex h-16 items-center border-b border-zinc-800 px-6">
-        <Image src="/logo-vector.png" alt="Flash Mega Gym" width={120} height={36} className="h-8 w-auto object-contain" priority />
+      <div className="flex h-16 items-center justify-between border-b border-zinc-800 px-5">
+        <GymFlowLogo size={20} textSize="text-lg" />
+        <NotificationBell userId={profile?.id ?? ""} />
       </div>
 
       {/* Nav */}
@@ -105,13 +119,39 @@ export default function Sidebar({ profile }: SidebarProps) {
           </div>
         </div>
         <button
-          onClick={handleSignOut}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-50"
+          onClick={() => setConfirmOpen(true)}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-50 cursor-pointer"
         >
           <LogOut className="h-4 w-4" />
-          Sign out
+          Cerrar sesión
         </button>
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-sm border-zinc-800 bg-zinc-900">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-50">¿Cerrar sesión?</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Vas a salir de tu cuenta. Podés volver a ingresar cuando quieras.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => setConfirmOpen(false)}
+              className="flex-1 rounded-xl border border-zinc-700 py-2.5 text-sm font-medium text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition-colors cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50 transition-colors cursor-pointer"
+            >
+              {signingOut ? "Saliendo…" : "Sí, cerrar sesión"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </aside>
   )
 }

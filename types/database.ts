@@ -18,6 +18,7 @@ export interface Database {
           logo_url: string | null
           address: string | null
           created_at: string
+          invite_code: string
         }
         Insert: {
           id?: string
@@ -27,8 +28,10 @@ export interface Database {
           logo_url?: string | null
           address?: string | null
           created_at?: string
+          invite_code?: string
         }
         Update: Partial<Database["public"]["Tables"]["gyms"]["Insert"]>
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -58,10 +61,12 @@ export interface Database {
           total_xp?: number
         }
         Update: Partial<Omit<Database["public"]["Tables"]["profiles"]["Insert"], "id">>
+        Relationships: []
       }
       exercises: {
         Row: {
           id: string
+          external_id: string | null
           name: string
           description: string | null
           category: "strength" | "cardio" | "flexibility" | "balance" | "hiit"
@@ -73,6 +78,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          external_id?: string | null
           name: string
           description?: string | null
           category: "strength" | "cardio" | "flexibility" | "balance" | "hiit"
@@ -83,6 +89,7 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["exercises"]["Insert"]>
+        Relationships: []
       }
       exercise_favorites: {
         Row: {
@@ -98,6 +105,7 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["exercise_favorites"]["Insert"]>
+        Relationships: []
       }
       check_ins: {
         Row: {
@@ -105,8 +113,8 @@ export interface Database {
           user_id: string
           gym_id: string
           checked_in_at: string
-          checked_out_at: string | null
           method: "qr" | "manual"
+          checked_out_at: string | null
         }
         Insert: {
           id?: string
@@ -117,6 +125,15 @@ export interface Database {
           method?: "qr" | "manual"
         }
         Update: Partial<Database["public"]["Tables"]["check_ins"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "check_ins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       workout_plans: {
         Row: {
@@ -140,6 +157,7 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["workout_plans"]["Insert"]>
+        Relationships: []
       }
       workout_plan_days: {
         Row: {
@@ -157,6 +175,7 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["workout_plan_days"]["Insert"]>
+        Relationships: []
       }
       workout_plan_exercises: {
         Row: {
@@ -182,6 +201,7 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["workout_plan_exercises"]["Insert"]>
+        Relationships: []
       }
       workout_sessions: {
         Row: {
@@ -207,6 +227,35 @@ export interface Database {
           xp_earned?: number
         }
         Update: Partial<Database["public"]["Tables"]["workout_sessions"]["Insert"]>
+        Relationships: []
+      }
+      workout_session_sets: {
+        Row: {
+          id: string
+          session_id: string
+          exercise_id: string | null
+          exercise_name: string
+          category: string
+          set_number: number
+          reps: number | null
+          weight_kg: number | null
+          duration_seconds: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          exercise_id?: string | null
+          exercise_name: string
+          category: string
+          set_number: number
+          reps?: number | null
+          weight_kg?: number | null
+          duration_seconds?: number | null
+          created_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["workout_session_sets"]["Insert"]>
+        Relationships: []
       }
       achievements: {
         Row: {
@@ -216,8 +265,9 @@ export interface Database {
           description: string | null
           icon: string | null
           xp_reward: number
-          condition_type: "total_sessions" | "streak_days" | "sessions_week" | "total_xp"
+          condition_type: "total_sessions" | "streak_days" | "sessions_week" | "total_xp" | "sessions_category" | "total_volume_kg" | "total_cardio_minutes"
           condition_value: number
+          condition_target: string | null
           created_at: string
         }
         Insert: {
@@ -227,11 +277,13 @@ export interface Database {
           description?: string | null
           icon?: string | null
           xp_reward?: number
-          condition_type: "total_sessions" | "streak_days" | "sessions_week" | "total_xp"
+          condition_type: "total_sessions" | "streak_days" | "sessions_week" | "total_xp" | "sessions_category" | "total_volume_kg" | "total_cardio_minutes"
           condition_value: number
+          condition_target?: string | null
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["achievements"]["Insert"]>
+        Relationships: []
       }
       user_achievements: {
         Row: {
@@ -247,6 +299,33 @@ export interface Database {
           earned_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["user_achievements"]["Insert"]>
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          gym_id: string | null
+          type: string
+          title: string
+          body: string | null
+          metadata: Json | null
+          read: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          gym_id?: string | null
+          type: string
+          title: string
+          body?: string | null
+          metadata?: Json | null
+          read?: boolean
+          created_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]>
+        Relationships: []
       }
     }
     Views: Record<never, never>

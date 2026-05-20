@@ -13,6 +13,9 @@ const CONDITION_LABELS: Record<ConditionType, string> = {
   streak_days: "Racha de días",
   sessions_week: "Sesiones esta semana",
   total_xp: "XP total",
+  sessions_category: "Sesiones por categoría",
+  total_volume_kg: "Volumen total (kg)",
+  total_cardio_minutes: "Minutos de cardio",
 }
 
 type Props = {

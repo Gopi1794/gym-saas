@@ -23,20 +23,21 @@ interface CheckInTabsProps {
   gymId: string
 }
 
-export default function CheckInTabs({
-  profile,
-  todayCheckIns,
-  gymId,
-}: CheckInTabsProps) {
-  const isAdmin = profile?.role === "admin" || profile?.role === "trainer"
+export default function CheckInTabs({ profile, todayCheckIns, gymId }: CheckInTabsProps) {
+  const role = profile?.role ?? "member"
+  const isAdmin = role === "admin"
+  const isStaff = role === "admin" || role === "trainer"
+  const gymQrValue = `GYM_CHECKIN:${gymId}`
 
   return (
-    <Tabs defaultValue={isAdmin ? "scan" : "qr"} className="space-y-4">
+    <Tabs defaultValue={isStaff ? "scan" : "qr"} className="space-y-4">
       <TabsList className="border border-border bg-card text-muted-foreground">
-        <TabsTrigger value="qr">My QR Code</TabsTrigger>
-        {isAdmin && <TabsTrigger value="scan">Scan Member</TabsTrigger>}
+        {isAdmin && <TabsTrigger value="gym-qr">QR del Gym</TabsTrigger>}
+        {!isAdmin && <TabsTrigger value="qr">Mi QR</TabsTrigger>}
+        {isStaff && <TabsTrigger value="scan">Escanear</TabsTrigger>}
+
         <TabsTrigger value="log">
-          Today&apos;s Log
+          Registro de hoy
           {todayCheckIns.length > 0 && (
             <span className="ml-1.5 rounded-full bg-brand px-1.5 py-0.5 text-xs text-primary-foreground">
               {todayCheckIns.length}
@@ -45,17 +46,25 @@ export default function CheckInTabs({
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="qr">
-        <QRCodeDisplay qrCode={profile?.qr_code ?? null} memberName={profile?.full_name ?? null} />
-      </TabsContent>
-
       {isAdmin && (
-        <TabsContent value="scan">
-          <QRScanner gymId={gymId} />
+        <TabsContent value="gym-qr">
+          <QRCodeDisplay qrCode={gymQrValue} memberName="QR del Establecimiento" />
         </TabsContent>
       )}
 
-      <TabsContent value="log">
+      {!isAdmin && (
+        <TabsContent value="qr">
+          <QRCodeDisplay qrCode={profile?.qr_code ?? null} memberName={profile?.full_name ?? null} />
+        </TabsContent>
+      )}
+
+      {isStaff && (
+        <TabsContent value="scan">
+          <QRScanner gymId={gymId} userId={profile?.id ?? ""} userRole={role} />
+        </TabsContent>
+      )}
+
+<TabsContent value="log">
         <CheckInLog checkIns={todayCheckIns} />
       </TabsContent>
     </Tabs>

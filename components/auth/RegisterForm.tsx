@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
 import {
-  Eye, EyeOff, Loader2, User, Calendar, Activity, Heart, ChevronLeft,
+  Eye, EyeOff, Loader2, User, Calendar, Activity, Heart, ChevronLeft, Dumbbell,
 } from "lucide-react"
 import LottiePlayer from "@/components/ui/lottie-player"
 import { cn } from "@/lib/utils"
@@ -85,7 +85,12 @@ function FieldError({ msg }: { msg?: string }) {
   return <p className="mt-1.5 text-xs text-red-400">{msg}</p>
 }
 
-export default function RegisterForm() {
+interface RegisterFormProps {
+  gymCode?: string
+  gymName?: string | null
+}
+
+export default function RegisterForm({ gymCode, gymName }: RegisterFormProps) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -147,7 +152,13 @@ export default function RegisterForm() {
     const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
-      options: { data: { full_name: data.fullName, gender: data.gender } },
+      options: {
+        data: {
+          full_name: data.fullName,
+          gender: data.gender,
+          ...(gymCode ? { gym_invite_code: gymCode } : {}),
+        },
+      },
     })
 
     if (error) {
@@ -195,6 +206,23 @@ export default function RegisterForm() {
 
   return (
     <div className="w-full max-w-md">
+      {/* Gym invite banner */}
+      {gymCode && (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-brand-700/30 bg-brand-950/40 px-4 py-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-700/20">
+            <Dumbbell className="h-4 w-4 text-brand-400" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-400">
+              Invitación al gym
+            </p>
+            <p className="truncate text-sm font-medium text-zinc-200">
+              {gymName ?? "Gimnasio privado"}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Progress */}
       <div className="mb-8">
         <div className="mb-3 flex items-center justify-between">

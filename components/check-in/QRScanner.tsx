@@ -1,6 +1,7 @@
 ﻿"use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
@@ -11,61 +12,168 @@ type ScanStatus = "idle" | "scanning" | "success" | "error"
 
 interface QRScannerProps {
   gymId: string
+  userId: string
+  userRole: string
 }
 
-export default function QRScanner({ gymId }: QRScannerProps) {
+export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
+  const router = useRouter()
   const [status, setStatus] = useState<ScanStatus>("idle")
   const [message, setMessage] = useState("")
   const [isStarted, setIsStarted] = useState(false)
   const scannerRef = useRef<unknown>(null)
-  const supabase = createClient()
+  // Ref en lugar de state para evitar stale closure dentro del callback del scanner
+  const processingRef = useRef(false)
+  const supabaseRef = useRef(createClient())
+
+  const stopCamera = useCallback(() => {
+    const sc = scannerRef.current as { stop: () => Promise<void>; isScanning: boolean } | null
+    if (sc?.isScanning) sc.stop().catch(() => {})
+    setIsStarted(false)
+  }, [])
 
   const handleScan = useCallback(
     async (qrCode: string) => {
+      if (processingRef.current) return
+      processingRef.current = true
       setStatus("scanning")
 
-      // Look up member by QR code
+      const supabase = supabaseRef.current
+      const todayStr = new Date().toISOString().split("T")[0]
+
+      // Trainer/admin escaneando el QR del establecimiento → ficha entrada o salida
+      if (qrCode === `GYM_CHECKIN:${gymId}`) {
+        if (userRole !== "trainer" && userRole !== "admin") {
+          setStatus("error")
+          setMessage("Solo el staff puede fichar con el QR del establecimiento")
+          setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+          return
+        }
+
+        // Buscar si ya tiene un check-in hoy
+        const { data: existing } = await (supabase.from("check_ins") as any)
+          .select("id, checked_out_at")
+          .eq("user_id", userId)
+          .gte("checked_in_at", todayStr)
+          .order("checked_in_at", { ascending: false })
+          .limit(1)
+          .single()
+
+        // Ya fichó entrada y aún no tiene salida → registrar salida
+        if (existing && !existing.checked_out_at) {
+          const { error: outErr } = await (supabase.from("check_ins") as any)
+            .update({ checked_out_at: new Date().toISOString() })
+            .eq("id", existing.id)
+          if (outErr) {
+            setStatus("error")
+            setMessage(`Error al registrar salida: ${outErr.message}`)
+            setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+            return
+          }
+          stopCamera()
+          setStatus("success")
+          setMessage("✓ Salida fichada correctamente")
+          router.refresh()
+          setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+          return
+        }
+
+        // Ya fichó entrada y salida → jornada completa
+        if (existing && existing.checked_out_at) {
+          setStatus("error")
+          setMessage("Ya registraste entrada y salida hoy")
+          setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+          return
+        }
+
+        // Sin check-in previo → registrar entrada
+        const { error: insertErr } = await (supabase.from("check_ins") as any).insert({
+          user_id: userId,
+          gym_id: gymId,
+          method: "qr",
+          checked_in_at: new Date().toISOString(),
+        })
+        if (insertErr) {
+          setStatus("error")
+          setMessage(`Error al fichar: ${insertErr.message}`)
+          setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+          return
+        }
+        stopCamera()
+        setStatus("success")
+        setMessage("✓ Entrada fichada correctamente")
+        router.refresh()
+        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+        return
+      }
+
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, membership_expires_at")
+        .select("id, full_name, membership_expires_at, role")
         .eq("qr_code", qrCode)
         .single()
       const profile = data as {
         id: string
         full_name: string | null
         membership_expires_at: string | null
+        role: string | null
       } | null
 
       if (error || !profile) {
         setStatus("error")
-        setMessage("Unknown QR code — member not found")
+        setMessage("Código QR desconocido — usuario no encontrado")
+        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
         return
       }
 
-      // Check membership
+      const isStaff = profile.role === "admin" || profile.role === "trainer"
       const isActive =
-        profile.membership_expires_at &&
-        new Date(profile.membership_expires_at) > new Date()
+        isStaff ||
+        (profile.membership_expires_at &&
+          new Date(profile.membership_expires_at) > new Date())
 
       if (!isActive) {
         setStatus("error")
-        setMessage(`${profile.full_name ?? "Member"}'s membership is expired`)
+        setMessage(`La membresía de ${profile.full_name ?? "el socio"} está vencida`)
+        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
         return
       }
 
-      // Record check-in
-      await (supabase.from("check_ins") as any).insert({
+      // Verificar si ya se registró hoy
+      const { count: todayCount } = await (supabase.from("check_ins") as any)
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", profile.id)
+        .gte("checked_in_at", todayStr)
+
+      if ((todayCount ?? 0) > 0) {
+        setStatus("error")
+        setMessage(`${profile.full_name ?? "Este socio"} ya registró su ingreso hoy`)
+        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+        return
+      }
+
+      const { error: insertError } = await (supabase.from("check_ins") as any).insert({
         user_id: profile.id,
         gym_id: gymId,
         method: "qr",
+        checked_in_at: new Date().toISOString(),
       })
 
-      setStatus("success")
-      setMessage(`✓ ${profile.full_name ?? "Member"} checked in!`)
+      if (insertError) {
+        setStatus("error")
+        setMessage(`Error al registrar: ${insertError.message}`)
+        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+        return
+      }
 
-      setTimeout(() => setStatus("idle"), 3000)
+      stopCamera()
+      setStatus("success")
+      setMessage(`✓ ${profile.full_name ?? "Socio"} registró su ingreso`)
+      router.refresh()
+
+      setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
     },
-    [gymId, supabase]
+    [gymId, stopCamera]
   )
 
   useEffect(() => {
@@ -79,18 +187,45 @@ export default function QRScanner({ gymId }: QRScannerProps) {
       scanner = html5QrCode
       scannerRef.current = html5QrCode
 
+      const onScan = (decodedText: string) => {
+        if (!processingRef.current) handleScan(decodedText)
+      }
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } }
+
       try {
-        await html5QrCode.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          (decodedText: string) => {
-            if (status === "idle") handleScan(decodedText)
-          },
-          () => {}
-        )
-      } catch {
+        await html5QrCode.start({ facingMode: "environment" }, config, onScan, () => {})
+      } catch (firstErr) {
+        const name = (firstErr as { name?: string })?.name ?? ""
+        // Cámara trasera no disponible — reintentar sin restricción de facingMode
+        if (name === "OverconstrainedError" || name === "NotFoundError" || String(firstErr).includes("facingMode")) {
+          try {
+            await html5QrCode.start({ facingMode: "user" }, config, onScan, () => {})
+          } catch (secondErr) {
+            const n2 = (secondErr as { name?: string })?.name ?? ""
+            const msg =
+              n2 === "NotAllowedError"
+                ? "Permiso denegado. Habilitá la cámara en la configuración del navegador."
+                : !window.isSecureContext
+                  ? "Se requiere HTTPS para acceder a la cámara."
+                  : `Error de cámara: ${n2 || String(secondErr)}`
+            setStatus("error")
+            setMessage(msg)
+            setIsStarted(false)
+          }
+          return
+        }
+        const msg =
+          name === "NotAllowedError"
+            ? "Permiso denegado. Habilitá la cámara en la configuración del navegador."
+            : name === "NotFoundError"
+              ? "No se encontró ninguna cámara en este dispositivo."
+              : name === "NotReadableError"
+                ? "La cámara está siendo usada por otra app."
+                : !window.isSecureContext
+                  ? "Se requiere HTTPS para acceder a la cámara."
+                  : `Error de cámara: ${name || String(firstErr)}`
         setStatus("error")
-        setMessage("Camera access denied. Please allow camera permissions.")
+        setMessage(msg)
         setIsStarted(false)
       }
     }
@@ -102,7 +237,7 @@ export default function QRScanner({ gymId }: QRScannerProps) {
         scanner.stop().catch(() => {})
       }
     }
-  }, [isStarted, handleScan, status])
+  }, [isStarted, handleScan])
 
   return (
     <Card className="mx-auto max-w-sm border-border bg-card">

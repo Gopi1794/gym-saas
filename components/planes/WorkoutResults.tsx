@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import AchievementBadge from "@/components/achievements/AchievementBadge"
+import LottiePlayer from "@/components/ui/lottie-player"
 import type { EarnedAchievement } from "@/lib/achievements/types"
 
 type Props = {
@@ -22,7 +23,7 @@ const containerVariants = {
 
 const badgeVariants = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
 }
 
 export default function WorkoutResults({ result, onClose }: Props) {
@@ -30,6 +31,16 @@ export default function WorkoutResults({ result, onClose }: Props) {
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center gap-8 overflow-hidden bg-zinc-950 px-6 text-center">
+      {/* Confetti animation */}
+      <div className="pointer-events-none absolute inset-0 z-10">
+        <LottiePlayer
+          src="/animations/Confetti.lottie"
+          autoplay
+          loop={false}
+          style={{ width: "100%", height: "100%" }}
+        />
+      </div>
+
       {/* Ambient glow */}
       <div className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 h-72 w-72 rounded-full bg-brand-700/20 blur-[100px]" />
 

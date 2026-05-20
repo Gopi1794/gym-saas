@@ -101,8 +101,8 @@ export default async function PlanesPage() {
       .order("full_name"),
   ])
 
-  const templates = (rawTemplates ?? []) as PlanRow[]
-  const memberPlans = (rawMemberPlans ?? []) as PlanRow[]
+  const templates = (rawTemplates ?? []) as unknown as PlanRow[]
+  const memberPlans = (rawMemberPlans ?? []) as unknown as PlanRow[]
   const members = (rawMembers ?? []) as MemberRow[]
 
   return (

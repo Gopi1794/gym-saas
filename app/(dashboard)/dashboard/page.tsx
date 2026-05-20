@@ -1,9 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Bell } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "@/types"
-import CategoryPills from "@/components/dashboard/CategoryPills"
 import FeaturedCard from "@/components/dashboard/FeaturedCard"
 import ActivityCard from "@/components/dashboard/ActivityCard"
 import RecentCheckIns from "@/components/dashboard/RecentCheckIns"
@@ -40,6 +38,9 @@ export default async function DashboardPage() {
   }
 
   const p = profile as Profile | null
+
+  // Fire-and-forget: crea notificaciones de membresía por vencer (idempotente)
+  supabase.rpc("notify_expiring_memberships" as never).then(() => {})
 
   const today = new Date()
   const todayStr = today.toISOString().split("T")[0]
@@ -211,9 +212,6 @@ export default async function DashboardPage() {
             <p className="font-heading text-xs tracking-widest text-zinc-500 uppercase">{dateLabel}</p>
           </div>
         </div>
-        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800/80 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200">
-          <Bell className="h-5 w-5" />
-        </button>
       </div>
 
       {/* Today's workout — members only */}
@@ -235,9 +233,6 @@ export default async function DashboardPage() {
           todayDow={todayDow}
         />
       )}
-
-      {/* Category pills */}
-      <CategoryPills />
 
       {/* Featured card */}
       <FeaturedCard

@@ -1,10 +1,24 @@
 "use client";
 
-import { useState, useRef, useLayoutEffect } from "react";
+import { useState } from "react";
+import { motion } from "framer-motion";
 import Image from "next/image";
 import ExerciseCard from "./ExerciseCard";
+import { GooeyFilter } from "@/components/ui/gooey-filter";
+import { useScreenSize } from "@/hooks/use-screen-size";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import {
+  Search,
+  Heart,
+  LayoutGrid,
+  Dumbbell,
+  Activity,
+  Zap,
+  Wind,
+  Scale,
+  SlidersHorizontal,
+  FileText,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ExerciseWithFavorite, ExerciseCategory } from "@/types";
 import {
@@ -19,65 +33,55 @@ import {
 const CATEGORIES: {
   value: ExerciseCategory | "all";
   label: string;
-  Icon: React.FC<{ size?: number }>;
+  TabIcon: React.ComponentType<{ className?: string }>;
+  CardIcon: React.FC<{ size?: number }>;
 }[] = [
-  { value: "all", label: "Todo", Icon: AllIcon },
-  { value: "strength", label: "Fuerza", Icon: StrengthIcon },
-  { value: "cardio", label: "Cardio", Icon: CardioIcon },
-  { value: "hiit", label: "HIIT", Icon: HiitIcon },
-  { value: "flexibility", label: "Flexibilidad", Icon: FlexibilityIcon },
-  { value: "balance", label: "Equilibrio", Icon: BalanceIcon },
+  { value: "all", label: "Todos", TabIcon: LayoutGrid, CardIcon: AllIcon },
+  {
+    value: "strength",
+    label: "Fuerza",
+    TabIcon: Dumbbell,
+    CardIcon: StrengthIcon,
+  },
+  { value: "cardio", label: "Cardio", TabIcon: Activity, CardIcon: CardioIcon },
+  { value: "hiit", label: "HIIT", TabIcon: Zap, CardIcon: HiitIcon },
+  {
+    value: "flexibility",
+    label: "Flexibilidad",
+    TabIcon: Wind,
+    CardIcon: FlexibilityIcon,
+  },
+  {
+    value: "balance",
+    label: "Equilibrio",
+    TabIcon: Scale,
+    CardIcon: BalanceIcon,
+  },
 ];
 
 const BASE_TAB =
-  "shrink-0 flex flex-col items-center gap-1.5 rounded-2xl border px-4 py-3 text-xs font-medium";
+  "flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium";
 
 interface ExerciseGridProps {
   exercises: ExerciseWithFavorite[];
   userId: string;
   isAdmin?: boolean;
-  userGender?: string | null;
-}
-
-function isFemaleGender(gender?: string | null) {
-  if (!gender) return false;
-
-  return ["female", "femenino", "mujer", "woman"].includes(
-    gender.toLowerCase(),
-  );
 }
 
 export default function ExerciseGrid({
   exercises,
   userId,
   isAdmin,
-  userGender,
 }: ExerciseGridProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<ExerciseCategory | "all">("all");
   const [showFavorites, setShowFavorites] = useState(false);
-  const heroImage = isFemaleGender(userGender)
-    ? "/card-mujer/card_mujer.png"
-    : "/card-hombre/card_hombre.png";
+  const [items, setItems] = useState(exercises);
+  const screenSize = useScreenSize();
 
-  // Clip-path tab animation refs
-  const innerRef = useRef<HTMLDivElement>(null);
-  const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [clipPath, setClipPath] = useState("inset(0 100% 0 0 round 16px)");
-  const activeIndex = CATEGORIES.findIndex((c) => c.value === category);
+  const heroImage = "/img_bliblioteca.png";
 
-  useLayoutEffect(() => {
-    const inner = innerRef.current;
-    const btn = btnRefs.current[activeIndex];
-    if (!inner || !btn) return;
-
-    const totalWidth = inner.offsetWidth;
-    const left = btn.offsetLeft;
-    const right = totalWidth - left - btn.offsetWidth;
-    setClipPath(`inset(0 ${right}px 0 ${left}px round 16px)`);
-  }, [category, activeIndex]);
-
-  const filtered = exercises.filter((ex) => {
+  const filtered = items.filter((ex) => {
     const matchesQuery = ex.name.toLowerCase().includes(query.toLowerCase());
     const matchesCategory = category === "all" || ex.category === category;
     const matchesFavorites = !showFavorites || ex.is_favorite;
@@ -86,42 +90,74 @@ export default function ExerciseGrid({
 
   return (
     <div className="space-y-5">
-      <div className="relative overflow-hidden rounded-3xl bg-[#0c0000] shadow-[0_20px_60px_rgba(213,0,0,0.30)]">
-        {/* Gradient: almost-black left → vibrant red right */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0c0000] via-brand-800 to-brand-700" />
-        {/* Radial depth on the right where the person is */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_55%_90%_at_72%_50%,rgba(255,60,60,0.18),transparent_65%)]" />
+      <GooeyFilter
+        id="gooey-tabs"
+        strength={screenSize.lessThan("md") ? 6 : 10}
+      />
 
-        {/* Person image — white bg removed via multiply, fades on left edge */}
-        <div
-          className="pointer-events-none absolute inset-y-0 right-0 w-1/2"
-          style={{
-            maskImage: "linear-gradient(to right, transparent 0%, black 35%)",
-            WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 35%)",
-            mixBlendMode: "multiply",
-          }}
-        >
+      {/* Hero banner — wrapper allows image to overflow above */}
+      <div className="relative z-10 md:mt-24">
+        {/* Card background — clipped independently */}
+        <div className="relative overflow-hidden rounded-3xl bg-[#0c0000] shadow-[0_20px_60px_rgba(213,0,0,0.30)]">
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0c0000] via-brand-800 to-brand-700" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_55%_90%_at_72%_50%,rgba(255,60,60,0.18),transparent_65%)]" />
+
+          {/* Text + stats */}
+          <div className="relative z-10 px-6 py-8 sm:px-8 sm:py-10">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.28em] text-brand-300">
+              GymFlow Training
+            </p>
+            <h2 className="font-heading text-4xl font-normal tracking-wide text-white sm:text-5xl">
+              Biblioteca de ejercicios
+            </h2>
+            <p className="mt-2 text-sm text-zinc-300">
+              Más de {items.length} ejercicios para todos tus objetivos
+            </p>
+
+            {/* Stats — horizontal row */}
+            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+              {[
+                {
+                  Icon: LayoutGrid,
+                  value: `${items.length}+`,
+                  label: "Ejercicios",
+                },
+                {
+                  Icon: SlidersHorizontal,
+                  value: "Filtros avanzados",
+                  label: "Encontrá lo que necesitás",
+                },
+                {
+                  Icon: FileText,
+                  value: "Instrucciones",
+                  label: "Descripciones detalladas",
+                },
+              ].map((s) => (
+                <div key={s.value} className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm">
+                    <s.Icon className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold leading-tight text-white">
+                      {s.value}
+                    </p>
+                    <p className="text-xs text-zinc-400">{s.label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Image — feet at card bottom, body overflows upward. Hidden on mobile (card too narrow) */}
+        <div className="pointer-events-none absolute bottom-0 right-[10%] z-20 h-[calc(100%+6rem)] w-[450px] hidden md:block">
           <Image
             src={heroImage}
             alt=""
             fill
             priority
-            className="object-contain object-right-bottom"
-            style={{ transform: "scaleX(-1)" }}
+            className="object-contain object-bottom"
           />
-        </div>
-
-        <div className="relative z-10 max-w-xl px-6 py-8 sm:px-8 sm:py-10">
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.28em] text-brand-300">
-            GymFlow Training
-          </p>
-          <h2 className="font-heading text-4xl font-normal tracking-wide text-white sm:text-5xl">
-            Biblioteca de ejercicios
-          </h2>
-          <p className="mt-2 max-w-md text-sm text-zinc-300">
-            Filtrá, guardá favoritos y encontrá rápido el movimiento correcto
-            para cada rutina.
-          </p>
         </div>
       </div>
 
@@ -131,70 +167,89 @@ export default function ExerciseGrid({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
           <Input
             className="pl-9"
-            placeholder="Buscar ejercicios…"
+            placeholder="Buscar ejercicios..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-
         <button
           onClick={() => setShowFavorites(!showFavorites)}
           className={cn(
-            "flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm font-medium",
+            "flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors",
             showFavorites
               ? "border-red-500/50 bg-red-500/10 text-red-400"
-              : "border-white/10 bg-zinc-900/50 backdrop-blur-md text-zinc-400",
+              : "border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-300",
           )}
         >
-          <span>❤</span> Favoritos
+          <Heart
+            className={cn(
+              "h-4 w-4",
+              showFavorites && "fill-red-500 text-red-500",
+            )}
+          />
+          Favoritos
         </button>
       </div>
 
-      {/* Category tabs — Emil Kowalski clip-path technique */}
-      <div className="overflow-x-auto pb-1">
-        <div ref={innerRef} className="relative inline-flex gap-2">
-          {/* Base layer — inactive style */}
-          {CATEGORIES.map((cat, i) => (
+      {/* Category tabs — Gooey animation */}
+      <div className="relative">
+        {/* Edge fade — left, mobile only */}
+        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-10 bg-gradient-to-r from-[#0A0A0A] to-transparent md:hidden" />
+        {/* Edge fade — right, mobile only */}
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-10 bg-gradient-to-l from-[#0A0A0A] to-transparent md:hidden" />
+
+      <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative inline-flex gap-2 px-3">
+          {/*
+           * Layer 1: Gooey filter — background indicator only.
+           * Ghost divs (visibility:hidden) preserve sizing for the motion.div.
+           * motion.div uses !visible to override the parent's hidden state.
+           */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 inline-flex gap-2 px-3"
+            style={{ filter: "url(#gooey-tabs)" }}
+          >
+            {CATEGORIES.map((cat) => (
+              <div
+                key={cat.value}
+                className={cn(
+                  BASE_TAB,
+                  "invisible relative border-transparent bg-transparent",
+                )}
+              >
+                <span className="block h-4 w-4 shrink-0" />
+                {cat.label}
+                {category === cat.value && (
+                  <motion.div
+                    layoutId="gooey-tab-bg"
+                    className="!visible absolute inset-0 rounded-full bg-[rgba(213,0,0,0.85)]"
+                    transition={{ type: "spring", bounce: 0, duration: 0.45 }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Layer 2: Interactive buttons */}
+          {CATEGORIES.map((cat) => (
             <button
               key={cat.value}
-              ref={(el) => {
-                btnRefs.current[i] = el;
-              }}
               onClick={() => setCategory(cat.value)}
               className={cn(
                 BASE_TAB,
-                "border-white/10 bg-zinc-900/50 backdrop-blur-md text-zinc-400",
+                "relative cursor-pointer transition-colors duration-200",
+                category === cat.value
+                  ? "text-white border-transparent"
+                  : "text-zinc-400 border-brand-700/40 hover:text-zinc-200 hover:border-brand-700/70",
               )}
             >
-              <cat.Icon size={28} />
+              <cat.TabIcon className="h-4 w-4 shrink-0" />
               {cat.label}
             </button>
           ))}
-
-          {/* Overlay layer — active style, clipped to the selected tab */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 flex gap-2"
-            style={{
-              clipPath,
-              transition: "clip-path 220ms cubic-bezier(0.23, 1, 0.32, 1)",
-            }}
-          >
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                tabIndex={-1}
-                className={cn(
-                  BASE_TAB,
-                  "border-brand-700/60 bg-brand-700/10 text-brand-400 shadow-[0_0_12px_2px_rgba(139,92,246,0.25)]",
-                )}
-              >
-                <cat.Icon size={28} />
-                {cat.label}
-              </button>
-            ))}
-          </div>
         </div>
+      </div>
       </div>
 
       {/* Count */}
@@ -202,7 +257,7 @@ export default function ExerciseGrid({
         {filtered.length} ejercicio{filtered.length !== 1 ? "s" : ""}
       </p>
 
-      {/* Grid with stagger fade-up */}
+      {/* Grid */}
       {filtered.length === 0 ? (
         <div className="py-20 text-center text-zinc-500">
           Ningún ejercicio coincide con los filtros
@@ -219,6 +274,7 @@ export default function ExerciseGrid({
                 exercise={exercise}
                 userId={userId}
                 isAdmin={isAdmin}
+                onDelete={() => setItems((prev) => prev.filter((e) => e.id !== exercise.id))}
               />
             </div>
           ))}

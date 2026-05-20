@@ -36,11 +36,17 @@ export function ProfileAvatar({ src, name, size = 44, className }: ProfileAvatar
           src={src}
           alt={name ?? "Avatar"}
           className={cn(
-            "w-full h-full object-cover transition-opacity duration-300",
+            "relative z-0 w-full h-full object-cover transition-opacity duration-300",
             loaded ? "opacity-100" : "opacity-0",
           )}
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}
+        />
+      )}
+      {showImage && loaded && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 animate-skeleton-loading opacity-25 mix-blend-screen"
         />
       )}
       {(!showImage || error) && (

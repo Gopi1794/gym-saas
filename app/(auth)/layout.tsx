@@ -1,5 +1,5 @@
 import Link from "next/link"
-import Image from "next/image"
+import { GymFlowLogo } from "@/components/ui/GymFlowLogo"
 
 export default function AuthLayout({
   children,
@@ -10,7 +10,7 @@ export default function AuthLayout({
     <div className="flex min-h-screen flex-col bg-zinc-950">
       <header className="container flex h-16 items-center">
         <Link href="/">
-          <Image src="/logo-vector.png" alt="Flash Mega Gym" width={140} height={42} className="h-10 w-auto object-contain" priority />
+          <GymFlowLogo size={22} textSize="text-xl" />
         </Link>
       </header>
 

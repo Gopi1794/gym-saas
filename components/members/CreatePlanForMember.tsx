@@ -30,7 +30,7 @@ export default function CreatePlanForMember({ memberId, memberName, trainerId }:
     setLoading(true)
 
     const { data, error } = await supabase
-      .from("workout_plans" as never)
+      .from("workout_plans")
       .insert({
         name: name.trim(),
         description: description.trim() || null,
