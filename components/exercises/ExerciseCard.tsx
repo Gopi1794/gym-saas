@@ -322,6 +322,7 @@ export default function ExerciseCard({
                   className="hidden"
                   onChange={handleImageUpload}
                 />
+
                 <Button
                   type="button"
                   variant="outline"
