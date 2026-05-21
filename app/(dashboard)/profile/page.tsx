@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import ProfileView from "@/components/profile/ProfileView"
 import BadgeGrid from "@/components/profile/BadgeGrid"
+import NotificationPreferences from "@/components/profile/NotificationPreferences"
 import type { Achievement } from "@/types"
 
 export const metadata: Metadata = { title: "Profile" }
@@ -82,6 +83,8 @@ export default async function ProfilePage() {
       />
 
       <BadgeGrid all={gymAchievements ?? []} earned={earnedMap} />
+
+      <NotificationPreferences currentHour={(profile as { notification_hour?: number }).notification_hour ?? 7} />
     </div>
   )
 }

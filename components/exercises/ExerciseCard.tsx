@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +59,8 @@ export default function ExerciseCard({
 }: ExerciseCardProps) {
   const [isFavorite, setIsFavorite] = useState(exercise.is_favorite);
   const [favLoading, setFavLoading] = useState(false);
+  const [justFavorited, setJustFavorited] = useState(false);
+  const [animKey, setAnimKey] = useState(0);
   const [imgError, setImgError] = useState(false);
   const [open, setOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState(exercise.image_url);
@@ -92,11 +95,15 @@ export default function ExerciseCard({
         .eq("user_id", userId)
         .eq("exercise_id", exercise.id);
       setIsFavorite(false);
+      setJustFavorited(false);
     } else {
       await supabase
         .from("exercise_favorites")
         .insert({ user_id: userId, exercise_id: exercise.id });
       setIsFavorite(true);
+      setJustFavorited(true);
+      setAnimKey((k) => k + 1);
+      setTimeout(() => setJustFavorited(false), 3100);
     }
     setFavLoading(false);
   }
@@ -167,8 +174,8 @@ export default function ExerciseCard({
             </div>
           )}
 
-          {/* Gradient — covers all text overlay */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/95 via-black/75 to-transparent" />
+          {/* Gradient + blur overlay */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black/95 via-black/60 to-transparent backdrop-blur-[2px] [mask-image:linear-gradient(to_top,black_60%,transparent)]" />
 
           {/* Favorite — touch target 44×44 */}
           <button
@@ -177,12 +184,18 @@ export default function ExerciseCard({
             aria-label={
               isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"
             }
-            className={cn(
-              "absolute right-1.5 top-1.5 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition-transform active:scale-90",
-            )}
+            className="absolute right-1.5 top-1.5 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/40 backdrop-blur-md transition-transform active:scale-90"
           >
             {favLoading ? (
               <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+            ) : justFavorited ? (
+              <DotLottieReact
+                key={animKey}
+                src="/animations/like.json"
+                autoplay
+                loop={false}
+                style={{ width: 40, height: 40 }}
+              />
             ) : (
               <Heart
                 className={cn(
@@ -222,7 +235,7 @@ export default function ExerciseCard({
 
       {/* Detail Modal */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.700)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-thumb:hover]:bg-zinc-600">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl border border-white/10 bg-zinc-900/50 backdrop-blur-xl [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.700)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-thumb:hover]:bg-zinc-600">
           <DialogHeader>
             <DialogTitle className="capitalize text-zinc-50">
               {exercise.name}
@@ -231,7 +244,7 @@ export default function ExerciseCard({
 
           <div className="space-y-5">
             {/* Image or icon hero */}
-            <div className="flex h-56 w-full items-center justify-center overflow-hidden rounded-xl bg-zinc-800/60">
+            <div className="relative flex h-56 w-full items-center justify-center overflow-hidden rounded-xl bg-zinc-800/60">
               {hasImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -247,6 +260,35 @@ export default function ExerciseCard({
                   </span>
                 </div>
               )}
+
+              {/* Favorite button overlaid on modal image */}
+              <button
+                onClick={toggleFavorite}
+                disabled={favLoading}
+                aria-label={isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+                className="absolute right-2 top-2 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/40 backdrop-blur-md transition-transform active:scale-90"
+              >
+                {favLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                ) : justFavorited ? (
+                  <DotLottieReact
+                    key={animKey}
+                    src="/animations/like.json"
+                    autoplay
+                    loop={false}
+                    style={{ width: 40, height: 40 }}
+                  />
+                ) : (
+                  <Heart
+                    className={cn(
+                      "h-4 w-4 transition-all duration-150",
+                      isFavorite
+                        ? "fill-red-500 text-red-500 scale-110"
+                        : "fill-transparent text-zinc-400",
+                    )}
+                  />
+                )}
+              </button>
             </div>
 
             {/* Badges */}
@@ -356,7 +398,9 @@ export default function ExerciseCard({
                     ) : (
                       <Trash2 className="h-4 w-4" />
                     )}
-                    {confirmDelete ? "¿Confirmar borrado?" : "Eliminar ejercicio"}
+                    {confirmDelete
+                      ? "¿Confirmar borrado?"
+                      : "Eliminar ejercicio"}
                   </Button>
                   {confirmDelete && (
                     <Button
@@ -371,31 +415,6 @@ export default function ExerciseCard({
                 </div>
               </div>
             )}
-
-            {/* Favorite button */}
-            <Button
-              onClick={(e) => toggleFavorite(e)}
-              disabled={favLoading}
-              variant="outline"
-              className={cn(
-                "w-full gap-2 border-zinc-700",
-                isFavorite
-                  ? "border-red-900/40 bg-red-950/20 text-red-400 hover:bg-red-950/30"
-                  : "text-zinc-300 hover:bg-zinc-800",
-              )}
-            >
-              {favLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Heart
-                  className={cn(
-                    "h-4 w-4",
-                    isFavorite && "fill-red-500 text-red-500",
-                  )}
-                />
-              )}
-              {isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
-            </Button>
           </div>
         </DialogContent>
       </Dialog>

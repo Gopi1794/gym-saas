@@ -55,6 +55,7 @@ export interface Database {
           training_frequency: "never" | "1-2" | "3-4" | "5+" | null
           emergency_name: string | null
           emergency_phone: string | null
+          notification_hour: number
         }
         Insert: {
           id: string
@@ -77,6 +78,7 @@ export interface Database {
           training_frequency?: "never" | "1-2" | "3-4" | "5+" | null
           emergency_name?: string | null
           emergency_phone?: string | null
+          notification_hour?: number
         }
         Update: Partial<Omit<Database["public"]["Tables"]["profiles"]["Insert"], "id">>
         Relationships: []
