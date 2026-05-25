@@ -47,11 +47,13 @@ async function handleCheckout(req: NextRequest) {
     p_gym_id: profile.gym_id,
   })
 
-  if (tokenError || !mpToken) {
-    return NextResponse.json(
-      { error: "El gimnasio no tiene configurado el token de Mercado Pago" },
-      { status: 422 }
-    )
+  if (tokenError) {
+    console.error("[mp/checkout] vault error:", tokenError)
+    return NextResponse.json({ error: `Vault error: ${tokenError.message}` }, { status: 422 })
+  }
+  if (!mpToken) {
+    console.error("[mp/checkout] no token for gym:", profile.gym_id)
+    return NextResponse.json({ error: "El gimnasio no tiene configurado el token de Mercado Pago" }, { status: 422 })
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
