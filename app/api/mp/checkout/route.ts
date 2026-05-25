@@ -9,6 +9,15 @@ interface CheckoutBody {
 }
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handleCheckout(req)
+  } catch (err) {
+    console.error("[mp/checkout] unhandled error:", err)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+  }
+}
+
+async function handleCheckout(req: NextRequest) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
