@@ -9,12 +9,13 @@ async function getAdminGymId(): Promise<string | null> {
   if (!user) return null
 
   const { data } = await supabase
-    .from("gyms")
-    .select("id")
-    .eq("owner_id", user.id)
+    .from("profiles")
+    .select("gym_id, role")
+    .eq("id", user.id)
     .single()
 
-  return data?.id ?? null
+  if (!data?.gym_id || data.role !== "admin") return null
+  return data.gym_id
 }
 
 export async function saveMpToken(token: string): Promise<{ error?: string }> {
