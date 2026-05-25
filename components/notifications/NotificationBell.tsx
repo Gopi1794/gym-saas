@@ -155,7 +155,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
       <button
         onClick={handleOpen}
         aria-label="Notificaciones"
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:text-zinc-100 cursor-pointer"
+        className="relative flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 cursor-pointer"
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
@@ -167,7 +167,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
 
       {/* Panel */}
       {open && (
-        <div className="fixed right-0 top-14 z-[70] w-full sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-80">
+        <div className="fixed right-0 top-14 z-[9999] w-full sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-80">
           <div className="mx-2 sm:mx-0 rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">

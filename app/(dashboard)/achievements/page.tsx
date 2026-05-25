@@ -3,6 +3,23 @@ import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import AchievementList from "@/components/achievements/AchievementList"
 import type { Achievement } from "@/types"
+import PageTour from "@/components/onboarding/PageTour"
+import type { Step } from "react-joyride"
+
+const ACHIEVEMENTS_STEPS: Step[] = [
+  {
+    target: "body",
+    placement: "center",
+    title: "Logros del gimnasio 🏆",
+    content: "Creá logros que tus miembros pueden desbloquear al cumplir objetivos de asistencia y entrenamiento.",
+  },
+  {
+    target: "[data-tour='achievements-list']",
+    placement: "top",
+    title: "Lista de logros",
+    content: "Cada logro tiene un ícono, nombre, descripción y condición para desbloquearlo. Los miembros los ven en su perfil.",
+  },
+]
 
 export const metadata: Metadata = { title: "Logros del gimnasio" }
 
@@ -42,7 +59,10 @@ export default async function AchievementsPage() {
         </p>
       </div>
 
-      <AchievementList items={achievements ?? []} />
+      <div data-tour="achievements-list">
+        <AchievementList items={achievements ?? []} />
+      </div>
+      <PageTour tourKey="achievements" steps={ACHIEVEMENTS_STEPS} />
     </div>
   )
 }

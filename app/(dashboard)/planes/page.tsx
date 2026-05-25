@@ -32,6 +32,7 @@ export default async function PlanesPage() {
 
   const profile = profileData as { role: string; gym_id: string | null } | null
   const role = profile?.role ?? ""
+  const gymId = profile?.gym_id ?? ""
   if (!role) redirect("/dashboard")
 
   const isTrainer = ["admin", "trainer"].includes(role)
@@ -108,6 +109,7 @@ export default async function PlanesPage() {
   return (
     <TrainerPlanesView
       trainerId={user!.id}
+      gymId={gymId}
       memberPlans={memberPlans}
       templates={templates}
       members={members}

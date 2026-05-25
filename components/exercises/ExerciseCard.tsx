@@ -17,9 +17,9 @@ import type { ExerciseWithFavorite } from "@/types";
 import { CATEGORY_ICONS, StrengthIcon } from "./CategoryIcons";
 
 const DIFFICULTY_BG: Record<string, string> = {
-  beginner: "border-emerald-500/30 bg-emerald-500/50 text-white-400",
-  intermediate: "border-amber-500/30 bg-amber-500/50 text-white-400",
-  advanced: "border-red-500/30 bg-red-500/50 text-white-400",
+  beginner: "border-emerald-500/30 bg-emerald-500/50 text-[#ffffff]",
+  intermediate: "border-amber-500/30 bg-amber-500/50 text-[#ffffff]",
+  advanced: "border-red-500/30 bg-red-500/50 text-[#ffffff]",
 };
 
 const CATEGORY_FALLBACK_BG: Record<string, string> = {
@@ -150,7 +150,7 @@ export default function ExerciseCard({
       {/* Card */}
       <div
         onClick={() => setOpen(true)}
-        className="group relative cursor-pointer overflow-hidden rounded-xl border border-white/8 bg-zinc-900 transition-all duration-200 hover:border-brand-700/40 hover:shadow-lg hover:shadow-black/30 active:scale-[0.98]"
+        className="group relative cursor-pointer overflow-hidden rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-900 transition-all duration-200 hover:border-brand-700/40 hover:shadow-lg hover:shadow-black/30 active:scale-[0.98]"
       >
         {/* Image / Fallback */}
         <div className="relative h-40 w-full overflow-hidden bg-zinc-800">
@@ -202,7 +202,7 @@ export default function ExerciseCard({
                   "h-4 w-4 transition-all duration-150",
                   isFavorite
                     ? "fill-red-500 text-red-500 scale-110"
-                    : "fill-transparent text-zinc-400 group-hover:text-zinc-200",
+                    : "fill-transparent text-[#a1a1aa] group-hover:text-[#ffffff]",
                 )}
               />
             )}
@@ -218,14 +218,14 @@ export default function ExerciseCard({
             >
               {DIFFICULTY_LABEL[exercise.difficulty] ?? exercise.difficulty}
             </span>
-            <h3 className="mt-1 truncate text-sm font-semibold capitalize leading-tight text-zinc-100">
+            <h3 className="mt-1 truncate text-sm font-semibold capitalize leading-tight text-[#ffffff]">
               {exercise.name}
             </h3>
-            <p className="mt-0.5 text-xs capitalize text-zinc-400">
+            <p className="mt-0.5 text-xs capitalize text-[#d4d4d8]">
               {CATEGORY_LABEL[exercise.category] ?? exercise.category}
             </p>
             {exercise.muscle_groups.length > 0 && (
-              <p className="mt-0.5 truncate text-xs capitalize text-zinc-500">
+              <p className="mt-0.5 truncate text-xs capitalize text-[#a1a1aa]">
                 {exercise.muscle_groups.slice(0, 3).join(" · ")}
               </p>
             )}
@@ -322,8 +322,8 @@ export default function ExerciseCard({
                       className={cn(
                         "rounded-full px-3 py-1 text-xs capitalize",
                         i === 0
-                          ? "bg-brand-700/15 text-brand-300 border border-brand-700/30"
-                          : "bg-zinc-800 text-zinc-400",
+                          ? "bg-brand-700/15 text-brand-600 dark:text-brand-300 border border-brand-700/30"
+                          : "bg-zinc-800 text-zinc-400 border border-zinc-700",
                       )}
                     >
                       {m}

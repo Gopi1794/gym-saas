@@ -44,17 +44,21 @@ export default async function MemberDetailPage({ params }: Props) {
 
   const { data: currentProfile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, gym_id")
     .eq("id", user!.id)
     .single()
 
-  const role = (currentProfile as { role: string } | null)?.role ?? ""
+  const profile = currentProfile as { role: string; gym_id: string | null } | null
+  const role = profile?.role ?? ""
+  const gymId = profile?.gym_id ?? null
   if (!["admin", "trainer"].includes(role)) redirect("/dashboard")
+  if (!gymId) redirect("/dashboard")
 
   const { data: rawMember } = await supabase
     .from("profiles")
     .select("id, full_name, avatar_url, role, membership_type, membership_expires_at, weight_kg, height_cm")
     .eq("id", params.id)
+    .eq("gym_id", gymId)
     .single() as unknown as { data: MemberRow | null }
 
   if (!rawMember) notFound()
@@ -140,7 +144,7 @@ export default async function MemberDetailPage({ params }: Props) {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-zinc-50">Plan de entrenamiento</h2>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-zinc-400">
               {rawPlan ? "Plan asignado actualmente" : "Este miembro no tiene un plan asignado"}
             </p>
           </div>
@@ -149,6 +153,7 @@ export default async function MemberDetailPage({ params }: Props) {
               memberId={params.id}
               memberName={memberName}
               trainerId={user!.id}
+              gymId={gymId}
             />
           )}
         </div>
@@ -162,7 +167,7 @@ export default async function MemberDetailPage({ params }: Props) {
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800">
               <Dumbbell className="h-5 w-5 text-zinc-500" />
             </div>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-zinc-400">
               Creá un plan personalizado para {memberName}
             </p>
           </div>

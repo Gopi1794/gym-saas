@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Inter, Anton, Bebas_Neue } from "next/font/google"
 import "./globals.css"
+import { ThemeProvider } from "@/components/providers/ThemeProvider"
 
 const inter  = Inter({      subsets: ["latin"], variable: "--font-inter"  })
 const anton  = Anton({      weight: "400", subsets: ["latin"], variable: "--font-anton"  })
@@ -21,8 +22,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.variable} ${anton.variable} ${bebas.variable} font-sans`}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} ${anton.variable} ${bebas.variable} font-sans`}>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   )
 }

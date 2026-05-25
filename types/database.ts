@@ -56,6 +56,7 @@ export interface Database {
           emergency_name: string | null
           emergency_phone: string | null
           notification_hour: number
+          onboarding_seen: boolean
         }
         Insert: {
           id: string
@@ -79,6 +80,7 @@ export interface Database {
           emergency_name?: string | null
           emergency_phone?: string | null
           notification_hour?: number
+          onboarding_seen?: boolean
         }
         Update: Partial<Omit<Database["public"]["Tables"]["profiles"]["Insert"], "id">>
         Relationships: []
@@ -155,25 +157,49 @@ export interface Database {
           }
         ]
       }
+      client_plans: {
+        Row: {
+          id: string
+          gym_id: string
+          plan_id: string
+          client_id: string
+          assigned_by: string | null
+          assigned_at: string
+          active: boolean
+        }
+        Insert: {
+          id?: string
+          gym_id: string
+          plan_id: string
+          client_id: string
+          assigned_by?: string | null
+          assigned_at?: string
+          active?: boolean
+        }
+        Update: Partial<Database["public"]["Tables"]["client_plans"]["Insert"]>
+        Relationships: []
+      }
       workout_plans: {
         Row: {
           id: string
-          gym_id: string | null
+          gym_id: string
           name: string
           description: string | null
           is_template: boolean
           created_by: string | null
           assigned_to: string | null
+          level: "beginner" | "intermediate" | "advanced" | null
           created_at: string
         }
         Insert: {
           id?: string
-          gym_id?: string | null
+          gym_id: string
           name: string
           description?: string | null
           is_template?: boolean
           created_by?: string | null
           assigned_to?: string | null
+          level?: "beginner" | "intermediate" | "advanced" | null
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["workout_plans"]["Insert"]>
@@ -227,6 +253,7 @@ export interface Database {
         Row: {
           id: string
           user_id: string
+          gym_id: string
           plan_id: string | null
           day_of_week: number
           day_name: string
@@ -238,6 +265,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          gym_id: string
           plan_id?: string | null
           day_of_week: number
           day_name: string
@@ -321,10 +349,33 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["user_achievements"]["Insert"]>
         Relationships: []
       }
+      payments: {
+        Row: {
+          id: string
+          gym_id: string
+          member_id: string
+          amount: number
+          status: "pending" | "approved" | "rejected" | "cancelled" | "refunded"
+          mp_payment_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          gym_id: string
+          member_id: string
+          amount: number
+          status?: "pending" | "approved" | "rejected" | "cancelled" | "refunded"
+          mp_payment_id?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["payments"]["Insert"]>
+        Relationships: []
+      }
       notifications: {
         Row: {
           id: string
           user_id: string
+          gym_id: string | null
           type: string
           title: string
           body: string
@@ -336,6 +387,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          gym_id?: string | null
           type: string
           title: string
           body: string
@@ -348,8 +400,35 @@ export interface Database {
         Relationships: []
       }
     }
-    Views: Record<never, never>
-    Functions: Record<never, never>
+    Views: {
+      member_churn_status: {
+        Row: {
+          id: string
+          gym_id: string | null
+          full_name: string | null
+          avatar_url: string | null
+          membership_type: "basic" | "premium" | "vip" | null
+          membership_expires_at: string | null
+          last_check_in: string | null
+          churn_status: "green" | "yellow" | "red"
+        }
+        Relationships: []
+      }
+    }
+    Functions: {
+      set_gym_mp_token: {
+        Args: { p_gym_id: string; p_token: string }
+        Returns: void
+      }
+      get_gym_mp_token: {
+        Args: { p_gym_id: string }
+        Returns: string | null
+      }
+      get_mp_token_for_checkout: {
+        Args: { p_gym_id: string }
+        Returns: string | null
+      }
+    }
     Enums: Record<never, never>
   }
 }

@@ -1,0 +1,70 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { Joyride, STATUS, type Step, type EventData } from "react-joyride"
+import { HelpCircle } from "lucide-react"
+import GymFlowTooltip from "./GymFlowTooltip"
+
+interface PageTourProps {
+  tourKey: string
+  steps: Step[]
+}
+
+export default function PageTour({ tourKey, steps }: PageTourProps) {
+  const storageKey = `gymflow_tour_${tourKey}`
+  const [run, setRun] = useState(false)
+  const [seen, setSeen] = useState(true)
+
+  useEffect(() => {
+    const alreadySeen = localStorage.getItem(storageKey) === "seen"
+    setSeen(alreadySeen)
+    if (!alreadySeen) {
+      const t = setTimeout(() => setRun(true), 800)
+      return () => clearTimeout(t)
+    }
+  }, [storageKey])
+
+  function handleEvent(data: EventData) {
+    if (data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED) {
+      localStorage.setItem(storageKey, "seen")
+      setSeen(true)
+      setRun(false)
+    }
+  }
+
+  function replay() {
+    setRun(true)
+  }
+
+  return (
+    <>
+      <Joyride
+        steps={steps}
+        run={run}
+        continuous
+        scrollToFirstStep
+        onEvent={handleEvent}
+        tooltipComponent={GymFlowTooltip}
+        options={{
+          skipBeacon: true,
+          overlayColor: "rgba(0,0,0,0.65)",
+          primaryColor: "#D50000",
+          spotlightRadius: 12,
+          zIndex: 9998,
+        }}
+      />
+
+      {/* Replay button — visible solo si ya vio el tour */}
+      {seen && (
+        <button
+          onClick={replay}
+          title="Ver tour de esta pantalla"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-xs font-medium text-[#a1a1aa] shadow-lg backdrop-blur-sm hover:border-zinc-600 hover:text-[#ffffff] transition-all"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          Ayuda
+        </button>
+      )}
+    </>
+  )
+}

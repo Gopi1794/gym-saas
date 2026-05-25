@@ -5,6 +5,29 @@ import { Users, CheckCircle2, Clock } from "lucide-react"
 import MemberTable from "@/components/members/MemberTable"
 import InviteLink from "@/components/members/InviteLink"
 import { isMembershipActive } from "@/lib/utils"
+import PageTour from "@/components/onboarding/PageTour"
+import type { Step } from "react-joyride"
+
+const MEMBERS_TOUR_STEPS: Step[] = [
+  {
+    target: "[data-tour='members-stats']",
+    placement: "bottom",
+    title: "Resumen de membresías",
+    content: "Total de socios, cuántos tienen membresía activa y cuántos con la membresía vencida.",
+  },
+  {
+    target: "[data-tour='members-invite']",
+    placement: "bottom",
+    title: "Invitar socios",
+    content: "Compartí este link para que nuevos miembros se registren y queden vinculados automáticamente a tu gym.",
+  },
+  {
+    target: "[data-tour='members-table']",
+    placement: "top",
+    title: "Tabla de miembros",
+    content: "El punto de color en el avatar indica el estado de churn: verde (ok), amarillo (sin asistir 2 semanas), rojo (membresía vencida o inactivo).",
+  },
+]
 
 export const metadata: Metadata = { title: "Miembros" }
 
@@ -41,6 +64,17 @@ export default async function MembersPage() {
 
   const memberIds = (members ?? []).map((m) => m.id)
 
+  const { data: churnData } = gymId
+    ? await supabase
+        .from("member_churn_status")
+        .select("id, churn_status")
+        .eq("gym_id", gymId)
+    : { data: [] }
+
+  const churnStatuses = Object.fromEntries(
+    (churnData ?? []).map((r) => [r.id, r.churn_status])
+  ) as Record<string, "green" | "yellow" | "red">
+
   const { data: plans } = memberIds.length
     ? await (supabase
         .from("workout_plans" as never)
@@ -66,7 +100,7 @@ export default async function MembersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div data-tour="members-stats" className="grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 flex items-center gap-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-800">
             <Users className="h-4 w-4 text-zinc-400" />
@@ -98,7 +132,7 @@ export default async function MembersPage() {
 
       {/* Invite link */}
       {inviteCode && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+        <div data-tour="members-invite" className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
           <p className="text-xs font-semibold text-zinc-400 mb-2">Invitar nuevo miembro</p>
           <p className="text-xs text-zinc-600 mb-3">
             Compartí este link para que los socios se registren y queden vinculados automáticamente al gym.
@@ -107,7 +141,11 @@ export default async function MembersPage() {
         </div>
       )}
 
-      <MemberTable members={allMembers} plans={plans ?? []} />
+      <div data-tour="members-table">
+        <MemberTable members={allMembers} plans={plans ?? []} churnStatuses={churnStatuses} />
+      </div>
+
+      <PageTour tourKey="members" steps={MEMBERS_TOUR_STEPS} />
     </div>
   )
 }

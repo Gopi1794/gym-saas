@@ -4,7 +4,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import ExerciseCard from "./ExerciseCard";
-import { GooeyFilter } from "@/components/ui/gooey-filter";
 import { useScreenSize } from "@/hooks/use-screen-size";
 import { Input } from "@/components/ui/input";
 import {
@@ -90,13 +89,9 @@ export default function ExerciseGrid({
 
   return (
     <div className="space-y-5">
-      <GooeyFilter
-        id="gooey-tabs"
-        strength={screenSize.lessThan("md") ? 6 : 10}
-      />
 
       {/* Hero banner — wrapper allows image to overflow above */}
-      <div className="relative z-10 md:mt-24">
+      <div className="relative z-10 md:mt-12">
         {/* Card background — clipped independently */}
         <div className="relative overflow-hidden rounded-3xl bg-[#0c0000] shadow-[0_20px_60px_rgba(213,0,0,0.30)]">
           <div className="absolute inset-0 bg-gradient-to-r from-[#0c0000] via-brand-800 to-brand-700" />
@@ -107,10 +102,10 @@ export default function ExerciseGrid({
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.28em] text-brand-300">
               GymFlow Training
             </p>
-            <h2 className="font-heading text-4xl font-normal tracking-wide text-white sm:text-5xl">
+            <h2 className="font-heading text-4xl font-normal tracking-wide text-[#ffffff] sm:text-5xl">
               Biblioteca de ejercicios
             </h2>
-            <p className="mt-2 text-sm text-zinc-300">
+            <p className="mt-2 text-sm text-[#d4d4d8]">
               Más de {items.length} ejercicios para todos tus objetivos
             </p>
 
@@ -135,13 +130,13 @@ export default function ExerciseGrid({
               ].map((s) => (
                 <div key={s.value} className="flex items-center gap-2">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 backdrop-blur-sm">
-                    <s.Icon className="h-3.5 w-3.5 text-white" />
+                    <s.Icon className="h-3.5 w-3.5 text-[#ffffff]" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold leading-tight text-white">
+                    <p className="text-sm font-semibold leading-tight text-[#ffffff]">
                       {s.value}
                     </p>
-                    <p className="text-xs text-zinc-400">{s.label}</p>
+                    <p className="text-xs text-[#a1a1aa]">{s.label}</p>
                   </div>
                 </div>
               ))}
@@ -178,7 +173,7 @@ export default function ExerciseGrid({
             "flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors",
             showFavorites
               ? "border-red-500/50 bg-red-500/10 text-red-400"
-              : "border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-300",
+              : "border-zinc-300 dark:border-white/10 text-zinc-400 hover:border-zinc-400 dark:hover:border-white/20 hover:text-zinc-300",
           )}
         >
           <Heart
@@ -194,44 +189,12 @@ export default function ExerciseGrid({
       {/* Category tabs — Gooey animation */}
       <div className="relative">
         {/* Edge fade — left, mobile only */}
-        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-10 bg-gradient-to-r from-[#0A0A0A] to-transparent md:hidden" />
+        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-10 bg-gradient-to-r from-white dark:from-[#0A0A0A] to-transparent md:hidden" />
         {/* Edge fade — right, mobile only */}
-        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-10 bg-gradient-to-l from-[#0A0A0A] to-transparent md:hidden" />
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-10 bg-gradient-to-l from-white dark:from-[#0A0A0A] to-transparent md:hidden" />
 
       <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="relative inline-flex gap-2 px-3">
-          {/*
-           * Layer 1: Gooey filter — background indicator only.
-           * Ghost divs (visibility:hidden) preserve sizing for the motion.div.
-           * motion.div uses !visible to override the parent's hidden state.
-           */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 inline-flex gap-2 px-3"
-            style={{ filter: "url(#gooey-tabs)" }}
-          >
-            {CATEGORIES.map((cat) => (
-              <div
-                key={cat.value}
-                className={cn(
-                  BASE_TAB,
-                  "invisible relative border-transparent bg-transparent",
-                )}
-              >
-                <span className="block h-4 w-4 shrink-0" />
-                {cat.label}
-                {category === cat.value && (
-                  <motion.div
-                    layoutId="gooey-tab-bg"
-                    className="!visible absolute inset-0 rounded-full bg-[rgba(213,0,0,0.85)]"
-                    transition={{ type: "spring", bounce: 0, duration: 0.45 }}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Layer 2: Interactive buttons */}
           {CATEGORIES.map((cat) => (
             <button
               key={cat.value}
@@ -240,12 +203,19 @@ export default function ExerciseGrid({
                 BASE_TAB,
                 "relative cursor-pointer transition-colors duration-200",
                 category === cat.value
-                  ? "text-white border-transparent"
+                  ? "text-[#ffffff] border-transparent"
                   : "text-zinc-400 border-brand-700/40 hover:text-zinc-200 hover:border-brand-700/70",
               )}
             >
-              <cat.TabIcon className="h-4 w-4 shrink-0" />
-              {cat.label}
+              {category === cat.value && (
+                <motion.div
+                  layoutId="exercise-tab-bg"
+                  className="absolute inset-0 rounded-full bg-[rgba(213,0,0,0.85)]"
+                  transition={{ type: "spring", bounce: 0, duration: 0.45 }}
+                />
+              )}
+              <cat.TabIcon className="relative z-10 h-4 w-4 shrink-0" />
+              <span className="relative z-10">{cat.label}</span>
             </button>
           ))}
         </div>

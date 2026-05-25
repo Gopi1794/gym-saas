@@ -75,7 +75,7 @@ export default function MemberMembershipEdit({ memberId, initialType, initialExp
         </h3>
         <button
           onClick={() => { setEditing(e => !e); setFeedback(null) }}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 min-h-[44px] text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
         >
           <Pencil className="h-3.5 w-3.5" />
           {editing ? "Cancelar" : "Editar"}
@@ -93,7 +93,7 @@ export default function MemberMembershipEdit({ memberId, initialType, initialExp
             className="grid grid-cols-2 gap-3"
           >
             <div className="rounded-xl bg-zinc-800/60 px-4 py-3 space-y-1">
-              <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+              <div className="flex items-center gap-1.5 text-xs text-zinc-400">
                 <CreditCard className="h-3.5 w-3.5" />
                 Tipo
               </div>
@@ -102,7 +102,7 @@ export default function MemberMembershipEdit({ memberId, initialType, initialExp
               </span>
             </div>
             <div className="rounded-xl bg-zinc-800/60 px-4 py-3 space-y-1">
-              <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+              <div className="flex items-center gap-1.5 text-xs text-zinc-400">
                 <Calendar className="h-3.5 w-3.5" />
                 Vence
               </div>
@@ -168,7 +168,7 @@ export default function MemberMembershipEdit({ memberId, initialType, initialExp
                     key={days}
                     type="button"
                     onClick={() => setExpiresAt(addDays(days))}
-                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/40 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
+                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/40 py-1.5 min-h-[44px] text-xs text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
                   >
                     {label}
                   </button>

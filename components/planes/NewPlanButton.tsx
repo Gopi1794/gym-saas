@@ -18,6 +18,7 @@ type Member = { id: string; full_name: string | null }
 
 interface NewPlanButtonProps {
   trainerId: string
+  gymId: string
   members?: Member[]
   defaultMode?: "template" | "member"
 }
@@ -28,7 +29,7 @@ const LEVELS = [
   { value: "advanced", label: "Avanzado" },
 ]
 
-export default function NewPlanButton({ trainerId, members = [], defaultMode = "template" }: NewPlanButtonProps) {
+export default function NewPlanButton({ trainerId, gymId, members = [], defaultMode = "template" }: NewPlanButtonProps) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<"template" | "member">(defaultMode)
 
@@ -61,6 +62,7 @@ export default function NewPlanButton({ trainerId, members = [], defaultMode = "
         name: name.trim(),
         description: description.trim() || null,
         is_template: mode === "template",
+        gym_id: gymId,
         created_by: trainerId,
         level,
         assigned_to: mode === "member" ? assignedTo : null,

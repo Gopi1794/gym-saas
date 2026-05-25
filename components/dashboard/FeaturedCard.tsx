@@ -12,15 +12,13 @@ export default function FeaturedCard({ value, label, sublabel, href = "/check-in
   const display = typeof value === "number" ? value.toLocaleString("es-AR") : value
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-brand-700/20 bg-gradient-to-br from-brand-950/70 to-zinc-900/80 p-6 backdrop-blur-md">
-      <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand-700/10 blur-3xl" />
-      <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-cyan-600/8 blur-3xl" />
+    <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-brand-600/40 bg-white dark:bg-brand-900 p-6 backdrop-blur-md">
 
       <div className="relative">
-        <p className="text-sm font-medium text-zinc-400">{label}</p>
-        <p className="mt-2 text-5xl font-black tracking-tight text-white">
+        <p className="text-sm font-medium text-brand-600 dark:text-brand-400">{label}</p>
+        <p className="mt-2 text-5xl font-black tracking-tight text-zinc-900 dark:text-white">
           {display}
-          <span className="ml-0.5 text-2xl font-bold text-zinc-500">+</span>
+          <span className="ml-0.5 text-2xl font-bold text-zinc-400 dark:text-zinc-500">+</span>
         </p>
         {sublabel && (
           <p className="mt-1.5 text-sm text-zinc-500">{sublabel}</p>
@@ -29,7 +27,7 @@ export default function FeaturedCard({ value, label, sublabel, href = "/check-in
 
       <Link
         href={href}
-        className="absolute bottom-5 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-brand-700/20 text-brand-500 transition-colors hover:bg-brand-700/40"
+        className="absolute bottom-5 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-brand-600/15 text-brand-500 transition-colors hover:bg-brand-600/30 dark:bg-brand-700/20 dark:hover:bg-brand-700/40"
       >
         <ArrowUpRight className="h-5 w-5" />
       </Link>

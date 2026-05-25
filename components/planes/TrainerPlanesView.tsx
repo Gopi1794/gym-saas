@@ -26,6 +26,7 @@ type MemberRow = { id: string; full_name: string | null }
 
 interface Props {
   trainerId: string
+  gymId: string
   memberPlans: PlanRow[]
   templates: PlanRow[]
   members: MemberRow[]
@@ -109,7 +110,7 @@ function PlanListRow({ plan, members, isTemplate }: { plan: PlanRow; members: Me
   )
 }
 
-export default function TrainerPlanesView({ trainerId, memberPlans, templates, members }: Props) {
+export default function TrainerPlanesView({ trainerId, gymId, memberPlans, templates, members }: Props) {
   const [tab, setTab] = useState<Tab>("members")
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
   const [search, setSearch] = useState("")
@@ -148,6 +149,7 @@ export default function TrainerPlanesView({ trainerId, memberPlans, templates, m
         </div>
         <NewPlanButton
           trainerId={trainerId}
+          gymId={gymId}
           members={membersWithoutPlan}
           defaultMode={tab === "members" ? "member" : "template"}
         />

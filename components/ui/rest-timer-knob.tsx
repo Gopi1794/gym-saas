@@ -108,8 +108,8 @@ export default function RestTimerKnob({ total, left }: Props) {
       {/* Seconds — centered overlay, does NOT rotate */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
         <span
-          className="font-display text-5xl tabular-nums text-zinc-50"
-          style={{ textShadow: "0 0 30px rgba(213,0,0,0.5)" }}
+          className="font-display text-5xl tabular-nums"
+          style={{ color: "#ffffff", textShadow: "0 0 30px rgba(213,0,0,0.5)" }}
         >
           {left}
         </span>

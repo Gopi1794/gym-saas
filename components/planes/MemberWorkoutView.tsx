@@ -381,7 +381,7 @@ export default function MemberWorkoutView({ plan, days, userId, recentSessions, 
               return (
                 <div
                   key={s.id}
-                  className="flex items-center gap-3 rounded-2xl border border-white/5 bg-zinc-900/50 px-4 py-3"
+                  className="flex items-center gap-3 rounded-2xl border border-zinc-200 dark:border-white/5 bg-zinc-900/50 px-4 py-3"
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-700/15">
                     <CalendarCheck className="h-4 w-4 text-brand-500" />

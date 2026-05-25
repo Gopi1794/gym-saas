@@ -102,7 +102,16 @@
   50% { box-shadow: 0 0 0 1px rgba(213, 0, 0, 0.18), 0 0 18px 3px rgba(213, 0, 0, 0.10); }
 }
 
-/* Global scrollbar */
+/* Global scrollbar — uses CSS vars so light/dark switch automatically */
+:root {
+  --scrollbar-thumb: #d4d4d8;
+  --scrollbar-thumb-hover: #a1a1aa;
+}
+.dark {
+  --scrollbar-thumb: #3f3f46;
+  --scrollbar-thumb-hover: #52525b;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -111,15 +120,15 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: var(--scrollbar-thumb-hover);
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: #3f3f46 transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 /* Skip link */
@@ -198,4 +207,107 @@ section[id] {
     opacity: 1;
     transform: none;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   LIGHT MODE AUTO-REMAP
+   Written outside any @layer so it has higher cascade priority than
+   Tailwind's @layer utilities — no !important needed.
+   Covers the ~66 components that were designed dark-only.
+───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Backgrounds ──
+   Dark elevation hierarchy → light equivalent:
+   zinc-950 (deepest bg) → zinc-50  (#fafafa)
+   zinc-900 (card bg)    → white    (#ffffff)
+   zinc-800 (input/el.)  → zinc-100 (#f4f4f5)
+   zinc-700 (hover/sub)  → zinc-200 (#e4e4e7)
+*/
+html:not(.dark) .bg-black                { background-color: #fafafa; }
+html:not(.dark) .bg-zinc-950             { background-color: #fafafa; }
+html:not(.dark) .bg-zinc-900             { background-color: #ffffff; }
+html:not(.dark) .bg-zinc-800             { background-color: #f4f4f5; }
+html:not(.dark) .bg-zinc-700             { background-color: #e4e4e7; }
+
+/* opacity variants — converted to solid equivalents */
+html:not(.dark) .bg-zinc-950\/95         { background-color: #fafafa; }
+html:not(.dark) .bg-zinc-950\/80         { background-color: #fafafa; }
+html:not(.dark) .bg-zinc-950\/70         { background-color: #fafafa; }
+html:not(.dark) .bg-zinc-950\/55         { background-color: #fafafa; }
+html:not(.dark) .bg-zinc-900\/95         { background-color: #ffffff; }
+html:not(.dark) .bg-zinc-900\/80         { background-color: #ffffff; }
+html:not(.dark) .bg-zinc-900\/60         { background-color: #ffffff; }
+html:not(.dark) .bg-zinc-900\/50         { background-color: #ffffff; }
+html:not(.dark) .bg-zinc-900\/45         { background-color: #ffffff; }
+html:not(.dark) .bg-zinc-800\/80         { background-color: #f4f4f5; }
+html:not(.dark) .bg-zinc-800\/60         { background-color: #f4f4f5; }
+html:not(.dark) .bg-zinc-800\/50         { background-color: #f4f4f5; }
+html:not(.dark) .bg-zinc-800\/40         { background-color: #f4f4f5; }
+html:not(.dark) .bg-zinc-800\/30         { background-color: #f4f4f5; }
+html:not(.dark) .bg-zinc-700\/40         { background-color: #e4e4e7; }
+
+/* ── Text ── */
+html:not(.dark) .text-white              { color: #09090b; }
+html:not(.dark) .text-zinc-50            { color: #18181b; }
+html:not(.dark) .text-zinc-100           { color: #27272a; }
+html:not(.dark) .text-zinc-200           { color: #3f3f46; }
+html:not(.dark) .text-zinc-300           { color: #52525b; }
+html:not(.dark) .text-zinc-400           { color: #52525b; }  /* 4.6:1 on white ✅ */
+
+/* ── Borders ── */
+/* Transparent white borders (border-white/5, /8, /10, /20, etc.) → gray in light mode */
+html:not(.dark) [class*="border-white\/"] { border-color: #e4e4e7; }
+html:not(.dark) .border-zinc-900         { border-color: #e4e4e7; }
+html:not(.dark) .border-zinc-800         { border-color: #e4e4e7; }
+html:not(.dark) .border-zinc-800\/80     { border-color: rgba(228,228,231,0.8); }
+html:not(.dark) .border-zinc-800\/60     { border-color: rgba(228,228,231,0.6); }
+html:not(.dark) .border-zinc-800\/50     { border-color: rgba(228,228,231,0.5); }
+html:not(.dark) .border-zinc-700         { border-color: #d4d4d8; }
+html:not(.dark) .border-zinc-700\/60     { border-color: rgba(212,212,216,0.6); }
+html:not(.dark) .border-zinc-600         { border-color: #a1a1aa; }
+html:not(.dark) .border-zinc-600\/40     { border-color: rgba(161,161,170,0.4); }
+
+/* ── Hover states ── */
+html:not(.dark) .hover\:bg-zinc-800:hover  { background-color: #e4e4e7; }
+html:not(.dark) .hover\:bg-zinc-700:hover  { background-color: #d4d4d8; }
+html:not(.dark) .hover\:text-zinc-50:hover  { color: #18181b; }
+html:not(.dark) .hover\:text-zinc-100:hover { color: #27272a; }
+html:not(.dark) .hover\:text-zinc-200:hover { color: #3f3f46; }
+html:not(.dark) .hover\:text-zinc-300:hover { color: #52525b; }
+html:not(.dark) .hover\:text-zinc-400:hover { color: #52525b; }
+
+/* ── Gradients ── */
+html:not(.dark) .from-zinc-800           { --tw-gradient-from: #f4f4f5; }
+html:not(.dark) .from-zinc-900           { --tw-gradient-from: #ffffff; }
+html:not(.dark) .to-zinc-900             { --tw-gradient-to: #ffffff; }
+html:not(.dark) .to-zinc-800             { --tw-gradient-to: #f4f4f5; }
+
+/* ── Ring / outline ── */
+html:not(.dark) .ring-zinc-800           { --tw-ring-color: #e4e4e7; }
+html:not(.dark) .ring-zinc-700           { --tw-ring-color: #d4d4d8; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BRAND / RED EXCEPTIONS
+   Solid brand and red backgrounds always keep white text — in both modes.
+   Higher specificity (0,3,1) beats the text remap rules above (0,2,1).
+   Only solid backgrounds are included; transparent variants (e.g. /20) are
+   intentionally excluded so muted brand tints get dark readable text.
+───────────────────────────────────────────────────────────────────────────── */
+
+/* Text on the SAME element as a brand/red background */
+html:not(.dark) :is(
+  .bg-brand, .bg-brand-500, .bg-brand-600, .bg-brand-700, .bg-brand-800,
+  .bg-red-500, .bg-red-600,
+  .bg-\[#0c0000\]
+):is(.text-white, .text-zinc-50, .text-zinc-100, .text-zinc-200, .text-zinc-300, .text-zinc-400) {
+  color: #ffffff;
+}
+
+/* Text INSIDE an element with a brand/red background */
+html:not(.dark) :is(
+  .bg-brand, .bg-brand-500, .bg-brand-600, .bg-brand-700, .bg-brand-800,
+  .bg-red-500, .bg-red-600,
+  .bg-\[#0c0000\]
+) :is(.text-white, .text-zinc-50, .text-zinc-100, .text-zinc-200, .text-zinc-300, .text-zinc-400) {
+  color: #ffffff;
 }

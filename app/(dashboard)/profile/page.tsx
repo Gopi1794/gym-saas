@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import ProfileView from "@/components/profile/ProfileView"
 import BadgeGrid from "@/components/profile/BadgeGrid"
 import NotificationPreferences from "@/components/profile/NotificationPreferences"
-import type { Achievement } from "@/types"
+import MembershipStatusCard from "@/components/profile/MembershipStatusCard"
+import type { Achievement, Profile } from "@/types"
 
 export const metadata: Metadata = { title: "Profile" }
 
@@ -67,12 +68,21 @@ export default async function ProfilePage() {
     )
   }
 
+  const p = profile as Profile
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-zinc-50">Mi Perfil</h1>
         <p className="text-zinc-400">Tu tarjeta de entrenador</p>
       </div>
+
+      {p.role === "member" && (
+        <MembershipStatusCard
+          membershipType={p.membership_type}
+          expiresAt={p.membership_expires_at}
+        />
+      )}
 
       <ProfileView
         profile={profile}

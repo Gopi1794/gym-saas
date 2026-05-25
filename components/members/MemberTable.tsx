@@ -24,9 +24,22 @@ type StatusFilter = "all" | "active" | "expired"
 type MembershipFilter = "all" | "basic" | "premium" | "vip"
 type PlanFilter = "all" | "with" | "without"
 
+const CHURN_COLORS = {
+  green:  "bg-emerald-500",
+  yellow: "bg-amber-400",
+  red:    "bg-red-500",
+}
+
+const CHURN_LABELS = {
+  green:  "Retención buena",
+  yellow: "Sin asistir 2+ semanas",
+  red:    "En riesgo de churn",
+}
+
 interface MemberTableProps {
   members: Profile[]
   plans?: MemberPlan[]
+  churnStatuses?: Record<string, "green" | "yellow" | "red">
 }
 
 function Pill<T extends string>({
@@ -42,7 +55,7 @@ function Pill<T extends string>({
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={`rounded-md px-3 py-1 text-xs font-medium transition-all duration-150 cursor-pointer ${
+          className={`rounded-md px-3 py-1 min-h-[36px] text-xs font-medium transition-all duration-150 cursor-pointer ${
             value === o.value
               ? "bg-zinc-700 text-zinc-100 shadow-sm"
               : "text-zinc-500 hover:text-zinc-300"
@@ -72,7 +85,7 @@ function EmptyState({
         </div>
         <div>
           <p className="text-sm font-medium text-zinc-300">Sin miembros todavía</p>
-          <p className="mt-1 text-xs text-zinc-600">
+          <p className="mt-1 text-xs text-zinc-400">
             Compartí el link de invitación para que se unan al gym
           </p>
         </div>
@@ -94,16 +107,16 @@ function EmptyState({
       </div>
       <div>
         <p className="text-sm font-medium text-zinc-300">Sin resultados</p>
-        <p className="mt-1 text-xs text-zinc-600">
+        <p className="mt-1 text-xs text-zinc-400">
           No hay miembros que coincidan con{" "}
-          <span className="text-zinc-400">{activeFilters.join(", ")}</span>
+          <span className="text-zinc-200">{activeFilters.join(", ")}</span>
         </p>
       </div>
     </div>
   )
 }
 
-export default function MemberTable({ members, plans = [] }: MemberTableProps) {
+export default function MemberTable({ members, plans = [], churnStatuses = {} }: MemberTableProps) {
   const [query, setQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [membershipFilter, setMembershipFilter] = useState<MembershipFilter>("all")
@@ -168,7 +181,7 @@ export default function MemberTable({ members, plans = [] }: MemberTableProps) {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-600 shrink-0">Estado</span>
+          <span className="text-xs text-zinc-400 shrink-0">Estado</span>
           <Pill<StatusFilter>
             value={statusFilter}
             onChange={setStatusFilter}
@@ -180,7 +193,7 @@ export default function MemberTable({ members, plans = [] }: MemberTableProps) {
           />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-600 shrink-0">Membresía</span>
+          <span className="text-xs text-zinc-400 shrink-0">Membresía</span>
           <Pill<MembershipFilter>
             value={membershipFilter}
             onChange={setMembershipFilter}
@@ -193,7 +206,7 @@ export default function MemberTable({ members, plans = [] }: MemberTableProps) {
           />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-600 shrink-0">Plan</span>
+          <span className="text-xs text-zinc-400 shrink-0">Plan</span>
           <Pill<PlanFilter>
             value={planFilter}
             onChange={setPlanFilter}
@@ -207,7 +220,7 @@ export default function MemberTable({ members, plans = [] }: MemberTableProps) {
 
         {/* Result count */}
         {filtersActive && (
-          <span className="ml-auto text-xs text-zinc-600">
+          <span className="ml-auto text-xs text-zinc-400">
             {filtered.length} de {members.length}
           </span>
         )}
@@ -241,21 +254,34 @@ export default function MemberTable({ members, plans = [] }: MemberTableProps) {
                 const membershipType = (member.membership_type ?? "basic") as keyof typeof MEMBERSHIP_COLORS
                 const plan = getPlan(member.id)
 
+                const churn = churnStatuses[member.id]
+
                 return (
                   <TableRow
                     key={member.id}
-                    className="border-zinc-800 cursor-pointer hover:bg-zinc-800/40 transition-colors group"
+                    tabIndex={0}
+                    role="link"
+                    className="border-zinc-800 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/40 transition-colors group"
                     onClick={() => router.push(`/members/${member.id}`)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") router.push(`/members/${member.id}`) }}
                   >
                     <TableCell className="pl-5">
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8 shrink-0">
-                          <AvatarImage src={member.avatar_url ?? undefined} />
-                          <AvatarFallback className="text-xs bg-zinc-800 text-zinc-400">
-                            {getInitials(member.full_name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium text-zinc-100 group-hover:text-white transition-colors">
+                        <div className="relative shrink-0">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={member.avatar_url ?? undefined} />
+                            <AvatarFallback className="text-xs bg-zinc-800 text-zinc-400">
+                              {getInitials(member.full_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {churn && (
+                            <span
+                              title={CHURN_LABELS[churn]}
+                              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${CHURN_COLORS[churn]}`}
+                            />
+                          )}
+                        </div>
+                        <span className="font-medium text-zinc-100">
                           {member.full_name ?? "—"}
                         </span>
                       </div>
@@ -284,7 +310,7 @@ export default function MemberTable({ members, plans = [] }: MemberTableProps) {
                           </span>
                         </div>
                       ) : (
-                        <span className="text-sm text-zinc-700">Sin plan</span>
+                        <span className="text-sm text-zinc-500">Sin plan</span>
                       )}
                     </TableCell>
                     <TableCell>

@@ -69,7 +69,7 @@ export default function StaffLog({ gymId }: StaffLogProps) {
       const [{ data: trainerData }, { data: ciData }, { data: planData }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, avatar_url").eq("gym_id", gymId).eq("role", "trainer"),
         supabase.from("check_ins").select("user_id, checked_in_at, checked_out_at").eq("gym_id", gymId).gte("checked_in_at", date).lt("checked_in_at", nextDay),
-        supabase.from("workout_plans").select("created_by, assigned_to").eq("gym_id", gymId).not("assigned_to", "is", null).not("created_by", "is", null),
+        supabase.from("workout_plans").select("created_by, assigned_to").filter("assigned_to", "not.is", "null").filter("created_by", "not.is", "null"),
       ])
 
       const counts: Record<string, number> = {}
@@ -127,7 +127,7 @@ export default function StaffLog({ gymId }: StaffLogProps) {
       {/* Stat cards */}
       <div className="grid grid-cols-3 gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3">
+          <div key={s.label} className="rounded-xl border border-zinc-800 dark:border-white/10 bg-zinc-900 px-4 py-3">
             <p className={cn("text-2xl font-bold tabular-nums", s.color)}>{loading ? "—" : s.value}</p>
             <p className="mt-0.5 text-xs text-zinc-400">{s.label}</p>
           </div>
@@ -213,10 +213,10 @@ export default function StaffLog({ gymId }: StaffLogProps) {
                 className={cn(
                   "rounded-xl border px-4 py-4 transition-colors",
                   isPresent
-                    ? "border-emerald-500/20 bg-emerald-950/15"
+                    ? "border-emerald-500/20 bg-white dark:bg-emerald-950/15"
                     : isRetired
-                      ? "border-white/10 bg-zinc-900/60"
-                      : "border-white/5 bg-zinc-900/30",
+                      ? "border-zinc-700 dark:border-white/10 bg-white dark:bg-zinc-900/60"
+                      : "border-zinc-800 dark:border-white/5 bg-white dark:bg-zinc-900/30",
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -230,7 +230,7 @@ export default function StaffLog({ gymId }: StaffLogProps) {
                   ) : (
                     <div
                       aria-hidden="true"
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-700/20 text-sm font-bold text-brand-400"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 dark:bg-brand-700/20 text-sm font-bold text-[#ffffff] dark:text-brand-400"
                     >
                       {initials(trainer.full_name)}
                     </div>

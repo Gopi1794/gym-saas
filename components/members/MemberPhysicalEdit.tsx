@@ -49,7 +49,7 @@ export default function MemberPhysicalEdit({ memberId, initialWeight, initialHei
         </h3>
         <button
           onClick={() => { setEditing(e => !e); setFeedback(null) }}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 min-h-[44px] text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
         >
           <Pencil className="h-3.5 w-3.5" />
           {editing ? "Cancelar" : "Editar"}
@@ -78,7 +78,7 @@ export default function MemberPhysicalEdit({ memberId, initialWeight, initialHei
             />
             {bmi && (
               <div className="col-span-2 rounded-xl bg-zinc-800/60 px-4 py-3 text-center">
-                <p className="text-xs text-zinc-500 mb-0.5">IMC</p>
+                <p className="text-xs text-zinc-400 mb-0.5">IMC</p>
                 <p className="text-xl font-bold text-zinc-100">{bmi}</p>
               </div>
             )}
@@ -175,7 +175,7 @@ export default function MemberPhysicalEdit({ memberId, initialWeight, initialHei
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-xl bg-zinc-800/60 px-4 py-3 space-y-1">
-      <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+      <div className="flex items-center gap-1.5 text-xs text-zinc-400">
         {icon}
         {label}
       </div>

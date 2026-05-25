@@ -14,9 +14,10 @@ interface CreatePlanForMemberProps {
   memberId: string
   memberName: string
   trainerId: string
+  gymId: string
 }
 
-export default function CreatePlanForMember({ memberId, memberName, trainerId }: CreatePlanForMemberProps) {
+export default function CreatePlanForMember({ memberId, memberName, trainerId, gymId }: CreatePlanForMemberProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(`Plan de ${memberName}`)
   const [description, setDescription] = useState("")
@@ -35,6 +36,7 @@ export default function CreatePlanForMember({ memberId, memberName, trainerId }:
         name: name.trim(),
         description: description.trim() || null,
         is_template: false,
+        gym_id: gymId,
         created_by: trainerId,
         assigned_to: memberId,
       })

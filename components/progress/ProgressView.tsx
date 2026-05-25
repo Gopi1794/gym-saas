@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useRef, useEffect } from "react"
+import { useTheme } from "next-themes"
 import * as echarts from "echarts/core"
 import { BarChart, LineChart, PieChart } from "echarts/charts"
 import { GridComponent, TooltipComponent } from "echarts/components"
@@ -51,9 +52,10 @@ interface WeeklyBarChartProps {
   weeks: string[]
   weekMap: Map<string, number>
   thisWeekKey: string
+  isDark?: boolean
 }
 
-function WeeklyBarChart({ weeks, weekMap, thisWeekKey }: WeeklyBarChartProps) {
+function WeeklyBarChart({ weeks, weekMap, thisWeekKey, isDark = true }: WeeklyBarChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ChartRef>(null)
 
@@ -63,6 +65,7 @@ function WeeklyBarChart({ weeks, weekMap, thisWeekKey }: WeeklyBarChartProps) {
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
     const isMobile = typeof window !== "undefined" && window.innerWidth < 420
+    const axisLabelColor = isDark ? "#3f3f46" : "#a1a1aa"
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { graphic } = echarts as any
@@ -137,13 +140,13 @@ function WeeklyBarChart({ weeks, weekMap, thisWeekKey }: WeeklyBarChartProps) {
         data: weeks.map(formatWeekLabel),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: "#3f3f46", fontSize: isMobile ? 8 : 9, interval: isMobile ? 1 : 0, hideOverlap: true },
+        axisLabel: { color: axisLabelColor, fontSize: isMobile ? 8 : 9, interval: isMobile ? 1 : 0, hideOverlap: true },
         splitLine: { show: false },
       },
       yAxis: { type: "value", show: false, max: maxVal + 2 },
       series: [{ type: "bar", data: seriesData, barMinHeight: 4, barMaxWidth: 28, barCategoryGap: "30%" }],
     }
-  }, [weeks, weekMap, thisWeekKey])
+  }, [weeks, weekMap, thisWeekKey, isDark])
 
   useEffect(() => {
     const el = containerRef.current
@@ -175,9 +178,10 @@ interface WeeklyLoadChartProps {
   weeks: string[]
   exerciseMap: Map<string, number>
   sessionMap: Map<string, number>
+  isDark?: boolean
 }
 
-function WeeklyLoadChart({ weeks, exerciseMap, sessionMap }: WeeklyLoadChartProps) {
+function WeeklyLoadChart({ weeks, exerciseMap, sessionMap, isDark = true }: WeeklyLoadChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ChartRef>(null)
 
@@ -186,6 +190,7 @@ function WeeklyLoadChart({ weeks, exerciseMap, sessionMap }: WeeklyLoadChartProp
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
     const isMobile = typeof window !== "undefined" && window.innerWidth < 420
+    const axisLabelColor = isDark ? "#3f3f46" : "#a1a1aa"
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { graphic } = echarts as any
@@ -224,7 +229,7 @@ function WeeklyLoadChart({ weeks, exerciseMap, sessionMap }: WeeklyLoadChartProp
         boundaryGap: false,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: "#3f3f46", fontSize: isMobile ? 8 : 9, interval: isMobile ? 1 : 0, hideOverlap: true },
+        axisLabel: { color: axisLabelColor, fontSize: isMobile ? 8 : 9, interval: isMobile ? 1 : 0, hideOverlap: true },
         splitLine: { show: false },
       },
       yAxis: { type: "value", show: false, max: maxVal + 4 },
@@ -255,7 +260,7 @@ function WeeklyLoadChart({ weeks, exerciseMap, sessionMap }: WeeklyLoadChartProp
         },
       ],
     }
-  }, [weeks, exerciseMap, sessionMap])
+  }, [weeks, exerciseMap, sessionMap, isDark])
 
   useEffect(() => {
     const el = containerRef.current
@@ -285,9 +290,10 @@ function WeeklyLoadChart({ weeks, exerciseMap, sessionMap }: WeeklyLoadChartProp
 
 interface WeekdayDonutChartProps {
   weekdayMap: Map<number, number>
+  isDark?: boolean
 }
 
-function WeekdayDonutChart({ weekdayMap }: WeekdayDonutChartProps) {
+function WeekdayDonutChart({ weekdayMap, isDark = true }: WeekdayDonutChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ChartRef>(null)
 
@@ -331,7 +337,7 @@ function WeekdayDonutChart({ weekdayMap }: WeekdayDonutChartProps) {
           avoidLabelOverlap: true,
           padAngle: 3,
           minAngle: 8,
-          itemStyle: { borderRadius: 10, borderColor: "#18181b", borderWidth: 3 },
+          itemStyle: { borderRadius: 10, borderColor: isDark ? "#18181b" : "#f4f4f5", borderWidth: 3 },
           label: { color: "#a1a1aa", fontSize: 10, formatter: "{b}" },
           labelLine: { length: 8, length2: 6, lineStyle: { color: "#3f3f46" } },
           color: ["#ff4444", "#fb923c", "#facc15", "#22d3ee", "#34d399", "#a78bfa", "#f472b6"],
@@ -339,7 +345,7 @@ function WeekdayDonutChart({ weekdayMap }: WeekdayDonutChartProps) {
         },
       ],
     }
-  }, [weekdayMap])
+  }, [weekdayMap, isDark])
 
   useEffect(() => {
     const el = containerRef.current
@@ -368,6 +374,9 @@ function WeekdayDonutChart({ weekdayMap }: WeekdayDonutChartProps) {
 }
 
 export default function ProgressView({ sessions, trainingDays }: Props) {
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme !== "light"
+
   const { weeks, weekMap, exerciseMap, weekdayMap, streak, thisWeekCount, totalCount } = useMemo(() => {
     const map = new Map<string, number>()
     const exercises = new Map<string, number>()
@@ -432,7 +441,7 @@ export default function ProgressView({ sessions, trainingDays }: Props) {
             Últimas 12 semanas
           </p>
           <p className="mb-4 text-xs text-zinc-600">Sesiones completadas por semana</p>
-          <WeeklyBarChart weeks={weeks} weekMap={weekMap} thisWeekKey={thisWeekKey} />
+          <WeeklyBarChart weeks={weeks} weekMap={weekMap} thisWeekKey={thisWeekKey} isDark={isDark} />
         </div>
 
         <div className="min-w-0 overflow-hidden rounded-2xl border border-cyan-500/20 bg-zinc-900/60 p-5">
@@ -440,7 +449,7 @@ export default function ProgressView({ sessions, trainingDays }: Props) {
             Carga de trabajo
           </p>
           <p className="mb-4 text-xs text-zinc-600">Ejercicios completados y frecuencia semanal</p>
-          <WeeklyLoadChart weeks={weeks} exerciseMap={exerciseMap} sessionMap={weekMap} />
+          <WeeklyLoadChart weeks={weeks} exerciseMap={exerciseMap} sessionMap={weekMap} isDark={isDark} />
         </div>
       </div>
 
@@ -449,7 +458,7 @@ export default function ProgressView({ sessions, trainingDays }: Props) {
           Ritmo semanal
         </p>
         <p className="mb-4 text-xs text-zinc-600">Qué días concentrás más entrenamientos</p>
-        <WeekdayDonutChart weekdayMap={weekdayMap} />
+        <WeekdayDonutChart weekdayMap={weekdayMap} isDark={isDark} />
       </div>
 
       <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900/60 p-5">

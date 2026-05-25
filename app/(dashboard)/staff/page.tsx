@@ -2,6 +2,23 @@ import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import StaffLog from "@/components/check-in/StaffLog"
+import PageTour from "@/components/onboarding/PageTour"
+import type { Step } from "react-joyride"
+
+const STAFF_STEPS: Step[] = [
+  {
+    target: "body",
+    placement: "center",
+    title: "Staff del gimnasio 👥",
+    content: "Acá ves el registro de asistencia de cada trainer y los socios a su cargo.",
+  },
+  {
+    target: "[data-tour='staff-content']",
+    placement: "bottom",
+    title: "Registro de trainers",
+    content: "Cada trainer tiene su historial de ingresos. Hacé click en uno para ver sus detalles.",
+  },
+]
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Staff | GymFlow" }
@@ -32,7 +49,10 @@ export default async function StaffPage() {
         </p>
       </div>
 
-      <StaffLog gymId={profile.gym_id ?? ""} />
+      <div data-tour="staff-content">
+        <StaffLog gymId={profile.gym_id ?? ""} />
+      </div>
+      <PageTour tourKey="staff" steps={STAFF_STEPS} />
     </div>
   )
 }

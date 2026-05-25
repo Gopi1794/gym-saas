@@ -1,0 +1,47 @@
+"use server"
+
+import { createClient } from "@/lib/supabase/server"
+import { revalidatePath } from "next/cache"
+
+async function getAdminGymId(): Promise<string | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data } = await supabase
+    .from("gyms")
+    .select("id")
+    .eq("owner_id", user.id)
+    .single()
+
+  return data?.id ?? null
+}
+
+export async function saveMpToken(token: string): Promise<{ error?: string }> {
+  if (!token.trim()) return { error: "El token no puede estar vacío" }
+
+  const supabase = createClient()
+  const gymId = await getAdminGymId()
+  if (!gymId) return { error: "No sos dueño de ningún gimnasio" }
+
+  const { error } = await supabase.rpc("set_gym_mp_token", {
+    p_gym_id: gymId,
+    p_token: token.trim(),
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/admin/settings")
+  return {}
+}
+
+export async function getMpTokenStatus(): Promise<{ hasToken: boolean; error?: string }> {
+  const supabase = createClient()
+  const gymId = await getAdminGymId()
+  if (!gymId) return { hasToken: false, error: "No sos dueño de ningún gimnasio" }
+
+  const { data, error } = await supabase.rpc("get_gym_mp_token", { p_gym_id: gymId })
+  if (error) return { hasToken: false, error: error.message }
+
+  return { hasToken: !!data }
+}

@@ -35,7 +35,6 @@ export default function BadgeStrip({ badges }: Props) {
             {badges.slice(0, 3).map((b) => (
               <AchievementBadge
                 key={b.id}
-                size="sm"
                 variant="earned"
                 achievement={{
                   id: b.id,

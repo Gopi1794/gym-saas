@@ -10,6 +10,10 @@ import WeeklyTrainingSummary from "@/components/dashboard/WeeklyTrainingSummary"
 import LeaderboardCard, { type LeaderboardRow } from "@/components/dashboard/LeaderboardCard"
 import BadgeStrip, { type RecentBadge } from "@/components/dashboard/BadgeStrip"
 import { ProfileAvatar } from "@/components/ui/profile-avatar"
+import AdminKpiCards from "@/components/dashboard/AdminKpiCards"
+import RevenueChart from "@/components/dashboard/RevenueChart"
+import OnboardingTour from "@/components/onboarding/OnboardingTour"
+import RenewMembershipCard from "@/components/dashboard/RenewMembershipCard"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Dashboard" }
@@ -45,6 +49,9 @@ export default async function DashboardPage() {
   const today = new Date()
   const todayStr = today.toISOString().split("T")[0]
 
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString()
+  const twelveMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 11, 1).toISOString()
+
   const [
     { count: totalMembers },
     { count: todayCheckIns },
@@ -52,6 +59,9 @@ export default async function DashboardPage() {
     { count: totalCheckIns },
     { data: recentCheckIns },
     { data: leaderboardRows },
+    { data: paymentsThisMonth },
+    { count: newMembersThisMonth },
+    { data: paymentsLast12Months },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -84,6 +94,24 @@ export default async function DashboardPage() {
       .eq("role", "member")
       .order("total_xp", { ascending: false })
       .limit(10) as unknown as Promise<{ data: LeaderboardRow[] | null }>,
+    supabase
+      .from("payments")
+      .select("amount")
+      .eq("gym_id", p?.gym_id ?? "")
+      .eq("status", "approved")
+      .gte("created_at", firstOfMonth),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("gym_id", p?.gym_id ?? "")
+      .eq("role", "member")
+      .gte("created_at", firstOfMonth),
+    supabase
+      .from("payments")
+      .select("amount, created_at")
+      .eq("gym_id", p?.gym_id ?? "")
+      .eq("status", "approved")
+      .gte("created_at", twelveMonthsAgo),
   ])
 
   // ── Member: fetch today's workout + weekly summary ──
@@ -192,6 +220,11 @@ export default async function DashboardPage() {
     recentBadges = recentBadgesData
   }
 
+  const revenueThisMonth = (paymentsThisMonth ?? []).reduce((sum, p) => sum + (p.amount ?? 0), 0)
+  const renewalRate = activeMembers && activeMembers > 0
+    ? Math.round(((paymentsThisMonth?.length ?? 0) / activeMembers) * 100)
+    : 0
+
   const hour = today.getHours()
   const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches"
   const firstName = p?.full_name?.split(" ")[0] ?? ""
@@ -214,24 +247,60 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* Membership renewal — members expiring ≤7 days or already expired */}
+      {p?.role === "member" && (() => {
+        const exp = p.membership_expires_at
+        const daysLeft = exp ? Math.ceil((new Date(exp).getTime() - Date.now()) / 86_400_000) : null
+        if (daysLeft === null || daysLeft <= 7) {
+          return (
+            <RenewMembershipCard
+              expiresAt={exp}
+              currentType={p.membership_type}
+            />
+          )
+        }
+        return null
+      })()}
+
       {/* Today's workout — members only */}
       {todayWorkout && (
-        <TodayWorkoutCard
-          planName={todayWorkout.planName}
-          dayName={todayWorkout.dayName}
-          exercises={todayWorkout.exercises}
-          hasPlan
-          gender={p?.gender}
-        />
+        <div data-tour="today-workout">
+          <TodayWorkoutCard
+            planName={todayWorkout.planName}
+            dayName={todayWorkout.dayName}
+            exercises={todayWorkout.exercises}
+            hasPlan
+            gender={p?.gender}
+          />
+        </div>
       )}
 
       {/* Weekly training summary — members only */}
       {weeklySummary && (
-        <WeeklyTrainingSummary
-          trainingDows={weeklySummary.trainingDows}
-          completedDows={weeklySummary.completedDows}
-          todayDow={todayDow}
-        />
+        <div data-tour="weekly-summary">
+          <WeeklyTrainingSummary
+            trainingDows={weeklySummary.trainingDows}
+            completedDows={weeklySummary.completedDows}
+            todayDow={todayDow}
+          />
+        </div>
+      )}
+
+      {/* KPI cards — admin only */}
+      {p?.role !== "member" && (
+        <>
+          <div data-tour="kpi-cards">
+            <AdminKpiCards
+              revenueThisMonth={revenueThisMonth}
+              activeMembers={activeMembers ?? 0}
+              newMembersThisMonth={newMembersThisMonth ?? 0}
+              renewalRate={renewalRate}
+            />
+          </div>
+          <div data-tour="revenue-chart">
+            <RevenueChart payments={paymentsLast12Months ?? []} />
+          </div>
+        </>
       )}
 
       {/* Featured card */}
@@ -244,7 +313,7 @@ export default async function DashboardPage() {
 
       {/* Activity section */}
       {memberActivity ? (
-        <div>
+        <div data-tour="activity-cards">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-zinc-100">Mi actividad</h2>
             <span className="text-xs font-medium text-brand-500">Esta semana</span>
@@ -284,7 +353,14 @@ export default async function DashboardPage() {
       <LeaderboardCard rows={leaderboardRows ?? []} viewerId={user!.id} />
 
       {/* Recent check-ins */}
-      <RecentCheckIns checkIns={recentCheckIns ?? []} />
+      <div data-tour="recent-checkins">
+        <RecentCheckIns checkIns={recentCheckIns ?? []} />
+      </div>
+
+      {/* Onboarding tour — solo en el primer login */}
+      {!p?.onboarding_seen && p?.role && (
+        <OnboardingTour role={p.role} />
+      )}
     </div>
   )
 }
