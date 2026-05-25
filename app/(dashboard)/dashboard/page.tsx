@@ -121,6 +121,7 @@ export default async function DashboardPage() {
   let weeklySummary: { trainingDows: number[]; completedDows: number[] } | null = null
   let memberActivity: { completedThisWeek: number; trainingDaysThisWeek: number; totalSessions: number; streak: number } | null = null
   let recentBadges: RecentBadge[] | null = null
+  let membershipPlans: { type: "basic" | "premium" | "vip"; label: string; price: number; duration_days: number; features: string[] }[] = []
 
   if (p?.role === "member") {
     type PlanRow = { id: string; name: string }
@@ -218,6 +219,21 @@ export default async function DashboardPage() {
       .order("earned_at", { ascending: false })
       .limit(3) as unknown as Promise<{ data: RecentBadge[] | null }>)
     recentBadges = recentBadgesData
+
+    // Fetch gym's configured membership plans (only when member may need renewal)
+    const exp = p?.membership_expires_at
+    const daysLeft = exp ? Math.ceil((new Date(exp).getTime() - Date.now()) / 86_400_000) : null
+    if (p?.gym_id && (daysLeft === null || daysLeft <= 7)) {
+      const { data: plansData } = await (supabase
+        .from("membership_plans" as never)
+        .select("type, label, price, duration_days, features")
+        .eq("gym_id", p.gym_id)
+        .eq("is_active", true)
+        .order("type") as unknown as Promise<{
+          data: { type: "basic" | "premium" | "vip"; label: string; price: number; duration_days: number; features: string[] }[] | null
+        }>)
+      membershipPlans = plansData ?? []
+    }
   }
 
   const revenueThisMonth = (paymentsThisMonth ?? []).reduce((sum, p) => sum + (p.amount ?? 0), 0)
@@ -256,6 +272,7 @@ export default async function DashboardPage() {
             <RenewMembershipCard
               expiresAt={exp}
               currentType={p.membership_type}
+              plans={membershipPlans}
             />
           )
         }

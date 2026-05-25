@@ -13,6 +13,7 @@ import {
   Trophy,
   Settings,
   Dumbbell,
+  BarChart2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { href: "/progress", label: "Progreso", icon: TrendingUp, memberOnly: true },
   { href: "/achievements", label: "Logros", icon: Trophy, adminOnly: true },
   { href: "/check-in", label: "Check-in", icon: QrCode },
+  { href: "/reports", label: "Reportes", icon: BarChart2, adminOnly: true },
   { href: "/admin", label: "Administración", icon: Settings, adminOnly: true },
   { href: "/profile", label: "Perfil", icon: User },
 ]

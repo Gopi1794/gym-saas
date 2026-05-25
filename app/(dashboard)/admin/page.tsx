@@ -4,6 +4,8 @@ import { redirect } from "next/navigation"
 import TabSwitcher from "@/components/ui/TabSwitcher"
 import PaymentsTable, { type PaymentRow } from "@/components/payments/PaymentsTable"
 import GymSettingsPanel from "@/components/admin/GymSettingsPanel"
+import MembershipPlansPanel from "@/components/admin/MembershipPlansPanel"
+import ExportPanel from "@/components/admin/ExportPanel"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Administración" }
@@ -28,14 +30,38 @@ export default async function AdminPage({
   const gymId = profile.gym_id ?? ""
   const tab = searchParams.tab ?? "pagos"
   const tabs = [
-    { key: "pagos", label: "Pagos" },
-    { key: "configuracion", label: "Configuración" },
+    { key: "pagos",          label: "Pagos" },
+    { key: "membresias",     label: "Membresías" },
+    { key: "exportaciones",  label: "Exportaciones" },
+    { key: "configuracion",  label: "Configuración" },
   ]
 
   let content: React.ReactNode
 
-  if (tab === "configuracion") {
+  if (tab === "exportaciones") {
+    content = <ExportPanel />
+  } else if (tab === "configuracion") {
     content = <GymSettingsPanel />
+  } else if (tab === "membresias") {
+    const { data: plans } = await supabase
+      .from("membership_plans" as never)
+      .select("*")
+      .eq("gym_id", gymId)
+      .order("type") as unknown as { data: any[] | null }
+
+    const { data: memberRows } = await supabase
+      .from("profiles")
+      .select("membership_type")
+      .eq("gym_id", gymId)
+      .not("membership_type", "is", null) as unknown as { data: { membership_type: string }[] | null }
+
+    const memberCounts = {
+      basic:   memberRows?.filter(m => m.membership_type === "basic").length   ?? 0,
+      premium: memberRows?.filter(m => m.membership_type === "premium").length ?? 0,
+      vip:     memberRows?.filter(m => m.membership_type === "vip").length     ?? 0,
+    }
+
+    content = <MembershipPlansPanel initialPlans={plans ?? []} memberCounts={memberCounts} />
   } else {
     const { data: payments } = await supabase
       .from("payments")

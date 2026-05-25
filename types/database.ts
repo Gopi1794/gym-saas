@@ -371,6 +371,32 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["payments"]["Insert"]>
         Relationships: []
       }
+      membership_plans: {
+        Row: {
+          id: string
+          gym_id: string
+          type: "basic" | "premium" | "vip"
+          label: string
+          price: number
+          duration_days: number
+          features: string[]
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          gym_id: string
+          type: "basic" | "premium" | "vip"
+          label?: string
+          price?: number
+          duration_days?: number
+          features?: string[]
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: Partial<Omit<Database["public"]["Tables"]["membership_plans"]["Insert"], "id" | "gym_id">>
+        Relationships: []
+      }
       notifications: {
         Row: {
           id: string

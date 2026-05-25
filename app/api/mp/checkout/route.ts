@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
   }
 
   const body: CheckoutBody = await req.json()
-  if (!body.title || !body.amount || body.amount <= 0) {
+  const VALID_TYPES: CheckoutBody["membership_type"][] = ["basic", "premium", "vip"]
+  if (!body.title || !body.amount || body.amount <= 0 || !VALID_TYPES.includes(body.membership_type)) {
     return NextResponse.json({ error: "Datos de pago inválidos" }, { status: 400 })
   }
 

@@ -70,6 +70,14 @@ export default async function ProfilePage() {
 
   const p = profile as Profile
 
+  type MembershipPlanRow = { type: "basic" | "premium" | "vip"; label: string; price: number; duration_days: number; is_active: boolean }
+  const { data: membershipPlans } = p.gym_id
+    ? await supabase
+        .from("membership_plans" as never)
+        .select("type, label, price, duration_days, is_active")
+        .eq("gym_id", p.gym_id) as unknown as { data: MembershipPlanRow[] | null }
+    : { data: null }
+
   return (
     <div className="space-y-6">
       <div>
@@ -81,6 +89,7 @@ export default async function ProfilePage() {
         <MembershipStatusCard
           membershipType={p.membership_type}
           expiresAt={p.membership_expires_at}
+          plans={membershipPlans ?? []}
         />
       )}
 

@@ -19,7 +19,7 @@ import { ProfileAvatar } from "@/components/ui/profile-avatar"
 export interface PaymentRow {
   id: string
   amount: number
-  status: "pending" | "approved" | "rejected" | "cancelled" | "refunded"
+  status: "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "cash"
   mp_payment_id: string | null
   created_at: string
   profiles: {
@@ -34,6 +34,7 @@ const STATUS_LABEL: Record<PaymentRow["status"], string> = {
   rejected:  "Rechazado",
   cancelled: "Cancelado",
   refunded:  "Reintegrado",
+  cash:      "Efectivo",
 }
 
 const STATUS_CLASS: Record<PaymentRow["status"], string> = {
@@ -42,6 +43,7 @@ const STATUS_CLASS: Record<PaymentRow["status"], string> = {
   rejected:  "bg-red-500/15 text-red-400",
   cancelled: "bg-zinc-500/15 text-zinc-400",
   refunded:  "bg-cyan-500/15 text-cyan-400",
+  cash:      "bg-blue-500/15 text-blue-400",
 }
 
 const STATUS_ICON: Record<PaymentRow["status"], React.ElementType> = {
@@ -50,6 +52,7 @@ const STATUS_ICON: Record<PaymentRow["status"], React.ElementType> = {
   rejected:  XCircle,
   cancelled: MinusCircle,
   refunded:  RefreshCw,
+  cash:      CheckCircle2,
 }
 
 function formatARS(value: number) {

@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Menu, X, LogOut, LayoutDashboard, Users, QrCode,
-  User, TrendingUp, Trophy, Settings, Dumbbell,
+  User, TrendingUp, Trophy, Settings, Dumbbell, BarChart2,
 } from "lucide-react"
 import NotificationBell from "@/components/notifications/NotificationBell"
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
@@ -25,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/progress",      label: "Progreso",      icon: TrendingUp,    memberOnly: true },
   { href: "/achievements",  label: "Logros",        icon: Trophy,        adminOnly: true },
   { href: "/check-in",      label: "Check-in",      icon: QrCode },
+  { href: "/reports",       label: "Reportes",      icon: BarChart2,     adminOnly: true },
   { href: "/admin",         label: "Administración",icon: Settings,      adminOnly: true },
   { href: "/profile",       label: "Perfil",        icon: User },
 ]

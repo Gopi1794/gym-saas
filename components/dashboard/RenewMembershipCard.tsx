@@ -4,6 +4,14 @@ import { useState } from "react"
 import { AlertCircle, Clock, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+interface DbPlan {
+  type: "basic" | "premium" | "vip"
+  label: string
+  price: number
+  duration_days: number
+  features: string[]
+}
+
 interface Plan {
   key: "basic" | "premium" | "vip"
   label: string
@@ -11,18 +19,29 @@ interface Plan {
   description: string
 }
 
-const PLANS: Plan[] = [
+const FALLBACK_PLANS: Plan[] = [
   { key: "basic",   label: "Básico",   amount: 15000, description: "Acceso libre" },
   { key: "premium", label: "Premium",  amount: 25000, description: "Acceso + clases" },
   { key: "vip",     label: "VIP",      amount: 40000, description: "Todo incluido" },
 ]
 
+function toDisplayPlan(p: DbPlan): Plan {
+  return {
+    key: p.type,
+    label: p.label,
+    amount: p.price,
+    description: p.features[0] ?? p.label,
+  }
+}
+
 interface Props {
   expiresAt: string | null
   currentType: "basic" | "premium" | "vip" | null
+  plans?: DbPlan[]
 }
 
-export default function RenewMembershipCard({ expiresAt, currentType }: Props) {
+export default function RenewMembershipCard({ expiresAt, currentType, plans = [] }: Props) {
+  const displayPlans: Plan[] = plans.length > 0 ? plans.map(toDisplayPlan) : FALLBACK_PLANS
   const [selected, setSelected] = useState<Plan["key"]>(currentType ?? "basic")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -35,7 +54,7 @@ export default function RenewMembershipCard({ expiresAt, currentType }: Props) {
   async function handleRenew() {
     setLoading(true)
     setError(null)
-    const plan = PLANS.find((p) => p.key === selected)!
+    const plan = displayPlans.find((p) => p.key === selected)!
     try {
       const res = await fetch("/api/mp/checkout", {
         method: "POST",
@@ -86,7 +105,7 @@ export default function RenewMembershipCard({ expiresAt, currentType }: Props) {
 
       {/* Plan selector */}
       <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Seleccionar plan">
-        {PLANS.map((plan) => (
+        {displayPlans.map((plan) => (
           <button
             key={plan.key}
             role="radio"
