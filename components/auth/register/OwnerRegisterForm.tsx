@@ -87,9 +87,9 @@ export default function OwnerRegisterForm() {
 
     if (authData.session) {
       try {
-        const result = await createGymForOwner(data.gymName)
-        if ("error" in result) {
-          setServerError(result.error)
+        const result = await createGymForOwner(data.gymName, authData.session.access_token)
+        if (!result || "error" in result) {
+          setServerError(result?.error ?? "Error al crear el gimnasio")
           setLoading(false)
           return
         }
