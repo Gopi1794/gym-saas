@@ -86,14 +86,20 @@ export default function OwnerRegisterForm() {
     }
 
     if (authData.session) {
-      const result = await createGymForOwner(data.gymName)
-      if ("error" in result) {
-        setServerError(result.error)
+      try {
+        const result = await createGymForOwner(data.gymName)
+        if ("error" in result) {
+          setServerError(result.error)
+          setLoading(false)
+          return
+        }
+      } catch (e) {
+        setServerError(e instanceof Error ? e.message : "Error al crear el gimnasio")
         setLoading(false)
         return
       }
+      setLoading(false)
       router.push("/onboarding/pago")
-      router.refresh()
       return
     }
 
