@@ -87,49 +87,21 @@ async function finalizePayment(
 
   const durationDays = plan?.duration_days ?? 30
 
-  const { data: profile, error: profileFetchError } = await admin
-    .from("profiles")
-    .select("membership_expires_at")
-    .eq("id", memberId)
-    .single()
+  const { error } = await admin.rpc("extend_member_membership" as never, {
+    p_member_id: memberId,
+    p_gym_id: gymId,
+    p_payment_id: paymentId,
+    p_amount: payment.transaction_amount ?? 0,
+    p_membership_type: membershipType ?? "basic",
+    p_duration_days: durationDays,
+  } as never)
 
-  if (profileFetchError) console.error("[mp/webhook] error fetching profile:", profileFetchError)
-  console.log(`[mp/webhook] profile fetched: ${profile?.membership_expires_at ?? "null"}`)
-
-  const current = profile?.membership_expires_at
-    ? new Date(profile.membership_expires_at)
-    : new Date()
-
-  const base = current < new Date() ? new Date() : current
-  base.setDate(base.getDate() + durationDays)
-
-  console.log(`[mp/webhook] updating profile ${memberId} → ${base.toISOString()} (durationDays=${durationDays})`)
-
-  const [profileRes, paymentRes] = await Promise.all([
-    admin
-      .from("profiles")
-      .update({
-        membership_expires_at: base.toISOString(),
-        ...(membershipType && { membership_type: membershipType }),
-      })
-      .eq("id", memberId),
-
-    admin.from("payments").insert({
-      gym_id: gymId,
-      member_id: memberId,
-      amount: payment.transaction_amount ?? 0,
-      status: "approved",
-      mp_payment_id: paymentId,
-    }),
-  ])
-
-  console.log(`[mp/webhook] profileRes status:`, profileRes.status, profileRes.statusText, profileRes.error ?? "no error")
-  if (profileRes.error) console.error("[mp/webhook] error updating profile:", profileRes.error)
-  if (paymentRes.error) console.error("[mp/webhook] error inserting payment:", paymentRes.error)
-
-  if (!profileRes.error && !paymentRes.error) {
-    console.log(`[mp/webhook] payment ${paymentId} finalized — member ${memberId} extended ${durationDays} days`)
+  if (error) {
+    console.error("[mp/webhook] error in extend_member_membership:", error)
+    return
   }
+
+  console.log(`[mp/webhook] payment ${paymentId} finalized — member ${memberId} extended ${durationDays} days`)
 }
 
 async function processPayment(paymentId: string, externalRef?: string, gymIdOverride?: string) {
