@@ -22,7 +22,7 @@ function verifyMpSignature(req: NextRequest, rawBody: string): boolean {
 
   console.log(`[mp/webhook] x-signature: "${xSignature.slice(0, 40)}..." x-request-id: "${xRequestId}"`)
 
-  const parts = Object.fromEntries(xSignature.split("&").map(p => p.split("=")))
+  const parts = Object.fromEntries(xSignature.split(",").map(p => p.split("=")))
   const ts = parts["ts"]
   const v1 = parts["v1"]
   if (!ts || !v1) {
