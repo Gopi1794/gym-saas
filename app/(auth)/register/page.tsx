@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
-import RegisterForm from "@/components/auth/RegisterForm"
 import { createClient } from "@/lib/supabase/server"
+import OwnerRegisterForm from "@/components/auth/register/OwnerRegisterForm"
+import MemberRegisterForm from "@/components/auth/register/MemberRegisterForm"
 
 interface Props {
   searchParams: { gym?: string }
@@ -45,11 +46,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function RegisterPage({ searchParams }: Props) {
   const gymCode = searchParams.gym
 
-  let gymName: string | null = null
-  if (gymCode) {
-    const gym = await fetchGym(gymCode)
-    gymName = gym?.name ?? null
+  if (!gymCode) {
+    return <OwnerRegisterForm />
   }
 
-  return <RegisterForm gymCode={gymCode} gymName={gymName} />
+  const gym = await fetchGym(gymCode)
+  return <MemberRegisterForm gymCode={gymCode} gymName={gym?.name ?? null} />
 }
