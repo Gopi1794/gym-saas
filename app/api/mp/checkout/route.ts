@@ -56,7 +56,10 @@ async function handleCheckout(req: NextRequest) {
     return NextResponse.json({ error: "El gimnasio no tiene configurado el token de Mercado Pago" }, { status: 422 })
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+  const isLocalhost = appUrl.startsWith("http://localhost")
   const externalRef = `${user.id}__${profile.gym_id}__${body.membership_type}__${Date.now()}`
 
   const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
@@ -79,7 +82,7 @@ async function handleCheckout(req: NextRequest) {
         failure: `${appUrl}/pagos/failure`,
         pending: `${appUrl}/pagos/pending`,
       },
-      auto_return: "approved",
+      ...(!isLocalhost && { auto_return: "approved" }),
       external_reference: externalRef,
       notification_url: `${appUrl}/api/mp/webhook`,
     }),
