@@ -100,6 +100,8 @@ async function finalizePayment(
   const base = current < new Date() ? new Date() : current
   base.setDate(base.getDate() + durationDays)
 
+  console.log(`[mp/webhook] updating profile ${memberId} → ${base.toISOString()} (durationDays=${durationDays})`)
+
   const [profileRes, paymentRes] = await Promise.all([
     admin
       .from("profiles")
@@ -118,6 +120,7 @@ async function finalizePayment(
     }),
   ])
 
+  console.log(`[mp/webhook] profileRes status:`, profileRes.status, profileRes.statusText, profileRes.error ?? "no error")
   if (profileRes.error) console.error("[mp/webhook] error updating profile:", profileRes.error)
   if (paymentRes.error) console.error("[mp/webhook] error inserting payment:", paymentRes.error)
 
