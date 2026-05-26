@@ -87,11 +87,14 @@ async function finalizePayment(
 
   const durationDays = plan?.duration_days ?? 30
 
-  const { data: profile } = await admin
+  const { data: profile, error: profileFetchError } = await admin
     .from("profiles")
     .select("membership_expires_at")
     .eq("id", memberId)
     .single()
+
+  if (profileFetchError) console.error("[mp/webhook] error fetching profile:", profileFetchError)
+  console.log(`[mp/webhook] profile fetched: ${profile?.membership_expires_at ?? "null"}`)
 
   const current = profile?.membership_expires_at
     ? new Date(profile.membership_expires_at)
