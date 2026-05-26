@@ -20,10 +20,15 @@ function verifyMpSignature(req: NextRequest, rawBody: string): boolean {
   const xSignature = req.headers.get("x-signature") ?? ""
   const xRequestId = req.headers.get("x-request-id") ?? ""
 
+  console.log(`[mp/webhook] x-signature: "${xSignature.slice(0, 40)}..." x-request-id: "${xRequestId}"`)
+
   const parts = Object.fromEntries(xSignature.split("&").map(p => p.split("=")))
   const ts = parts["ts"]
   const v1 = parts["v1"]
-  if (!ts || !v1) return false
+  if (!ts || !v1) {
+    console.warn("[mp/webhook] ts o v1 ausentes en x-signature")
+    return false
+  }
 
   let dataId: string
   try {

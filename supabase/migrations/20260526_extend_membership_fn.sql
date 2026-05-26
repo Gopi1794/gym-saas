@@ -28,7 +28,6 @@ begin
   where id = p_member_id;
 
   insert into payments (gym_id, member_id, amount, status, mp_payment_id)
-  values (p_gym_id, p_member_id, p_amount, 'approved', p_payment_id)
-  on conflict (mp_payment_id) do nothing;
+  values (p_gym_id, p_member_id, p_amount, 'approved', p_payment_id);
 end;
 $$;
