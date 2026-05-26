@@ -2,10 +2,13 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 const PUBLIC_PATHS = ["/", "/login", "/register"]
+const PUBLIC_PREFIXES = ["/api/"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p)
+  const isPublic =
+    PUBLIC_PATHS.some((p) => pathname === p) ||
+    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey =
