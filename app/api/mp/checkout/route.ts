@@ -85,7 +85,7 @@ async function handleCheckout(req: NextRequest) {
       },
       ...(!isLocalhost && { auto_return: "approved" }),
       external_reference: externalRef,
-      notification_url: `${appUrl}/api/mp/webhook`,
+      notification_url: `${appUrl}/api/mp/webhook?gym_id=${profile.gym_id}`,
     }),
   })
 
