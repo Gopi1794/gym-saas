@@ -40,6 +40,9 @@ function verifyMpSignature(req: NextRequest, rawBody: string): boolean {
   const template = `id:${dataId};request-id:${xRequestId};ts:${ts}`
   const expected = createHmac("sha256", secret).update(template).digest("hex")
 
+  console.log(`[mp/webhook] template: "${template}"`)
+  console.log(`[mp/webhook] expected: ${expected.slice(0, 16)}... received: ${v1?.slice(0, 16)}...`)
+
   return expected === v1
 }
 
