@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, User, Building2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { createGymForOwner } from "@/app/actions/create-gym"
 import LottiePlayer from "@/components/ui/lottie-player"
 import { cn } from "@/lib/utils"
 import RegisterShell from "./RegisterShell"
@@ -76,7 +75,12 @@ export default function OwnerRegisterForm() {
     const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
-      options: { data: { full_name: data.fullName } },
+      options: {
+        data: {
+          full_name: data.fullName,
+          pending_gym_name: data.gymName,
+        },
+      },
     })
 
     if (error) {
@@ -86,18 +90,6 @@ export default function OwnerRegisterForm() {
     }
 
     if (authData.session) {
-      try {
-        const result = await createGymForOwner(data.gymName, authData.session.access_token)
-        if (!result || "error" in result) {
-          setServerError(result?.error ?? "Error al crear el gimnasio")
-          setLoading(false)
-          return
-        }
-      } catch (e) {
-        setServerError(e instanceof Error ? e.message : "Error al crear el gimnasio")
-        setLoading(false)
-        return
-      }
       setLoading(false)
       router.push("/onboarding/pago")
       return

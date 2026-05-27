@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 const PUBLIC_PATHS = ["/", "/login", "/register"]
 const PUBLIC_PREFIXES = ["/api/"]
+const ONBOARDING_PAGO = "/onboarding/pago"
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -58,6 +59,21 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = "/dashboard"
     return NextResponse.redirect(url)
+  }
+
+  // Usuarios autenticados sin gym_id → forzar al pago (excepto si ya están ahí)
+  if (user && pathname !== ONBOARDING_PAGO && !isPublic) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("gym_id")
+      .eq("id", user.id)
+      .single()
+
+    if (!profile?.gym_id) {
+      const url = request.nextUrl.clone()
+      url.pathname = ONBOARDING_PAGO
+      return NextResponse.redirect(url)
+    }
   }
 
   return response
