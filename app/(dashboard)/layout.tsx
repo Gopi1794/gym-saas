@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import Sidebar from "@/components/layout/Sidebar"
 import MobileDrawer from "@/components/layout/MobileDrawer"
 import MobileNav from "@/components/layout/MobileNav"
+import MemberChat from "@/components/chat/MemberChat"
 
 export default async function DashboardLayout({
   children,
@@ -37,6 +38,7 @@ export default async function DashboardLayout({
           <MobileNav role={role} />
         </div>
       </div>
+      {role === "member" && <MemberChat />}
     </div>
   )
 }

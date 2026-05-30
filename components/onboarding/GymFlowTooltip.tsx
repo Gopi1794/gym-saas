@@ -15,29 +15,36 @@ export default function GymFlowTooltip({
   tooltipProps,
 }: TooltipRenderProps) {
   return (
-    <div {...tooltipProps} style={{ zIndex: 9999, maxWidth: 360, width: "100vw" }}>
+    <div
+      {...tooltipProps}
+      style={{
+        zIndex: 9999,
+        width: "min(360px, calc(100vw - 32px))",
+        maxWidth: "100%",
+      }}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.94, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 4 }}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="rounded-2xl border border-zinc-700/60 bg-zinc-900/95 backdrop-blur-md shadow-2xl shadow-black/60 p-5 mx-4"
+        className="rounded-2xl border border-zinc-700/60 bg-zinc-900/95 backdrop-blur-md shadow-2xl shadow-black/60 p-5 dark:border-zinc-700/60 dark:bg-zinc-900/95"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-brand-600/20 text-brand-400 text-[10px] font-bold tabular-nums">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="shrink-0 inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-brand-600/20 text-brand-400 text-[10px] font-bold tabular-nums">
               {index + 1}/{size}
             </span>
             {step.title && (
-              <h3 className="text-sm font-semibold text-white leading-snug">
+              <h3 className="text-sm font-semibold text-white leading-snug truncate">
                 {step.title}
               </h3>
             )}
           </div>
           <button
             {...skipProps}
-            className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+            className="shrink-0 flex items-center justify-center h-8 w-8 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
           >
             <X className="h-3.5 w-3.5" />
           </button>

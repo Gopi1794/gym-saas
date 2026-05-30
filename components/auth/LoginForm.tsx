@@ -42,10 +42,10 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900/70 px-8 py-10 shadow-[0_0_80px_rgba(213,0,0,0.10)] backdrop-blur-xl space-y-8">
+    <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white px-8 py-10 shadow-[0_0_80px_rgba(213,0,0,0.08)] space-y-8 dark:border-white/10 dark:bg-zinc-900/70 dark:shadow-[0_0_80px_rgba(213,0,0,0.10)] dark:backdrop-blur-xl">
       <div className="text-center">
-        <h1 className="text-3xl font-bold text-zinc-50">Bienvenido</h1>
-        <p className="mt-2 text-sm text-zinc-400">Iniciá sesión en tu cuenta</p>
+        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">Bienvenido</h1>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Iniciá sesión en tu cuenta</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -53,14 +53,14 @@ export default function LoginForm() {
           <div
             role="alert"
             aria-live="assertive"
-            className="rounded-lg border border-red-900/50 bg-red-950/50 px-4 py-3 text-sm text-red-400"
+            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/50 dark:text-red-400"
           >
             {error}
           </div>
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-zinc-300">
+          <Label htmlFor="email" className="text-zinc-700 dark:text-zinc-300">
             Email
           </Label>
           <Input
@@ -72,18 +72,18 @@ export default function LoginForm() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            className="bg-zinc-800/60 border-zinc-700 placeholder:text-zinc-600 focus:border-brand-600"
+            className="bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-brand-600 dark:bg-zinc-800/60 dark:border-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-600"
           />
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label htmlFor="password" className="text-zinc-300">
+            <Label htmlFor="password" className="text-zinc-700 dark:text-zinc-300">
               Contraseña
             </Label>
             <Link
               href="/forgot-password"
-              className="text-xs text-zinc-500 hover:text-brand-400 transition-colors"
+              className="text-xs text-zinc-500 hover:text-brand-600 transition-colors dark:hover:text-brand-400"
             >
               ¿Olvidaste tu contraseña?
             </Link>
@@ -97,13 +97,13 @@ export default function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="pr-10 bg-zinc-800/60 border-zinc-700 placeholder:text-zinc-600 focus:border-brand-600"
+              className="pr-10 bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-brand-600 dark:bg-zinc-800/60 dark:border-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-600"
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-zinc-500 hover:text-zinc-300 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-zinc-400 hover:text-zinc-700 transition-colors dark:text-zinc-500 dark:hover:text-zinc-300"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -130,7 +130,7 @@ export default function LoginForm() {
         ¿No tenés cuenta?{" "}
         <Link
           href="/register"
-          className="font-medium text-brand-400 hover:text-brand-300 transition-colors"
+          className="font-medium text-brand-600 hover:text-brand-700 transition-colors dark:text-brand-400 dark:hover:text-brand-300"
         >
           Creá una
         </Link>

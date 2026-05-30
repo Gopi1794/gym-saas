@@ -136,10 +136,9 @@ export default async function ExercisesPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Biblioteca de ejercicios</h1>
-          <p className="text-zinc-400">
-            Más de {exercises.length} ejercicios para todos tus objetivos
-          </p>
+          <p className="font-heading text-xs uppercase tracking-[0.22em] text-brand-400">Entrenamiento</p>
+          <h1 className="font-heading text-2xl uppercase tracking-wide text-zinc-50">Biblioteca de ejercicios</h1>
+          <p className="text-sm text-zinc-400">Accedé a la biblioteca de tu gimnasio</p>
         </div>
         <div className="flex gap-2">
           {canManage && <AddExerciseDialog />}

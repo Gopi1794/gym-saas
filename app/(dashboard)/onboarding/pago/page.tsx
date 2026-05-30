@@ -82,6 +82,24 @@ export default function SaasPaymentPage() {
         <p className="mt-4 text-center text-xs text-zinc-600">
           Pago seguro procesado por Mercado Pago
         </p>
+
+        {process.env.NODE_ENV !== "production" && (
+          <button
+            onClick={async () => {
+              setLoading(true)
+              setError(null)
+              const res = await fetch("/api/dev/activate-gym", { method: "POST" })
+              const data = await res.json()
+              if (!res.ok) { setError(data.error); setLoading(false); return }
+              router.push("/dashboard")
+              router.refresh()
+            }}
+            disabled={loading}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-zinc-700 py-3 text-sm font-semibold text-zinc-400 transition-all hover:border-zinc-500 hover:text-zinc-200 disabled:opacity-40"
+          >
+            [DEV] Simular pago aprobado
+          </button>
+        )}
       </div>
     </div>
   )

@@ -87,8 +87,10 @@ export default function OnboardingTour({ role }: OnboardingTourProps) {
       run={run}
       continuous
       scrollToFirstStep
+
       onEvent={handleEvent}
       tooltipComponent={GymFlowTooltip}
+
       options={{
         skipBeacon: true,
         overlayColor: "rgba(0,0,0,0.65)",

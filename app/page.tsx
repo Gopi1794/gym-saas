@@ -24,7 +24,7 @@ import {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50">
+    <div className="dark min-h-screen bg-zinc-950 text-zinc-50">
       {/* ── Skip link ── */}
       <a href="#main" className="skip-link">Ir al contenido principal</a>
 

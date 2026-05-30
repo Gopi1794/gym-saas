@@ -102,6 +102,38 @@
   50% { box-shadow: 0 0 0 1px rgba(213, 0, 0, 0.18), 0 0 18px 3px rgba(213, 0, 0, 0.10); }
 }
 
+@keyframes ai-sparkle-flow {
+  from { stroke-dashoffset: 58; }
+  to   { stroke-dashoffset: -58; }
+}
+
+/* Anima el ángulo del conic-gradient sin mover ningún elemento del DOM */
+@property --chat-border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes chat-border-rotate {
+  to { --chat-border-angle: 360deg; }
+}
+
+.chat-animated-border {
+  animation: chat-border-rotate 3.5s linear infinite;
+  background: conic-gradient(
+    from var(--chat-border-angle),
+    transparent 0%,
+    transparent 30%,
+    #7f1d1d 40%,
+    #dc2626 48%,
+    #ff4444 50%,
+    #dc2626 52%,
+    #7f1d1d 60%,
+    transparent 70%,
+    transparent 100%
+  );
+}
+
 /* Global scrollbar — uses CSS vars so light/dark switch automatically */
 :root {
   --scrollbar-thumb: #d4d4d8;

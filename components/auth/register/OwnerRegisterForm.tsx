@@ -36,6 +36,7 @@ export default function OwnerRegisterForm() {
   const [loading, setLoading] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [alreadyExists, setAlreadyExists] = useState(false)
 
   function set<K extends keyof FormData>(key: K, value: FormData[K]) {
     setData((d) => ({ ...d, [key]: value }))
@@ -84,7 +85,15 @@ export default function OwnerRegisterForm() {
     })
 
     if (error) {
-      setServerError(error.message)
+      const isAlreadyRegistered =
+        error.message.toLowerCase().includes("already registered") ||
+        error.message.toLowerCase().includes("already exists") ||
+        error.status === 422
+      if (isAlreadyRegistered) {
+        setAlreadyExists(true)
+      } else {
+        setServerError(error.message)
+      }
       setLoading(false)
       return
     }
@@ -97,6 +106,29 @@ export default function OwnerRegisterForm() {
 
     setSuccess(true)
     setLoading(false)
+  }
+
+  if (alreadyExists) {
+    return (
+      <div className="w-full max-w-md text-center">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-brand-700/30 bg-brand-700/20">
+          <Building2 className="h-8 w-8 text-brand-500" />
+        </div>
+        <h2 className="font-display text-3xl text-zinc-50">Ya tenés una cuenta</h2>
+        <p className="mt-3 text-zinc-400">
+          Este email ya fue registrado. Iniciá sesión para completar la activación de tu gimnasio.
+        </p>
+        <Link
+          href="/login"
+          className="mt-6 inline-block rounded-full bg-brand-700 px-10 py-3 text-sm font-bold text-white shadow-[0_0_20px_rgba(213,0,0,0.3)]"
+        >
+          Iniciar sesión
+        </Link>
+        <p className="mt-4 text-sm text-zinc-600">
+          Al iniciar sesión te vamos a redirigir al pago automáticamente.
+        </p>
+      </div>
+    )
   }
 
   if (success) {

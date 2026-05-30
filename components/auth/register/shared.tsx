@@ -3,9 +3,9 @@
 import { cn } from "@/lib/utils"
 
 export const inputCls =
-  "w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/40 transition-colors min-h-[48px]"
+  "w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/40 transition-colors min-h-[48px] dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:placeholder-zinc-600"
 
-export const labelCls = "block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5"
+export const labelCls = "block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1.5 dark:text-zinc-400"
 
 export const variants = {
   enter: (dir: number) => ({ x: dir > 0 ? 56 : -56, opacity: 0 }),
@@ -33,8 +33,8 @@ export function Pill<T extends string>({
           className={cn(
             "rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all min-h-[44px]",
             value === o.value
-              ? "border-brand-500 bg-brand-700/20 text-brand-400 shadow-[0_0_12px_rgba(213,0,0,0.2)]"
-              : "border-zinc-700 bg-zinc-800/60 text-zinc-400 hover:border-zinc-500",
+              ? "border-brand-500 bg-brand-700/20 text-brand-600 shadow-[0_0_12px_rgba(213,0,0,0.2)] dark:text-brand-400"
+              : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:border-zinc-500",
           )}
         >
           {o.label}
