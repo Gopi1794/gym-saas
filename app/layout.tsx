@@ -14,6 +14,17 @@ export const metadata: Metadata = {
   },
   description:
     "Manage members, track check-ins with QR codes, and build an exercise library — all in one modern platform.",
+  openGraph: {
+    title: "GymFlow — The gym OS built for growth",
+    description: "Manage members, track check-ins with QR codes, and build an exercise library — all in one modern platform.",
+    siteName: "GymFlow",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GymFlow — The gym OS built for growth",
+    description: "Manage members, track check-ins with QR codes, and build an exercise library — all in one modern platform.",
+  },
 }
 
 export default function RootLayout({
