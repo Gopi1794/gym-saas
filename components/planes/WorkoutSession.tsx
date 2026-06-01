@@ -529,7 +529,7 @@ export default function WorkoutSession({
             ? Math.round(currentMax * rmPercent.min / 100 * 2) / 2
             : null;
           const enteredWeight = currentWeight !== "" ? parseFloat(currentWeight) : null;
-          const isNewMax = enteredWeight != null && currentMax != null && enteredWeight > currentMax;
+          const isNewMax = enteredWeight != null && (currentMax == null || enteredWeight > currentMax);
 
           return (
             <div className="flex flex-col items-center gap-2">
@@ -558,7 +558,7 @@ export default function WorkoutSession({
                   }}
                   className="text-xs font-semibold text-brand-500 border border-brand-700/40 rounded-full px-3 py-1 hover:bg-brand-700/10 transition-colors"
                 >
-                  ¡Nuevo máximo! Guardar {enteredWeight}kg
+                  {currentMax == null ? `Guardar como 1RM: ${enteredWeight}kg` : `¡Nuevo máximo! Guardar ${enteredWeight}kg`}
                 </button>
               )}
             </div>
