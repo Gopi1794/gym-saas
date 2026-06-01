@@ -213,6 +213,21 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     }
   }
 
+  async function updateNotes(peId: string, notes: string) {
+    setSaving(peId)
+    await supabase.from("workout_plan_exercises").update({ notes: notes || null }).eq("id", peId)
+    setDays((prev) => ({
+      ...prev,
+      [selectedDay]: {
+        ...prev[selectedDay],
+        exercises: prev[selectedDay].exercises.map((pe) =>
+          pe.id === peId ? { ...pe, notes: notes || null } : pe
+        ),
+      },
+    }))
+    setSaving(null)
+  }
+
   async function updateField(peId: string, field: "sets" | "reps" | "reps_max" | "rest_seconds" | "duration_seconds", value: number | null) {
     setSaving(peId)
     await supabase.from("workout_plan_exercises").update({ [field]: value } as unknown as { sets?: number; reps?: number; reps_max?: number | null; rest_seconds?: number; duration_seconds?: number | null }).eq("id", peId)
@@ -419,7 +434,8 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
         ) : (
           <div className="divide-y divide-white/5">
             {currentDay.exercises.map((pe, index) => (
-              <div key={pe.id} className="flex gap-4 p-4">
+              <div key={pe.id} className="flex flex-col">
+                <div className="flex gap-4 p-4">
                 <div className="flex shrink-0 flex-col items-center gap-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-700/20 text-xs font-bold text-brand-500">
                     {index + 1}
@@ -506,6 +522,16 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                   </button>
                 )}
               </div>
+              {!readOnly && (
+                <div className="px-4 pb-3">
+                  <NotesField
+                    value={pe.notes ?? ""}
+                    saving={saving === pe.id}
+                    onSave={(v: string) => updateNotes(pe.id, v)}
+                  />
+                </div>
+              )}
+            </div>
             ))}
           </div>
         )}
@@ -627,5 +653,28 @@ function NumberField({ label, value, min, max, saving, onChange }: {
         )}
       />
     </div>
+  )
+}
+
+function NotesField({ value, saving, onSave }: {
+  value: string; saving: boolean; onSave: (v: string) => void
+}) {
+  const [local, setLocal] = useState(value)
+  useEffect(() => { setLocal(value) }, [value])
+
+  return (
+    <input
+      type="text"
+      value={local}
+      disabled={saving}
+      placeholder="Notas (ej: @ 75-80% 1RM, explosivo…)"
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => { if (local !== value) onSave(local) }}
+      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+      className={cn(
+        "w-full rounded-md border border-zinc-700/50 bg-transparent px-2 py-1 text-xs text-zinc-400 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 focus:text-zinc-300",
+        saving && "opacity-50"
+      )}
+    />
   )
 }
