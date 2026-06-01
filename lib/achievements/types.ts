@@ -60,4 +60,8 @@ export type SessionSet = {
   reps?: number
   weight_kg?: number
   duration_seconds?: number
+  distance_meters?: number
+  speed_kmh?: number
+  resistance_level?: number
+  calories_burned?: number
 }

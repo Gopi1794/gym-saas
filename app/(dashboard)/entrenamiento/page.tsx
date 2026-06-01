@@ -38,11 +38,11 @@ export default async function EntrenamientoPage({
 
   const { data: profileData } = await supabase
     .from("profiles")
-    .select("role, gym_id, gender")
+    .select("role, gym_id, gender, weight_kg")
     .eq("id", user!.id)
     .single()
 
-  const profile = profileData as { role: string; gym_id: string | null; gender: string | null } | null
+  const profile = profileData as { role: string; gym_id: string | null; gender: string | null; weight_kg: number | null } | null
   const role = profile?.role ?? ""
   const gymId = profile?.gym_id ?? ""
   const isAdmin = role === "admin"
@@ -99,6 +99,7 @@ export default async function EntrenamientoPage({
         userId={user!.id}
         recentSessions={sessionsRes.data ?? []}
         gender={profile?.gender ?? null}
+        weightKg={profile?.weight_kg ?? null}
       />
     )
   }

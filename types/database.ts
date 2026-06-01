@@ -290,6 +290,10 @@ export interface Database {
           reps: number | null
           weight_kg: number | null
           duration_seconds: number | null
+          distance_meters: number | null
+          speed_kmh: number | null
+          resistance_level: number | null
+          calories_burned: number | null
           created_at: string
         }
         Insert: {
@@ -302,6 +306,10 @@ export interface Database {
           reps?: number | null
           weight_kg?: number | null
           duration_seconds?: number | null
+          distance_meters?: number | null
+          speed_kmh?: number | null
+          resistance_level?: number | null
+          calories_burned?: number | null
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["workout_session_sets"]["Insert"]>

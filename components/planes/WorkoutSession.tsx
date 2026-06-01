@@ -42,7 +42,26 @@ interface Props {
   dayOfWeek: number;
   userId: string;
   planId: string;
+  userWeightKg?: number | null;
   onClose: () => void;
+}
+
+function calcCalories(
+  durationSeconds: number,
+  weightKg: number,
+  speedKmh?: number,
+  resistanceLevel?: number,
+): number {
+  let met = 5;
+  if (speedKmh && speedKmh > 0) {
+    if (speedKmh < 5) met = 3.5;
+    else if (speedKmh < 7) met = 5;
+    else if (speedKmh < 10) met = 8;
+    else met = 11;
+  } else if (resistanceLevel && resistanceLevel > 0) {
+    met = 4 + resistanceLevel * 0.3;
+  }
+  return Math.round(met * weightKg * (durationSeconds / 3600));
 }
 
 /* ── Finished screen (error fallback) ── */
@@ -96,6 +115,7 @@ export default function WorkoutSession({
   dayName,
   dayOfWeek,
   planId,
+  userWeightKg,
   onClose,
 }: Props) {
   const [exerciseIdx, setExerciseIdx] = useState(0);
@@ -112,6 +132,9 @@ export default function WorkoutSession({
   const [collectedSets, setCollectedSets] = useState<SessionSet[]>([]);
   const [currentWeight, setCurrentWeight] = useState("");
   const [cardioElapsed, setCardioElapsed] = useState(0);
+  const [currentDistance, setCurrentDistance] = useState("");
+  const [currentSpeed, setCurrentSpeed] = useState("");
+  const [currentResistance, setCurrentResistance] = useState("");
 
   const savedRef = useRef(false);
 
@@ -190,7 +213,16 @@ export default function WorkoutSession({
   }, [phase, restLeft, isLastSet, isLastExercise]);
 
   function handleSetDone() {
-    // Record set data before transitioning
+    const durationSecs = isDuration ? current.duration_seconds! : isCardio ? cardioElapsed : undefined;
+    const distanceM = currentDistance !== "" ? Math.round(parseFloat(currentDistance) * 1000) : undefined;
+    const speedKmh = currentSpeed !== "" ? parseFloat(currentSpeed) : undefined;
+    const resistance = currentResistance !== "" ? parseInt(currentResistance, 10) : undefined;
+
+    const calories =
+      isCardio && durationSecs && userWeightKg
+        ? calcCalories(durationSecs, userWeightKg, speedKmh, resistance)
+        : undefined;
+
     const setData: SessionSet = {
       exercise_id: current.exercises.id,
       exercise_name: current.exercises.name,
@@ -201,14 +233,17 @@ export default function WorkoutSession({
         isStrengthLike && !isDuration && currentWeight !== ""
           ? parseFloat(currentWeight)
           : undefined,
-      duration_seconds: isDuration
-        ? current.duration_seconds!
-        : isCardio
-          ? cardioElapsed
-          : undefined,
+      duration_seconds: durationSecs,
+      distance_meters: distanceM,
+      speed_kmh: speedKmh,
+      resistance_level: resistance,
+      calories_burned: calories,
     };
     setCollectedSets((prev) => [...prev, setData]);
     setCurrentWeight("");
+    setCurrentDistance("");
+    setCurrentSpeed("");
+    setCurrentResistance("");
     setCardioElapsed(0);
 
     if (isLastSet && isLastExercise) {
@@ -236,7 +271,8 @@ export default function WorkoutSession({
     }
 
     if (sessionResult.ok === true) {
-      return <WorkoutResults result={sessionResult} onClose={onClose} />;
+      const totalCalories = collectedSets.reduce((sum, s) => sum + (s.calories_burned ?? 0), 0);
+      return <WorkoutResults result={sessionResult} totalCalories={totalCalories || undefined} onClose={onClose} />;
     }
 
     return (
@@ -423,6 +459,52 @@ export default function WorkoutSession({
             <span className="font-heading text-2xl text-zinc-500 pb-1">
               reps
             </span>
+          </div>
+        )}
+
+        {/* Cardio inputs — distance, speed, resistance */}
+        {isCardio && (
+          <div className="flex flex-wrap justify-center gap-3">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-md">
+              <label className="text-xs text-zinc-500 whitespace-nowrap">km</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step={0.1}
+                placeholder="—"
+                value={currentDistance}
+                onChange={(e) => setCurrentDistance(e.target.value)}
+                className="w-16 bg-transparent text-right font-display text-xl text-zinc-50 placeholder-zinc-700 outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-md">
+              <label className="text-xs text-zinc-500 whitespace-nowrap">km/h</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step={0.5}
+                placeholder="—"
+                value={currentSpeed}
+                onChange={(e) => setCurrentSpeed(e.target.value)}
+                className="w-16 bg-transparent text-right font-display text-xl text-zinc-50 placeholder-zinc-700 outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-md">
+              <label className="text-xs text-zinc-500 whitespace-nowrap">nivel</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={20}
+                step={1}
+                placeholder="—"
+                value={currentResistance}
+                onChange={(e) => setCurrentResistance(e.target.value)}
+                className="w-12 bg-transparent text-right font-display text-xl text-zinc-50 placeholder-zinc-700 outline-none"
+              />
+            </div>
           </div>
         )}
 

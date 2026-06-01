@@ -12,6 +12,7 @@ type Props = {
     new_total_xp: number
     earned_achievements: EarnedAchievement[]
   }
+  totalCalories?: number
   onClose: () => void
 }
 
@@ -26,7 +27,7 @@ const badgeVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
 }
 
-export default function WorkoutResults({ result, onClose }: Props) {
+export default function WorkoutResults({ result, totalCalories, onClose }: Props) {
   const hasAchievements = result.earned_achievements.length > 0
 
   return (
@@ -59,6 +60,11 @@ export default function WorkoutResults({ result, onClose }: Props) {
           Total acumulado:{" "}
           <span className="font-semibold text-zinc-200">{result.new_total_xp} XP</span>
         </p>
+        {totalCalories != null && totalCalories > 0 && (
+          <p className="mt-1 text-sm text-zinc-500">
+            ~<span className="font-semibold text-zinc-300">{totalCalories} kcal</span> quemadas
+          </p>
+        )}
       </motion.div>
 
       {/* Achievements section */}
