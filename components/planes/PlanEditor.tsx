@@ -25,6 +25,7 @@ type Exercise = {
 type PlanExercise = {
   id: string; sets: number; reps: number
   rest_seconds: number; order_index: number; notes: string | null
+  duration_seconds: number | null
   exercises: Exercise
 }
 
@@ -136,8 +137,8 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
 
       const { data, error } = await supabase
         .from("workout_plan_exercises")
-        .insert({ day_id: dayId, exercise_id: exercise.id, sets: 3, reps: 10, rest_seconds: 60, order_index: order })
-        .select("id, sets, reps, rest_seconds, order_index, notes")
+        .insert({ day_id: dayId, exercise_id: exercise.id, sets: 3, reps: 10, rest_seconds: 60, order_index: order, duration_seconds: null })
+        .select("id, sets, reps, rest_seconds, order_index, notes, duration_seconds")
         .single() as unknown as { data: Omit<PlanExercise, "exercises"> | null; error: unknown }
 
       console.error("[addExercise] dayId:", dayId, "error:", error, "data:", data)
@@ -182,13 +183,14 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
         sets: pe.sets,
         reps: pe.reps,
         rest_seconds: pe.rest_seconds,
+        duration_seconds: pe.duration_seconds,
         order_index: startOrder + i,
       }))
 
       const { data, error } = (await supabase
         .from("workout_plan_exercises")
         .insert(inserts)
-        .select("id, sets, reps, rest_seconds, order_index, notes, exercise_id")
+        .select("id, sets, reps, rest_seconds, order_index, notes, duration_seconds, exercise_id")
       ) as unknown as { data: (Omit<PlanExercise, "exercises"> & { exercise_id: string })[] | null; error: unknown }
 
       if (!error && data) {
@@ -209,9 +211,9 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     }
   }
 
-  async function updateField(peId: string, field: "sets" | "reps" | "rest_seconds", value: number) {
+  async function updateField(peId: string, field: "sets" | "reps" | "rest_seconds" | "duration_seconds", value: number | null) {
     setSaving(peId)
-    await supabase.from("workout_plan_exercises").update({ [field]: value } as unknown as { sets?: number; reps?: number; rest_seconds?: number }).eq("id", peId)
+    await supabase.from("workout_plan_exercises").update({ [field]: value } as unknown as { sets?: number; reps?: number; rest_seconds?: number; duration_seconds?: number | null }).eq("id", peId)
     setDays((prev) => ({
       ...prev,
       [selectedDay]: {
@@ -437,13 +439,26 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                     {readOnly ? (
                       <>
                         <StatBadge label="Series" value={pe.sets} />
-                        <StatBadge label="Reps" value={pe.reps} />
+                        {pe.duration_seconds != null
+                          ? <StatBadge label="Duración" value={`${pe.duration_seconds}s`} />
+                          : <StatBadge label="Reps" value={pe.reps} />}
                         <StatBadge label="Descanso" value={`${pe.rest_seconds}s`} />
                       </>
                     ) : (
                       <>
                         <NumberField label="Series" value={pe.sets} min={1} max={10} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "sets", v)} />
-                        <NumberField label="Reps" value={pe.reps} min={1} max={100} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "reps", v)} />
+                        {pe.duration_seconds != null ? (
+                          <NumberField label="Duración (s)" value={pe.duration_seconds} min={5} max={3600} step={5} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "duration_seconds", v)} />
+                        ) : (
+                          <NumberField label="Reps" value={pe.reps} min={1} max={100} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "reps", v)} />
+                        )}
+                        <button
+                          title={pe.duration_seconds != null ? "Cambiar a reps" : "Cambiar a tiempo"}
+                          onClick={() => updateField(pe.id, "duration_seconds", pe.duration_seconds != null ? null : 30)}
+                          className="self-end mb-0.5 rounded-md px-2 py-1 text-xs font-medium text-zinc-400 border border-zinc-700 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                        >
+                          {pe.duration_seconds != null ? "×" : "⏱"}
+                        </button>
                         <NumberField label="Descanso (s)" value={pe.rest_seconds} min={0} max={300} step={15} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "rest_seconds", v)} />
                       </>
                     )}
@@ -546,18 +561,39 @@ function StatBadge({ label, value }: { label: string; value: number | string }) 
   )
 }
 
-function NumberField({ label, value, min, max, step = 1, saving, onChange }: {
+function NumberField({ label, value, min, max, saving, onChange }: {
   label: string; value: number; min: number; max: number; step?: number
   saving: boolean; onChange: (v: number) => void
 }) {
+  const [local, setLocal] = useState(String(value))
+
+  useEffect(() => { setLocal(String(value)) }, [value])
+
+  function handleBlur() {
+    const parsed = parseInt(local, 10)
+    if (isNaN(parsed)) { setLocal(String(value)); return }
+    const clamped = Math.min(max, Math.max(min, parsed))
+    setLocal(String(clamped))
+    if (clamped !== value) onChange(clamped)
+  }
+
   return (
     <div className="flex flex-col items-center gap-1">
       <span className="text-xs text-zinc-500">{label}</span>
-      <div className="flex items-center gap-1">
-        <button onClick={() => onChange(Math.max(min, value - step))} className="flex h-6 w-6 items-center justify-center rounded bg-zinc-800 text-zinc-400 hover:bg-zinc-700 text-sm font-bold">−</button>
-        <span className={cn("w-8 text-center text-sm font-semibold text-zinc-100", saving && "opacity-50")}>{value}</span>
-        <button onClick={() => onChange(Math.min(max, value + step))} className="flex h-6 w-6 items-center justify-center rounded bg-zinc-800 text-zinc-400 hover:bg-zinc-700 text-sm font-bold">+</button>
-      </div>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        value={local}
+        disabled={saving}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+        className={cn(
+          "w-14 rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1 text-center text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-1 focus:ring-brand-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+          saving && "opacity-50"
+        )}
+      />
     </div>
   )
 }

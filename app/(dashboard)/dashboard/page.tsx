@@ -125,7 +125,7 @@ export default async function DashboardPage() {
 
   if (p?.role === "member") {
     type PlanRow = { id: string; name: string }
-    type DayRow = { workout_plan_exercises: { sets: number; reps: number; order_index: number; exercises: { name: string } }[] }
+    type DayRow = { workout_plan_exercises: { sets: number; reps: number; order_index: number; duration_seconds: number | null; exercises: { name: string } }[] }
     type PlanDayRow = { day_of_week: number; workout_plan_exercises: { id: string }[] }
     type SessionRow = { day_of_week: number }
 
@@ -153,7 +153,7 @@ export default async function DashboardPage() {
       const [{ data: todayDays }, { data: allPlanDays }, { data: weekSessions }, { count: totalSessions }, { data: recentSessions }] = await Promise.all([
         supabase
           .from("workout_plan_days" as never)
-          .select("workout_plan_exercises(sets, reps, order_index, exercises(name))")
+          .select("workout_plan_exercises(sets, reps, order_index, duration_seconds, exercises(name))")
           .eq("plan_id", plan.id)
           .eq("day_of_week", todayDow) as unknown as Promise<{ data: DayRow[] | null }>,
         supabase
@@ -181,7 +181,7 @@ export default async function DashboardPage() {
       const exercises = (todayDays ?? [])
         .flatMap((d) => d.workout_plan_exercises ?? [])
         .sort((a, b) => a.order_index - b.order_index)
-        .map((pe) => ({ name: pe.exercises.name, sets: pe.sets, reps: pe.reps }))
+        .map((pe) => ({ name: pe.exercises.name, sets: pe.sets, reps: pe.reps, duration_seconds: pe.duration_seconds }))
 
       todayWorkout = { planName: plan.name, dayName: DAYS[today.getDay()], exercises }
 

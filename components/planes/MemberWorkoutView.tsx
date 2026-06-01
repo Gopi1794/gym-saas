@@ -41,6 +41,7 @@ type PlanExercise = {
   rest_seconds: number;
   order_index: number;
   notes: string | null;
+  duration_seconds: number | null;
   exercises: Exercise;
 };
 
@@ -137,11 +138,12 @@ function DayDetail({
   const estimatedMin = Math.max(
     1,
     Math.round(
-      exercises.reduce(
-        (acc, pe) =>
-          acc + (pe.sets * pe.reps * 3 + pe.sets * pe.rest_seconds) / 60,
-        0,
-      ),
+      exercises.reduce((acc, pe) => {
+        const workTime = pe.duration_seconds != null
+          ? pe.sets * pe.duration_seconds
+          : pe.sets * pe.reps * 3;
+        return acc + (workTime + pe.sets * pe.rest_seconds) / 60;
+      }, 0),
     ),
   );
   const heroImage =
@@ -280,9 +282,11 @@ function DayDetail({
                 <div className="h-6 w-px bg-white/10" />
                 <div className="flex flex-col items-center">
                   <span className="text-sm font-bold text-zinc-100">
-                    {pe.reps}
+                    {pe.duration_seconds != null ? `${pe.duration_seconds}s` : pe.reps}
                   </span>
-                  <span className="text-[10px] text-zinc-500">reps</span>
+                  <span className="text-[10px] text-zinc-500">
+                    {pe.duration_seconds != null ? "tiempo" : "reps"}
+                  </span>
                 </div>
                 <div className="h-6 w-px bg-white/10" />
                 <div className="flex flex-col items-center">

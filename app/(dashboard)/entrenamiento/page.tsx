@@ -18,7 +18,7 @@ type PlanDay = {
   id: string; day_of_week: number; name: string | null
   workout_plan_exercises: {
     id: string; sets: number; reps: number; rest_seconds: number
-    order_index: number; notes: string | null
+    order_index: number; notes: string | null; duration_seconds: number | null
     exercises: { id: string; name: string; category: string; difficulty: string; image_url: string | null; muscle_groups: string[] }
   }[]
 }
@@ -81,7 +81,7 @@ export default async function EntrenamientoPage({
     const [daysRes, sessionsRes] = await Promise.all([
       supabase
         .from("workout_plan_days" as never)
-        .select(`id, day_of_week, name, workout_plan_exercises(id, sets, reps, rest_seconds, order_index, notes, exercises(id, name, category, difficulty, image_url, muscle_groups))`)
+        .select(`id, day_of_week, name, workout_plan_exercises(id, sets, reps, rest_seconds, order_index, notes, duration_seconds, exercises(id, name, category, difficulty, image_url, muscle_groups))`)
         .eq("plan_id", plan.id)
         .order("day_of_week") as unknown as Promise<{ data: PlanDay[] | null }>,
       supabase

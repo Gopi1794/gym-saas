@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ChevronRight, Dumbbell, Moon } from "lucide-react";
 
-type Exercise = { name: string; sets: number; reps: number };
+type Exercise = { name: string; sets: number; reps: number; duration_seconds?: number | null };
 
 interface Props {
   planName: string;
@@ -105,7 +105,7 @@ export default function TodayWorkoutCard({
                       {ex.name}
                     </span>
                     <span className="shrink-0 font-heading text-xs tracking-wider text-white/50">
-                      {ex.sets}×{ex.reps}
+                      {ex.duration_seconds != null ? `${ex.sets}×${ex.duration_seconds}s` : `${ex.sets}×${ex.reps}`}
                     </span>
                   </div>
                 ))}

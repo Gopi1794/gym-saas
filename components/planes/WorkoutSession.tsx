@@ -30,6 +30,7 @@ type PlanExercise = {
   rest_seconds: number;
   order_index: number;
   notes: string | null;
+  duration_seconds: number | null;
   exercises: Exercise;
 };
 
@@ -120,13 +121,29 @@ export default function WorkoutSession({
   const category = current.exercises.category;
   const isStrengthLike = category === "strength" || category === "hiit";
   const isCardio = category === "cardio";
+  const isDuration = current.duration_seconds != null;
+
+  const [durationLeft, setDurationLeft] = useState<number>(current.duration_seconds ?? 0);
+
+  // Reset duration countdown when exercise/set changes
+  useEffect(() => {
+    setDurationLeft(current.duration_seconds ?? 0);
+  }, [exerciseIdx, currentSet, current.duration_seconds]);
+
+  // Duration countdown timer
+  useEffect(() => {
+    if (phase !== "exercising" || !isDuration) return;
+    if (durationLeft <= 0) return;
+    const t = setInterval(() => setDurationLeft((n) => Math.max(0, n - 1)), 1000);
+    return () => clearInterval(t);
+  }, [phase, isDuration, durationLeft]);
 
   // Cardio elapsed timer — counts up while exercising
   useEffect(() => {
-    if (phase !== "exercising" || !isCardio) return;
+    if (phase !== "exercising" || !isCardio || isDuration) return;
     const t = setInterval(() => setCardioElapsed((n) => n + 1), 1000);
     return () => clearInterval(t);
-  }, [phase, isCardio, exerciseIdx, currentSet]);
+  }, [phase, isCardio, isDuration, exerciseIdx, currentSet]);
 
   // Complete session exactly once when workout is finished
   useEffect(() => {
@@ -179,12 +196,16 @@ export default function WorkoutSession({
       exercise_name: current.exercises.name,
       category: current.exercises.category,
       set_number: currentSet,
-      reps: !isCardio ? current.reps : undefined,
+      reps: !isCardio && !isDuration ? current.reps : undefined,
       weight_kg:
-        isStrengthLike && currentWeight !== ""
+        isStrengthLike && !isDuration && currentWeight !== ""
           ? parseFloat(currentWeight)
           : undefined,
-      duration_seconds: isCardio ? cardioElapsed : undefined,
+      duration_seconds: isDuration
+        ? current.duration_seconds!
+        : isCardio
+          ? cardioElapsed
+          : undefined,
     };
     setCollectedSets((prev) => [...prev, setData]);
     setCurrentWeight("");
@@ -357,8 +378,26 @@ export default function WorkoutSession({
           )}
         </div>
 
-        {/* Reps / cardio timer */}
-        {isCardio ? (
+        {/* Reps / cardio timer / duration countdown */}
+        {isDuration ? (
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-2">
+              <Timer className="h-5 w-5 text-brand-500" />
+              <span className="font-heading text-sm tracking-widest text-zinc-500">
+                Cuenta regresiva
+              </span>
+            </div>
+            <span
+              className={cn(
+                "font-display text-7xl tabular-nums leading-none",
+                durationLeft <= 5 ? "text-brand-500" : "text-zinc-50"
+              )}
+              style={{ textShadow: "0 0 40px rgba(213,0,0,0.4)" }}
+            >
+              {String(Math.floor(durationLeft / 60)).padStart(2, "0")}:{String(durationLeft % 60).padStart(2, "0")}
+            </span>
+          </div>
+        ) : isCardio ? (
           <div className="flex flex-col items-center gap-1">
             <div className="flex items-center gap-2">
               <Timer className="h-5 w-5 text-brand-500" />

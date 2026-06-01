@@ -233,6 +233,7 @@ export interface Database {
           rest_seconds: number
           order_index: number
           notes: string | null
+          duration_seconds: number | null
           created_at: string
         }
         Insert: {
@@ -244,6 +245,7 @@ export interface Database {
           rest_seconds?: number
           order_index?: number
           notes?: string | null
+          duration_seconds?: number | null
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["workout_plan_exercises"]["Insert"]>
