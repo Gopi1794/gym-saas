@@ -234,6 +234,7 @@ export interface Database {
           order_index: number
           notes: string | null
           duration_seconds: number | null
+          reps_max: number | null
           created_at: string
         }
         Insert: {
@@ -242,6 +243,7 @@ export interface Database {
           exercise_id: string
           sets?: number
           reps?: number
+          reps_max?: number | null
           rest_seconds?: number
           order_index?: number
           notes?: string | null

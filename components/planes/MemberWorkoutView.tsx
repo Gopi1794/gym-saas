@@ -37,6 +37,7 @@ type PlanExercise = {
   id: string;
   sets: number;
   reps: number;
+  reps_max: number | null;
   rest_seconds: number;
   order_index: number;
   notes: string | null;
@@ -282,7 +283,11 @@ function DayDetail({
                 <div className="h-6 w-px bg-white/10" />
                 <div className="flex flex-col items-center">
                   <span className="text-sm font-bold text-zinc-100">
-                    {pe.duration_seconds != null ? `${pe.duration_seconds}s` : pe.reps}
+                    {pe.duration_seconds != null
+                      ? `${pe.duration_seconds}s`
+                      : pe.reps_max != null
+                        ? `${pe.reps}–${pe.reps_max}`
+                        : pe.reps}
                   </span>
                   <span className="text-[10px] text-zinc-500">
                     {pe.duration_seconds != null ? "tiempo" : "reps"}

@@ -24,7 +24,7 @@ type Exercise = {
 }
 
 type PlanExercise = {
-  id: string; sets: number; reps: number
+  id: string; sets: number; reps: number; reps_max: number | null
   rest_seconds: number; order_index: number; notes: string | null
   duration_seconds: number | null
   exercises: Exercise
@@ -138,8 +138,8 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
 
       const { data, error } = await supabase
         .from("workout_plan_exercises")
-        .insert({ day_id: dayId, exercise_id: exercise.id, sets: 3, reps: 10, rest_seconds: 60, order_index: order, duration_seconds: exercise.is_timed ? 30 : null })
-        .select("id, sets, reps, rest_seconds, order_index, notes, duration_seconds")
+        .insert({ day_id: dayId, exercise_id: exercise.id, sets: 3, reps: 10, reps_max: null, rest_seconds: 60, order_index: order, duration_seconds: exercise.is_timed ? 30 : null })
+        .select("id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds")
         .single() as unknown as { data: Omit<PlanExercise, "exercises"> | null; error: unknown }
 
       console.error("[addExercise] dayId:", dayId, "error:", error, "data:", data)
@@ -183,6 +183,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
         exercise_id: pe.exercises.id,
         sets: pe.sets,
         reps: pe.reps,
+        reps_max: pe.reps_max,
         rest_seconds: pe.rest_seconds,
         duration_seconds: pe.duration_seconds,
         order_index: startOrder + i,
@@ -191,7 +192,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       const { data, error } = (await supabase
         .from("workout_plan_exercises")
         .insert(inserts)
-        .select("id, sets, reps, rest_seconds, order_index, notes, duration_seconds, exercise_id")
+        .select("id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds, exercise_id")
       ) as unknown as { data: (Omit<PlanExercise, "exercises"> & { exercise_id: string })[] | null; error: unknown }
 
       if (!error && data) {
@@ -212,9 +213,9 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     }
   }
 
-  async function updateField(peId: string, field: "sets" | "reps" | "rest_seconds" | "duration_seconds", value: number | null) {
+  async function updateField(peId: string, field: "sets" | "reps" | "reps_max" | "rest_seconds" | "duration_seconds", value: number | null) {
     setSaving(peId)
-    await supabase.from("workout_plan_exercises").update({ [field]: value } as unknown as { sets?: number; reps?: number; rest_seconds?: number; duration_seconds?: number | null }).eq("id", peId)
+    await supabase.from("workout_plan_exercises").update({ [field]: value } as unknown as { sets?: number; reps?: number; reps_max?: number | null; rest_seconds?: number; duration_seconds?: number | null }).eq("id", peId)
     setDays((prev) => ({
       ...prev,
       [selectedDay]: {
@@ -442,7 +443,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                         <StatBadge label="Series" value={pe.sets} />
                         {pe.duration_seconds != null
                           ? <StatBadge label="Duración" value={`${pe.duration_seconds}s`} />
-                          : <StatBadge label="Reps" value={pe.reps} />}
+                          : <StatBadge label="Reps" value={pe.reps_max != null ? `${pe.reps}-${pe.reps_max}` : pe.reps} />}
                         <StatBadge label="Descanso" value={`${pe.rest_seconds}s`} />
                       </>
                     ) : (
@@ -451,7 +452,37 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                         {pe.duration_seconds != null ? (
                           <NumberField label="Duración (s)" value={pe.duration_seconds} min={5} max={3600} step={5} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "duration_seconds", v)} />
                         ) : (
-                          <NumberField label="Reps" value={pe.reps} min={1} max={100} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "reps", v)} />
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-xs text-zinc-500">{pe.reps_max != null ? "Reps min–max" : "Reps"}</span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number" min={1} max={100}
+                                value={pe.reps}
+                                disabled={saving === pe.id}
+                                onChange={(e) => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) updateField(pe.id, "reps", v) }}
+                                className="w-10 rounded-md border border-zinc-700 bg-zinc-800 px-1 py-1 text-center text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-1 focus:ring-brand-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              {pe.reps_max != null && (
+                                <>
+                                  <span className="text-xs text-zinc-500">–</span>
+                                  <input
+                                    type="number" min={pe.reps + 1} max={100}
+                                    value={pe.reps_max}
+                                    disabled={saving === pe.id}
+                                    onChange={(e) => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) updateField(pe.id, "reps_max", v) }}
+                                    className="w-10 rounded-md border border-zinc-700 bg-zinc-800 px-1 py-1 text-center text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-1 focus:ring-brand-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                                  />
+                                </>
+                              )}
+                              <button
+                                title={pe.reps_max != null ? "Quitar rango" : "Agregar rango"}
+                                onClick={() => updateField(pe.id, "reps_max", pe.reps_max != null ? null : pe.reps + 2)}
+                                className="rounded px-1 py-0.5 text-[10px] text-zinc-500 border border-zinc-700 hover:bg-zinc-800 hover:text-zinc-300 transition-colors"
+                              >
+                                {pe.reps_max != null ? "×" : "+"}
+                              </button>
+                            </div>
+                          </div>
                         )}
                         <button
                           title={pe.duration_seconds != null ? "Cambiar a reps" : "Cambiar a tiempo"}

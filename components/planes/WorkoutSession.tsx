@@ -27,6 +27,7 @@ type PlanExercise = {
   id: string;
   sets: number;
   reps: number;
+  reps_max: number | null;
   rest_seconds: number;
   order_index: number;
   notes: string | null;
@@ -454,7 +455,7 @@ export default function WorkoutSession({
               className="font-display text-8xl tabular-nums text-zinc-50 leading-none"
               style={{ textShadow: "0 0 40px rgba(213,0,0,0.4)" }}
             >
-              {current.reps}
+              {current.reps_max != null ? `${current.reps}–${current.reps_max}` : current.reps}
             </span>
             <span className="font-heading text-2xl text-zinc-500 pb-1">
               reps

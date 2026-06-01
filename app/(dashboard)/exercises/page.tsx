@@ -24,6 +24,7 @@ type PlanDay = {
     id: string
     sets: number
     reps: number
+    reps_max: number | null
     rest_seconds: number
     order_index: number
     notes: string | null
@@ -92,7 +93,7 @@ export default async function ExercisesPage() {
         .select(`
           id, day_of_week, name,
           workout_plan_exercises(
-            id, sets, reps, rest_seconds, order_index, notes, duration_seconds,
+            id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds,
             exercises(id, name, category, image_url, muscle_groups)
           )
         `)
