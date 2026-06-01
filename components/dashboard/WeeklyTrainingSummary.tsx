@@ -45,7 +45,7 @@ function DayDot({ label, status }: { label: string; status: DayStatus }) {
         )}
       >
         {status === "completed" && (
-          <Check className="h-4 w-4 text-white" strokeWidth={3} />
+          <Check className="h-4 w-4 !text-white" strokeWidth={3} />
         )}
         {status === "missed" && (
           <X className="h-4 w-4 text-white" strokeWidth={3} />
