@@ -61,14 +61,7 @@ export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 backdrop-blur-md flex flex-col transition-all hover:border-zinc-300 dark:hover:border-white/20 shadow-sm dark:shadow-none">
       {/* Header */}
-      <div
-        className="relative flex items-center gap-3 p-5 bg-cover bg-center"
-        style={level ? { backgroundImage: `url('${level.image}')` } : undefined}
-      >
-        <div className={cn(
-          "absolute inset-0",
-          level ? "bg-gradient-to-br from-brand-700/0 to-brand-900" : "bg-gradient-to-br from-brand-950 to-brand-800"
-        )} />
+      <div className="relative flex items-center gap-3 p-5 bg-brand-700">
         <div className="relative z-10 flex items-center gap-3 w-full">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/10">
             <Dumbbell className="h-6 w-6 text-white" />
@@ -79,10 +72,7 @@ export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false
                 {level.label}
               </span>
             )}
-            <h3
-              className="text-base font-bold uppercase leading-tight tracking-wide text-white truncate"
-              style={{ textShadow: "0 2px 6px rgba(0,0,0,0.7)" }}
-            >
+            <h3 className="text-base font-bold uppercase leading-tight tracking-wide text-white truncate">
               {plan.name}
             </h3>
           </div>
