@@ -4,6 +4,7 @@ import Sidebar from "@/components/layout/Sidebar"
 import MobileDrawer from "@/components/layout/MobileDrawer"
 import MobileNav from "@/components/layout/MobileNav"
 import MemberChat from "@/components/chat/MemberChat"
+import TrainerChat from "@/components/chat/TrainerChat"
 
 export default async function DashboardLayout({
   children,
@@ -39,6 +40,7 @@ export default async function DashboardLayout({
         </div>
       </div>
       {role === "member" && <MemberChat />}
+      {(role === "admin" || role === "trainer") && <TrainerChat />}
     </div>
   )
 }
