@@ -155,6 +155,7 @@ export default function ProfileView({
   const [gender, setGender] = useState<"male" | "female" | "other" | null>(
     (profile.gender as "male" | "female" | "other" | null) ?? null,
   );
+  const [weightKg, setWeightKg] = useState(String(profile.weight_kg ?? ""));
   const [loading, setLoading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -181,7 +182,7 @@ export default function ProfileView({
     setLoading(true);
     await supabase
       .from("profiles")
-      .update({ full_name: fullName, gender } as never)
+      .update({ full_name: fullName, gender, weight_kg: weightKg !== "" ? parseFloat(weightKg) : null } as never)
       .eq("id", profile.id);
     setLoading(false);
     setEditing(false);
@@ -854,6 +855,20 @@ export default function ProfileView({
               className="w-full"
               placeholder="Tu nombre completo"
             />
+            <div className="flex items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2">
+              <label className="text-xs text-zinc-400 whitespace-nowrap">Peso (kg)</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                min={30}
+                max={300}
+                step={0.5}
+                value={weightKg}
+                onChange={(e) => setWeightKg(e.target.value)}
+                placeholder="—"
+                className="flex-1 bg-transparent text-right text-sm font-semibold text-zinc-100 placeholder-zinc-600 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
             <div className="grid grid-cols-3 gap-2">
               {(["male", "female", "other"] as const).map((g) => (
                 <button
@@ -886,6 +901,7 @@ export default function ProfileView({
         ) : (
           <p className="text-sm text-zinc-400">
             {profile.full_name ?? "Sin nombre"} · {email}
+            {profile.weight_kg && <span className="ml-2 text-zinc-500">· {profile.weight_kg}kg</span>}
           </p>
         )}
       </div>
