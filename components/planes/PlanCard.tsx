@@ -6,23 +6,6 @@ import { cn } from "@/lib/utils"
 
 const DAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"]
 
-const LEVEL_CONFIG: Record<string, { label: string; image: string; badge: string }> = {
-  beginner: {
-    label: "Principiante",
-    image: "/plan-entrenamiento-principiantes.jpg",
-    badge: "bg-emerald-500/80 text-white backdrop-blur-sm",
-  },
-  intermediate: {
-    label: "Intermedio",
-    image: "/entrenamiento para intermedio.avif",
-    badge: "bg-amber-500/80 text-white backdrop-blur-sm",
-  },
-  advanced: {
-    label: "Avanzado",
-    image: "/plan-entrenamiento-principiantes.jpg",
-    badge: "bg-red-600/80 text-white backdrop-blur-sm",
-  },
-}
 
 type PlanDay = {
   id: string
@@ -38,7 +21,6 @@ type Plan = {
   description: string | null
   created_at: string
   assigned_to: string | null
-  level?: string | null
   workout_plan_days: PlanDay[]
 }
 
@@ -56,7 +38,6 @@ export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false
   const total = days.reduce((sum, d) => sum + d.workout_plan_exercises.length, 0)
   const activeDayCount = activeDays.size
   const assignedMember = members.find((m) => m.id === plan.assigned_to)
-  const level = plan.level && LEVEL_CONFIG[plan.level] ? LEVEL_CONFIG[plan.level] : null
 
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 backdrop-blur-md flex flex-col transition-all hover:border-zinc-300 dark:hover:border-white/20 shadow-sm dark:shadow-none">
@@ -67,11 +48,6 @@ export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false
             <Dumbbell className="h-6 w-6 text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            {level && (
-              <span className={cn("mb-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", level.badge)}>
-                {level.label}
-              </span>
-            )}
             <h3 className="text-base font-bold uppercase leading-tight tracking-wide text-white truncate">
               {plan.name}
             </h3>

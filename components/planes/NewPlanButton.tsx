@@ -23,12 +23,6 @@ interface NewPlanButtonProps {
   defaultMode?: "template" | "member"
 }
 
-const LEVELS = [
-  { value: "beginner", label: "Principiante" },
-  { value: "intermediate", label: "Intermedio" },
-  { value: "advanced", label: "Avanzado" },
-]
-
 export default function NewPlanButton({ trainerId, gymId, members = [], defaultMode = "template" }: NewPlanButtonProps) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<"template" | "member">(defaultMode)
@@ -36,7 +30,6 @@ export default function NewPlanButton({ trainerId, gymId, members = [], defaultM
   useEffect(() => { setMode(defaultMode) }, [defaultMode])
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [level, setLevel] = useState<string | null>(null)
   const [assignedTo, setAssignedTo] = useState<string>("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -45,7 +38,6 @@ export default function NewPlanButton({ trainerId, gymId, members = [], defaultM
   function resetForm() {
     setName("")
     setDescription("")
-    setLevel(null)
     setAssignedTo("")
     setMode("template")
   }
@@ -64,7 +56,6 @@ export default function NewPlanButton({ trainerId, gymId, members = [], defaultM
         is_template: mode === "template",
         gym_id: gymId,
         created_by: trainerId,
-        level,
         assigned_to: mode === "member" ? assignedTo : null,
       } as never)
       .select("id")
@@ -148,26 +139,6 @@ export default function NewPlanButton({ trainerId, gymId, members = [], defaultM
               placeholder="ej. Full body avanzado"
               required
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm text-zinc-400">Nivel</label>
-            <div className="flex gap-2">
-              {LEVELS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setLevel(level === opt.value ? null : opt.value)}
-                  className={`flex-1 rounded-lg border py-2 text-xs font-semibold transition-colors ${
-                    level === opt.value
-                      ? "border-brand-700 bg-brand-700/20 text-brand-400"
-                      : "border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div className="space-y-1.5">
