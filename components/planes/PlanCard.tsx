@@ -59,7 +59,7 @@ export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false
   const level = plan.level && LEVEL_CONFIG[plan.level] ? LEVEL_CONFIG[plan.level] : null
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur-md flex flex-col transition-all hover:border-white/20">
+    <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 backdrop-blur-md flex flex-col transition-all hover:border-zinc-300 dark:hover:border-white/20 shadow-sm dark:shadow-none">
       {/* Header */}
       <div
         className="relative flex items-center gap-3 p-5 bg-cover bg-center"
@@ -92,7 +92,7 @@ export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false
       {/* Body */}
       <div className="flex flex-1 flex-col p-5 gap-4">
         {plan.description && (
-          <p className="line-clamp-2 text-sm text-zinc-400">{plan.description}</p>
+          <p className="line-clamp-2 text-sm text-zinc-600 dark:text-zinc-400">{plan.description}</p>
         )}
 
         {/* Day pills */}
@@ -105,8 +105,8 @@ export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-colors",
                   activeDays.has(i)
-                    ? "bg-brand-700/30 text-brand-400 ring-1 ring-brand-700/40"
-                    : "bg-zinc-800 text-zinc-600"
+                    ? "bg-brand-700/20 dark:bg-brand-700/30 text-brand-600 dark:text-brand-400 ring-1 ring-brand-700/40"
+                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
                 )}
               >
                 {label}
@@ -116,7 +116,7 @@ export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-500 dark:text-zinc-500">
             {activeDayCount} día{activeDayCount !== 1 ? "s" : ""} · {total} ejercicio{total !== 1 ? "s" : ""}
           </p>
           {assignedMember && (
@@ -126,7 +126,7 @@ export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false
           )}
         </div>
 
-        <hr className="border-zinc-800" />
+        <hr className="border-zinc-200 dark:border-zinc-800" />
 
         <div className="mt-auto">
           {isTemplate ? (
@@ -139,7 +139,7 @@ export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false
           ) : readOnly ? (
             <Link
               href={`/planes/${plan.id}`}
-              className="block w-full rounded-xl bg-zinc-800 py-3 text-center text-sm font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:bg-zinc-700"
+              className="block w-full rounded-xl bg-zinc-100 dark:bg-zinc-800 py-3 text-center text-sm font-bold uppercase tracking-widest text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
             >
               Ver plan
             </Link>
