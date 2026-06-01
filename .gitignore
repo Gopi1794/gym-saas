@@ -18,6 +18,7 @@ tsconfig.tsbuildinfo
 
 # tooling / local config
 .claude/
+CLAUDE.md
 .agents/
 .playwright-mcp/
 
