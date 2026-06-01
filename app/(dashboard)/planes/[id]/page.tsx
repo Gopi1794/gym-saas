@@ -34,7 +34,7 @@ export default async function PlanPage({ params }: Props) {
         id, day_of_week, name,
         workout_plan_exercises(
           id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds,
-          exercises(id, name, category, difficulty, image_url, muscle_groups, is_timed)
+          exercises(id, name, category, image_url, muscle_groups, is_timed)
         )
       `)
       .eq("plan_id", params.id)
@@ -42,7 +42,7 @@ export default async function PlanPage({ params }: Props) {
     isTrainer
       ? supabase
           .from("exercises")
-          .select("id, name, category, difficulty, muscle_groups, image_url, is_timed")
+          .select("id, name, category, muscle_groups, image_url, is_timed")
           .order("name")
       : Promise.resolve({ data: [] }),
   ])
