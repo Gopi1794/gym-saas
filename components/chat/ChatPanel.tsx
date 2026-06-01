@@ -28,8 +28,13 @@ interface ChatPanelProps {
   welcomeMessage: string
   quickActions: QuickAction[]
   endpoint: string
-  onMessageSent?: (messages: Message[]) => void
-  onResponse?: (text: string, setMessages: React.Dispatch<React.SetStateAction<Message[]>>, assistantId: string) => Promise<void>
+  onResponse?: (
+    text: string,
+    history: { role: "user" | "assistant"; content: string }[],
+    setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
+    assistantId: string,
+    setStreaming: React.Dispatch<React.SetStateAction<boolean>>
+  ) => Promise<void>
   extraInput?: ReactNode
 }
 
@@ -78,7 +83,10 @@ export default function ChatPanel({
         .map(({ role, content }) => ({ role, content }))
 
       if (onResponse) {
-        await onResponse(text, setMessages, assistantId)
+        const history = [...messages, userMsg]
+          .filter((m) => m.id !== "welcome")
+          .map(({ role, content }) => ({ role, content }))
+        await onResponse(text, history, setMessages, assistantId, setStreaming)
         return
       }
 

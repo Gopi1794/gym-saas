@@ -31,24 +31,16 @@ export default function TrainerChat() {
 
   async function handleResponse(
     text: string,
+    history: { role: "user" | "assistant"; content: string }[],
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
-    assistantId: string
+    assistantId: string,
+    setStreaming: React.Dispatch<React.SetStateAction<boolean>>
   ) {
-    const messages = [] as { role: "user" | "assistant"; content: string }[]
-
-    setMessages((prev) => {
-      const history = prev
-        .filter((m) => m.id !== "welcome")
-        .map(({ role, content }) => ({ role, content }))
-      messages.push(...history)
-      return prev
-    })
-
     try {
       const res = await fetch("/api/chat/trainer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...messages, { role: "user", content: text }] }),
+        body: JSON.stringify({ messages: history }),
       })
 
       if (!res.ok) throw new Error()
@@ -79,6 +71,8 @@ export default function TrainerChat() {
           m.id === assistantId ? { ...m, content: "Ocurrió un error. Intentá de nuevo." } : m
         )
       )
+    } finally {
+      setStreaming(false)
     }
   }
 
