@@ -1,11 +1,6 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import fs from "fs"
-import path from "path"
-
-// CSV format: external_id,name,description,category,difficulty,muscle_groups
-// muscle_groups uses | as separator; description may be quoted if it contains commas
 
 const VALID_CATEGORIES = new Set(["strength", "cardio", "flexibility", "balance", "hiit"])
 const VALID_DIFFICULTIES = new Set(["beginner", "intermediate", "advanced"])
@@ -14,6 +9,16 @@ export type ImportResult = {
   total: number
   upserted: number
   errors: { row: number; message: string }[]
+}
+
+type ParsedRow = {
+  external_id: string
+  name: string
+  description: string
+  category: string
+  difficulty: string
+  muscle_groups_raw: string
+  rowNum: number
 }
 
 function parseCSVLine(line: string): string[] {
@@ -43,36 +48,22 @@ function escapeCSVField(value: string): string {
   return value
 }
 
-export async function importExercisesFromCSV(): Promise<ImportResult> {
+export async function importExercisesFromCSV(csvContent: string): Promise<ImportResult> {
   const supabase = createClient()
-  const csvPath = path.join(process.cwd(), "data", "exercises-from-routine.csv")
-
-  if (!fs.existsSync(csvPath)) {
-    return { total: 0, upserted: 0, errors: [{ row: 0, message: "CSV no encontrado en data/exercises-from-routine.csv" }] }
-  }
-
-  const content = fs.readFileSync(csvPath, "utf-8")
-  const lines = content.trim().split("\n").filter(Boolean)
-
-  // Skip header
+  const lines = csvContent.trim().split("\n").filter(Boolean)
   const dataLines = lines.slice(1)
   const errors: ImportResult["errors"] = []
 
-  const rows = dataLines.map((line, idx) => {
+  const rows: ParsedRow[] = dataLines.map((line: string, idx: number) => {
     const cols = parseCSVLine(line)
-    // Support both 6-col (no source_section) and 7-col (with source_section) formats
-    const [external_id, name, description, category, difficulty, muscle_groups_raw] = cols
+    const [external_id = "", name = "", description = "", category = "", difficulty = "", muscle_groups_raw = ""] = cols
     return { external_id, name, description, category, difficulty, muscle_groups_raw, rowNum: idx + 2 }
   })
 
-  const valid = rows.filter(({ external_id, name, category, rowNum }) => {
+  const valid = rows.filter(({ external_id, name, rowNum }: ParsedRow) => {
     if (!external_id || !name) {
       errors.push({ row: rowNum, message: `Fila ${rowNum}: external_id o name vacío` })
       return false
-    }
-    if (!VALID_CATEGORIES.has(category)) {
-      // Map unknown categories to strength instead of failing
-      return true
     }
     return true
   })
@@ -81,13 +72,13 @@ export async function importExercisesFromCSV(): Promise<ImportResult> {
     return { total: dataLines.length, upserted: 0, errors }
   }
 
-  const payload = valid.map(({ external_id, name, description, category, difficulty, muscle_groups_raw }) => ({
+  const payload = valid.map(({ external_id, name, description, category, difficulty, muscle_groups_raw }: ParsedRow) => ({
     external_id,
     name: name.toLowerCase(),
     description: description || null,
     category: VALID_CATEGORIES.has(category) ? category : "strength",
     difficulty: VALID_DIFFICULTIES.has(difficulty) ? difficulty : "beginner",
-    muscle_groups: muscle_groups_raw ? muscle_groups_raw.split("|").map((m) => m.trim()).filter(Boolean) : [],
+    muscle_groups: muscle_groups_raw ? muscle_groups_raw.split("|").map((m: string) => m.trim()).filter(Boolean) : [],
   }))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Upload, Download, CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { importExercisesFromCSV, exportExercisesAsCSV, type ImportResult } from "@/app/actions/import-exercises"
@@ -8,12 +8,26 @@ export default function ImportExercisesPanel() {
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
+  const [fileName, setFileName] = useState<string | null>(null)
+  const [csvContent, setCsvContent] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFileName(file.name)
+    setResult(null)
+    const reader = new FileReader()
+    reader.onload = (ev) => setCsvContent(ev.target?.result as string)
+    reader.readAsText(file, "utf-8")
+  }
 
   async function handleImport() {
+    if (!csvContent) return
     setImporting(true)
     setResult(null)
     try {
-      const res = await importExercisesFromCSV()
+      const res = await importExercisesFromCSV(csvContent)
       setResult(res)
     } finally {
       setImporting(false)
@@ -52,20 +66,49 @@ export default function ImportExercisesPanel() {
         </ul>
       </div>
 
-      <div className="flex gap-3">
-        <Button onClick={handleImport} disabled={importing} className="bg-brand-700 hover:bg-brand-800 text-white">
-          {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-          {importing ? "Importando…" : "Importar CSV"}
-        </Button>
-        <Button onClick={handleExport} disabled={exporting} variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
-          {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-          {exporting ? "Exportando…" : "Exportar CSV"}
-        </Button>
-      </div>
+      <div className="space-y-3">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="w-full rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 px-4 py-6 text-center transition-colors hover:border-zinc-500 hover:bg-zinc-900/60"
+        >
+          {fileName ? (
+            <p className="text-sm text-zinc-300">{fileName}</p>
+          ) : (
+            <>
+              <Upload className="mx-auto mb-2 h-5 w-5 text-zinc-500" />
+              <p className="text-sm text-zinc-500">Hacé click para seleccionar un archivo CSV</p>
+            </>
+          )}
+        </button>
 
-      <p className="text-xs text-zinc-600">
-        El archivo debe estar en <code className="text-zinc-500">data/exercises-from-routine.csv</code> en el servidor.
-      </p>
+        <div className="flex gap-3">
+          <Button
+            onClick={handleImport}
+            disabled={importing || !csvContent}
+            className="bg-brand-700 hover:bg-brand-800 text-white"
+          >
+            {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+            {importing ? "Importando…" : "Importar"}
+          </Button>
+          <Button
+            onClick={handleExport}
+            disabled={exporting}
+            variant="outline"
+            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+          >
+            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            {exporting ? "Exportando…" : "Exportar CSV"}
+          </Button>
+        </div>
+      </div>
 
       {result && (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 space-y-4">
