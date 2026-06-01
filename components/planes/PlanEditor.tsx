@@ -20,6 +20,7 @@ const DAY_FULL  = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábad
 type Exercise = {
   id: string; name: string; category: string
   difficulty: string; image_url: string | null; muscle_groups: string[]
+  is_timed: boolean
 }
 
 type PlanExercise = {
@@ -137,7 +138,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
 
       const { data, error } = await supabase
         .from("workout_plan_exercises")
-        .insert({ day_id: dayId, exercise_id: exercise.id, sets: 3, reps: 10, rest_seconds: 60, order_index: order, duration_seconds: null })
+        .insert({ day_id: dayId, exercise_id: exercise.id, sets: 3, reps: 10, rest_seconds: 60, order_index: order, duration_seconds: exercise.is_timed ? 30 : null })
         .select("id, sets, reps, rest_seconds, order_index, notes, duration_seconds")
         .single() as unknown as { data: Omit<PlanExercise, "exercises"> | null; error: unknown }
 

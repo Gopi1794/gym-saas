@@ -96,6 +96,7 @@ export interface Database {
           difficulty: "beginner" | "intermediate" | "advanced"
           video_url: string | null
           image_url: string | null
+          is_timed: boolean
           created_at: string
         }
         Insert: {
@@ -108,6 +109,7 @@ export interface Database {
           difficulty?: "beginner" | "intermediate" | "advanced"
           video_url?: string | null
           image_url?: string | null
+          is_timed?: boolean
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["exercises"]["Insert"]>
