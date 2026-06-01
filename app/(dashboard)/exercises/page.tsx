@@ -32,7 +32,7 @@ type PlanDay = {
       id: string
       name: string
       category: string
-      difficulty: string
+
       image_url: string | null
       muscle_groups: string[]
     }
@@ -93,7 +93,7 @@ export default async function ExercisesPage() {
           id, day_of_week, name,
           workout_plan_exercises(
             id, sets, reps, rest_seconds, order_index, notes, duration_seconds,
-            exercises(id, name, category, difficulty, image_url, muscle_groups)
+            exercises(id, name, category, image_url, muscle_groups)
           )
         `)
         .eq("plan_id", plan.id)

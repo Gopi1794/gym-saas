@@ -93,7 +93,6 @@ export interface Database {
           description: string | null
           category: "strength" | "cardio" | "flexibility" | "balance" | "hiit"
           muscle_groups: string[]
-          difficulty: "beginner" | "intermediate" | "advanced"
           video_url: string | null
           image_url: string | null
           is_timed: boolean
@@ -106,7 +105,6 @@ export interface Database {
           description?: string | null
           category: "strength" | "cardio" | "flexibility" | "balance" | "hiit"
           muscle_groups?: string[]
-          difficulty?: "beginner" | "intermediate" | "advanced"
           video_url?: string | null
           image_url?: string | null
           is_timed?: boolean

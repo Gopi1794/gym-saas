@@ -29,7 +29,6 @@ type Exercise = {
   id: string;
   name: string;
   category: string;
-  difficulty: string;
   image_url: string | null;
   muscle_groups: string[];
 };

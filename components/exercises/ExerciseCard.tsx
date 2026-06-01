@@ -16,24 +16,12 @@ import { cn } from "@/lib/utils";
 import type { ExerciseWithFavorite } from "@/types";
 import { CATEGORY_ICONS, StrengthIcon } from "./CategoryIcons";
 
-const DIFFICULTY_BG: Record<string, string> = {
-  beginner: "border-emerald-500/30 bg-emerald-500/50 text-[#ffffff]",
-  intermediate: "border-amber-500/30 bg-amber-500/50 text-[#ffffff]",
-  advanced: "border-red-500/30 bg-red-500/50 text-[#ffffff]",
-};
-
 const CATEGORY_FALLBACK_BG: Record<string, string> = {
   strength: "from-amber-950/50 to-zinc-900",
   cardio: "from-blue-950/50 to-zinc-900",
   hiit: "from-red-950/50 to-zinc-900",
   flexibility: "from-teal-950/50 to-zinc-900",
   balance: "from-violet-950/50 to-zinc-900",
-};
-
-const DIFFICULTY_LABEL: Record<string, string> = {
-  beginner: "Principiante",
-  intermediate: "Intermedio",
-  advanced: "Avanzado",
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -210,14 +198,6 @@ export default function ExerciseCard({
 
           {/* All info overlaid on the image */}
           <div className="absolute inset-x-0 bottom-0 px-2.5 pb-2.5">
-            <span
-              className={cn(
-                "rounded-full border px-2 py-0.5 text-[11px] font-medium backdrop-blur-sm",
-                DIFFICULTY_BG[exercise.difficulty],
-              )}
-            >
-              {DIFFICULTY_LABEL[exercise.difficulty] ?? exercise.difficulty}
-            </span>
             <h3 className="mt-1 truncate text-sm font-semibold capitalize leading-tight text-[#ffffff]">
               {exercise.name}
             </h3>
@@ -299,14 +279,6 @@ export default function ExerciseCard({
               >
                 {CATEGORY_LABEL[exercise.category] ?? exercise.category}
               </Badge>
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-                  DIFFICULTY_BG[exercise.difficulty],
-                )}
-              >
-                {DIFFICULTY_LABEL[exercise.difficulty] ?? exercise.difficulty}
-              </span>
             </div>
 
             {/* Muscles */}

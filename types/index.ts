@@ -10,7 +10,6 @@ export type UserAchievement = Database["public"]["Tables"]["user_achievements"][
 export type WorkoutSession = Database["public"]["Tables"]["workout_sessions"]["Row"]
 
 export type ExerciseCategory = Exercise["category"]
-export type ExerciseDifficulty = Exercise["difficulty"]
 export type MemberRole = Profile["role"]
 export type MembershipType = Profile["membership_type"]
 

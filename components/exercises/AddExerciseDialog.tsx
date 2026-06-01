@@ -23,20 +23,12 @@ const CATEGORIES = [
   { value: "balance", label: "Equilibrio" },
 ] as const
 
-const DIFFICULTIES = [
-  { value: "beginner", label: "Principiante" },
-  { value: "intermediate", label: "Intermedio" },
-  { value: "advanced", label: "Avanzado" },
-] as const
-
 type Category = (typeof CATEGORIES)[number]["value"]
-type Difficulty = (typeof DIFFICULTIES)[number]["value"]
 
 export default function AddExerciseDialog() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [category, setCategory] = useState<Category>("strength")
-  const [difficulty, setDifficulty] = useState<Difficulty>("beginner")
   const [muscles, setMuscles] = useState("")
   const [description, setDescription] = useState("")
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -56,7 +48,6 @@ export default function AddExerciseDialog() {
   function reset() {
     setName("")
     setCategory("strength")
-    setDifficulty("beginner")
     setMuscles("")
     setDescription("")
     setImageFile(null)
@@ -83,7 +74,6 @@ export default function AddExerciseDialog() {
         name: name.trim().toLowerCase(),
         description: description.trim() || null,
         category,
-        difficulty,
         muscle_groups: muscleGroups,
         image_url: null,
       })
@@ -161,28 +151,6 @@ export default function AddExerciseDialog() {
                   )}
                 >
                   {c.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Difficulty */}
-          <div className="space-y-1.5">
-            <label className="text-sm text-zinc-400">Dificultad</label>
-            <div className="flex gap-2">
-              {DIFFICULTIES.map((d) => (
-                <button
-                  key={d.value}
-                  type="button"
-                  onClick={() => setDifficulty(d.value)}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-sm font-medium transition-colors",
-                    difficulty === d.value
-                      ? "bg-brand-700 text-white"
-                      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                  )}
-                >
-                  {d.label}
                 </button>
               ))}
             </div>

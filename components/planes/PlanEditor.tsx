@@ -19,7 +19,7 @@ const DAY_FULL  = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábad
 
 type Exercise = {
   id: string; name: string; category: string
-  difficulty: string; image_url: string | null; muscle_groups: string[]
+  image_url: string | null; muscle_groups: string[]
   is_timed: boolean
 }
 

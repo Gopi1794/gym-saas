@@ -3,7 +3,6 @@
 import { createClient } from "@/lib/supabase/server"
 
 const VALID_CATEGORIES = new Set(["strength", "cardio", "flexibility", "balance", "hiit"])
-const VALID_DIFFICULTIES = new Set(["beginner", "intermediate", "advanced"])
 
 export type ImportResult = {
   total: number
@@ -16,7 +15,6 @@ type ParsedRow = {
   name: string
   description: string
   category: string
-  difficulty: string
   muscle_groups_raw: string
   rowNum: number
 }
@@ -56,8 +54,8 @@ export async function importExercisesFromCSV(csvContent: string): Promise<Import
 
   const rows: ParsedRow[] = dataLines.map((line: string, idx: number) => {
     const cols = parseCSVLine(line)
-    const [external_id = "", name = "", description = "", category = "", difficulty = "", muscle_groups_raw = ""] = cols
-    return { external_id, name, description, category, difficulty, muscle_groups_raw, rowNum: idx + 2 }
+    const [external_id = "", name = "", description = "", category = "", , muscle_groups_raw = ""] = cols
+    return { external_id, name, description, category, muscle_groups_raw, rowNum: idx + 2 }
   })
 
   const valid = rows.filter(({ external_id, name, rowNum }: ParsedRow) => {
@@ -72,12 +70,11 @@ export async function importExercisesFromCSV(csvContent: string): Promise<Import
     return { total: dataLines.length, upserted: 0, errors }
   }
 
-  const payload = valid.map(({ external_id, name, description, category, difficulty, muscle_groups_raw }: ParsedRow) => ({
+  const payload = valid.map(({ external_id, name, description, category, muscle_groups_raw }: ParsedRow) => ({
     external_id,
     name: name.toLowerCase(),
     description: description || null,
     category: VALID_CATEGORIES.has(category) ? category : "strength",
-    difficulty: VALID_DIFFICULTIES.has(difficulty) ? difficulty : "beginner",
     muscle_groups: muscle_groups_raw ? muscle_groups_raw.split("|").map((m: string) => m.trim()).filter(Boolean) : [],
   }))
 
@@ -99,12 +96,12 @@ export async function exportExercisesAsCSV(): Promise<string> {
 
   const { data, error } = await supabase
     .from("exercises")
-    .select("external_id, name, description, category, difficulty, muscle_groups")
+    .select("external_id, name, description, category, muscle_groups")
     .order("name")
 
   if (error || !data) return ""
 
-  const header = "external_id,name,description,category,difficulty,muscle_groups"
+  const header = "external_id,name,description,category,muscle_groups"
   const rowLines = data.map((ex) => {
     const extId = (ex as { external_id: string | null }).external_id ?? ""
     const muscles = ((ex as { muscle_groups: string[] }).muscle_groups ?? []).join("|")
@@ -113,7 +110,6 @@ export async function exportExercisesAsCSV(): Promise<string> {
       escapeCSVField((ex as { name: string }).name),
       escapeCSVField((ex as { description: string | null }).description ?? ""),
       escapeCSVField((ex as { category: string }).category),
-      escapeCSVField((ex as { difficulty: string }).difficulty),
       escapeCSVField(muscles),
     ].join(",")
   })
