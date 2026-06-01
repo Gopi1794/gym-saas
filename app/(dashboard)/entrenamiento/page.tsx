@@ -4,6 +4,7 @@ import TabSwitcher from "@/components/ui/TabSwitcher"
 import ExerciseGrid from "@/components/exercises/ExerciseGrid"
 import AddExerciseDialog from "@/components/exercises/AddExerciseDialog"
 import MemberWorkoutView from "@/components/planes/MemberWorkoutView"
+import { getExerciseMaxes } from "@/app/actions/exercise-maxes"
 import TrainerPlanesView from "@/components/planes/TrainerPlanesView"
 import ImportExercisesPanel from "@/components/exercises/ImportExercisesPanel"
 import { Dumbbell } from "lucide-react"
@@ -78,7 +79,7 @@ export default async function EntrenamientoPage({
       )
     }
 
-    const [daysRes, sessionsRes] = await Promise.all([
+    const [daysRes, sessionsRes, exerciseMaxes] = await Promise.all([
       supabase
         .from("workout_plan_days" as never)
         .select(`id, day_of_week, name, workout_plan_exercises(id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds, exercises(id, name, category, image_url, muscle_groups, is_timed))`)
@@ -90,6 +91,7 @@ export default async function EntrenamientoPage({
         .eq("user_id", user!.id)
         .order("completed_at", { ascending: false })
         .limit(10) as unknown as Promise<{ data: { id: string; day_name: string; day_of_week: number; exercises_count: number; completed_at: string }[] | null }>,
+      getExerciseMaxes(user!.id),
     ])
 
     return (
@@ -100,6 +102,7 @@ export default async function EntrenamientoPage({
         recentSessions={sessionsRes.data ?? []}
         gender={profile?.gender ?? null}
         weightKg={profile?.weight_kg ?? null}
+        exerciseMaxes={exerciseMaxes}
       />
     )
   }

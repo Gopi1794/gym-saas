@@ -317,6 +317,24 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["workout_session_sets"]["Insert"]>
         Relationships: []
       }
+      exercise_maxes: {
+        Row: {
+          id: string
+          user_id: string
+          exercise_id: string
+          weight_kg: number
+          recorded_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          exercise_id: string
+          weight_kg: number
+          recorded_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["exercise_maxes"]["Insert"]>
+        Relationships: []
+      }
       achievements: {
         Row: {
           id: string

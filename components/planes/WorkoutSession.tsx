@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { completeWorkoutSession } from "@/app/actions/workout-sessions";
+import { upsertExerciseMax } from "@/app/actions/exercise-maxes";
 import type { CompleteSessionResult, SessionSet } from "@/lib/achievements/types";
 import WorkoutResults from "@/components/planes/WorkoutResults";
 import RestTimerKnob from "@/components/ui/rest-timer-knob";
@@ -44,7 +45,17 @@ interface Props {
   userId: string;
   planId: string;
   userWeightKg?: number | null;
+  exerciseMaxes?: Record<string, number>;
   onClose: () => void;
+}
+
+function parseRmPercent(notes: string | null): { min: number; max: number } | null {
+  if (!notes) return null;
+  const m = notes.match(/(\d+)(?:[–\-](\d+))?%\s*1\s*RM/i);
+  if (!m) return null;
+  const min = parseInt(m[1], 10);
+  const max = m[2] ? parseInt(m[2], 10) : min;
+  return { min, max };
 }
 
 function calcCalories(
@@ -117,6 +128,7 @@ export default function WorkoutSession({
   dayOfWeek,
   planId,
   userWeightKg,
+  exerciseMaxes = {},
   onClose,
 }: Props) {
   const [exerciseIdx, setExerciseIdx] = useState(0);
@@ -510,23 +522,48 @@ export default function WorkoutSession({
         )}
 
         {/* Weight input — strength / hiit only */}
-        {isStrengthLike && (
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 backdrop-blur-md">
-            <label className="text-xs text-zinc-500 whitespace-nowrap">
-              Peso (kg)
-            </label>
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step={0.5}
-              placeholder="—"
-              value={currentWeight}
-              onChange={(e) => setCurrentWeight(e.target.value)}
-              className="w-20 bg-transparent text-right font-display text-xl text-zinc-50 placeholder-zinc-700 outline-none"
-            />
-          </div>
-        )}
+        {isStrengthLike && !isDuration && (() => {
+          const currentMax = exerciseMaxes[current.exercises.id];
+          const rmPercent = parseRmPercent(current.notes);
+          const suggestedWeight = rmPercent && currentMax
+            ? Math.round(currentMax * rmPercent.min / 100 * 2) / 2
+            : null;
+          const enteredWeight = currentWeight !== "" ? parseFloat(currentWeight) : null;
+          const isNewMax = enteredWeight != null && currentMax != null && enteredWeight > currentMax;
+
+          return (
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 backdrop-blur-md">
+                <div className="flex flex-col">
+                  <label className="text-xs text-zinc-500 whitespace-nowrap">Peso (kg)</label>
+                  {currentMax != null && (
+                    <span className="text-[10px] text-zinc-600">1RM: {currentMax}kg</span>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step={0.5}
+                  placeholder={suggestedWeight ? `~${suggestedWeight}` : "—"}
+                  value={currentWeight}
+                  onChange={(e) => setCurrentWeight(e.target.value)}
+                  className="w-20 bg-transparent text-right font-display text-xl text-zinc-50 placeholder-zinc-600 outline-none"
+                />
+              </div>
+              {isNewMax && (
+                <button
+                  onClick={async () => {
+                    await upsertExerciseMax(current.exercises.id, enteredWeight!);
+                  }}
+                  className="text-xs font-semibold text-brand-500 border border-brand-700/40 rounded-full px-3 py-1 hover:bg-brand-700/10 transition-colors"
+                >
+                  ¡Nuevo máximo! Guardar {enteredWeight}kg
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Set dots */}
         <div className="flex items-center gap-2.5">

@@ -73,6 +73,7 @@ interface Props {
   recentSessions: WorkoutSessionRecord[];
   gender?: string | null;
   weightKg?: number | null;
+  exerciseMaxes?: Record<string, number>;
 }
 
 const MUSCLE_COLORS = [
@@ -330,6 +331,7 @@ export default function MemberWorkoutView({
   recentSessions,
   gender,
   weightKg,
+  exerciseMaxes,
 }: Props) {
   const router = useRouter();
   const [selectedDow, setSelectedDow] = useState<number | null>(null);
@@ -352,6 +354,7 @@ export default function MemberWorkoutView({
         userId={userId}
         planId={plan.id}
         userWeightKg={weightKg}
+        exerciseMaxes={exerciseMaxes}
         onClose={() => {
           setActiveWorkout(null);
           setSelectedDow(null);
