@@ -50,9 +50,9 @@ type PlanExercise = {
 
 const PHASE_ORDER: Record<string, number> = { warmup: 0, main: 1, cooldown: 2 };
 const PHASE_LABEL: Record<string, string> = {
-  warmup: "🔥 Precalentamiento",
-  main: "💪 Principal",
-  cooldown: "🧘 Estiramiento",
+  warmup: "Precalentamiento",
+  main: "Principal",
+  cooldown: "Estiramiento",
 };
 
 type Phase = "exercising" | "resting" | "finished";

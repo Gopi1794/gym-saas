@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, type ElementType } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X, Flame, Dumbbell, Wind } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -43,10 +43,12 @@ type PlanExercise = {
   exercises: Exercise
 }
 
-const PHASES: { key: Phase; label: string; emoji: string }[] = [
-  { key: "warmup",   label: "Precalentamiento", emoji: "🔥" },
-  { key: "main",     label: "Principal",         emoji: "💪" },
-  { key: "cooldown", label: "Estiramiento",       emoji: "🧘" },
+type PhaseConfig = { key: Phase; label: string; Icon: ElementType; color: string }
+
+const PHASES: PhaseConfig[] = [
+  { key: "warmup",   label: "Precalentamiento", Icon: Flame,    color: "text-orange-400" },
+  { key: "main",     label: "Principal",         Icon: Dumbbell, color: "text-brand-500"  },
+  { key: "cooldown", label: "Estiramiento",       Icon: Wind,     color: "text-sky-400"    },
 ]
 
 type DayData = {
@@ -508,19 +510,21 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
           </div>
         ) : (
           <div>
-            {PHASES.map(({ key: phaseKey, label, emoji }) => {
+            {PHASES.map(({ key: phaseKey, label, Icon, color }) => {
               const phaseExs = currentDay.exercises.filter((pe) => (pe.phase ?? "main") === phaseKey)
               if (phaseExs.length === 0 && readOnly) return null
               return (
                 <div key={phaseKey} className="border-t border-white/5 first:border-t-0">
                   <div className="flex items-center justify-between px-4 pt-3 pb-1">
-                    <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">
-                      {emoji} {label}{phaseExs.length > 0 ? ` · ${phaseExs.length}` : ""}
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-zinc-400">
+                      <Icon className={cn("h-3.5 w-3.5", color)} />
+                      {label}{phaseExs.length > 0 ? ` · ${phaseExs.length}` : ""}
                     </span>
                     {!readOnly && (
                       <button
                         onClick={() => { setPickerPhase(phaseKey); setPickerOpen(true) }}
-                        className="flex items-center gap-1 text-xs text-zinc-600 hover:text-brand-400 transition-colors"
+                        className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 transition-all cursor-pointer"
+                        aria-label={`Agregar ejercicio a ${label}`}
                       >
                         <Plus className="h-3 w-3" />
                         Agregar
