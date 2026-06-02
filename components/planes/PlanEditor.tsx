@@ -51,6 +51,12 @@ const PHASES: PhaseConfig[] = [
   { key: "cooldown", label: "Estiramiento",       Icon: Wind,     color: "text-sky-400"    },
 ]
 
+const PHASE_CARD: Record<Phase, string> = {
+  warmup:   "bg-yellow-950/40 border-yellow-900/20",
+  main:     "bg-red-950/40   border-red-900/20",
+  cooldown: "bg-blue-950/40  border-blue-900/20",
+}
+
 type DayData = {
   id: string | null   // null = day not yet created in DB
   exercises: PlanExercise[]
@@ -534,85 +540,100 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                     <p className="px-4 pb-3 text-xs text-zinc-500">Sin ejercicios</p>
                   )}
                   {phaseExs.map((pe, index) => (
-              <div key={pe.id} className="mx-3 mb-2 flex flex-col rounded-xl border border-white/5 bg-zinc-900/60">
-                <div className="flex gap-3 px-3 pt-3">
-                <div className="flex shrink-0 flex-col items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-700/20 text-xs font-bold text-brand-500">
-                    {index + 1}
-                  </span>
-                  {pe.exercises.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={pe.exercises.image_url} alt={pe.exercises.name} className="h-14 w-14 rounded-lg object-cover" />
-                  ) : (
-                    <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-zinc-800">
-                      {(() => { const Icon = CATEGORY_ICONS[pe.exercises.category] ?? StrengthIcon; return <Icon size={28} /> })()}
-                    </div>
+              <div key={pe.id} className={cn("mx-3 mb-2 rounded-xl border overflow-hidden", PHASE_CARD[phaseKey])}>
+
+                {/* Card header: image + name + trash */}
+                <div className="flex items-center gap-3 px-3 pt-3 pb-2">
+                  <div className="relative shrink-0">
+                    {pe.exercises.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={pe.exercises.image_url} alt={pe.exercises.name} className="h-12 w-12 rounded-lg object-cover" />
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-zinc-800/80">
+                        {(() => { const Icon = CATEGORY_ICONS[pe.exercises.category] ?? StrengthIcon; return <Icon size={24} /> })()}
+                      </div>
+                    )}
+                    <span className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-700 text-[10px] font-bold text-white">
+                      {index + 1}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate font-semibold capitalize text-zinc-100 leading-tight">{pe.exercises.name}</p>
+                    <p className="text-xs capitalize text-zinc-500">{pe.exercises.category}</p>
+                  </div>
+                  {!readOnly && (
+                    <button
+                      onClick={() => removeExercise(pe.id)}
+                      className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-800/60 hover:text-red-400 transition-all"
+                      aria-label="Eliminar ejercicio"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   )}
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <p className="truncate font-semibold capitalize text-zinc-100 leading-tight">{pe.exercises.name}</p>
-                  <p className="text-xs capitalize text-zinc-500 mb-2">{pe.exercises.category}</p>
-                  <div className="space-y-1.5">
-                    {readOnly ? (
-                      <div className="space-y-1">
-                        {pe.set_configs.length > 0
-                          ? pe.set_configs.map((s) => (
-                              <p key={s.id} className="text-xs text-zinc-400">
-                                Serie {s.set_number}: {s.duration_seconds != null ? `${s.duration_seconds}s` : `${s.reps}${s.reps_max ? `–${s.reps_max}` : ""} reps`}{s.percent_1rm ? ` · @${s.percent_1rm}%` : ""}
-                              </p>
-                            ))
-                          : <StatBadge label="Reps" value={pe.reps} />
-                        }
-                        <p className="text-xs text-zinc-500 pt-1">Descanso: {pe.rest_seconds}s</p>
-                      </div>
-                    ) : (
-                      <>
-                        {pe.set_configs.map((s) => (
-                          <SetConfigRow
-                            key={s.id}
-                            config={s}
-                            saving={saving === pe.id}
-                            onChange={(field, value) => updateSetConfig(pe.id, s.id, field, value)}
-                            onRemove={() => removeSetConfig(pe.id, s.id)}
-                          />
-                        ))}
-                        <button
-                          onClick={() => addSetConfig(pe.id)}
-                          className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-brand-400 transition-all cursor-pointer min-h-[36px]"
-                        >
-                          <Plus className="h-3 w-3" />
-                          Agregar serie
-                        </button>
-                        <div className="flex items-center gap-2 pt-1 pb-1 border-t border-white/5 mt-1">
-                          <span className="text-xs text-zinc-500 shrink-0">Descanso</span>
-                          <InlineNum value={pe.rest_seconds} min={0} max={300} saving={saving === pe.id} suffix="s" onChange={(v) => updateField(pe.id, "rest_seconds", v ?? 60)} />
-                        </div>
-                      </>
-                    )}
+                {/* Series section */}
+                {readOnly ? (
+                  <div className="px-3 pb-3 space-y-1 border-t border-white/5 pt-2">
+                    {pe.set_configs.length > 0
+                      ? pe.set_configs.map((s) => (
+                          <p key={s.id} className="text-xs text-zinc-400">
+                            Serie {s.set_number}: {s.duration_seconds != null ? `${s.duration_seconds}s` : `${s.reps}${s.reps_max ? `–${s.reps_max}` : ""} reps`}{s.percent_1rm ? ` · @${s.percent_1rm}%` : ""}
+                          </p>
+                        ))
+                      : <StatBadge label="Reps" value={pe.reps} />
+                    }
+                    <p className="text-xs text-zinc-500 pt-1">Descanso: {pe.rest_seconds}s</p>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {/* Table header */}
+                    <div className="grid grid-cols-[28px_1fr_80px_36px] items-center gap-x-2 px-3 py-1.5 border-t border-white/5">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 text-center">#</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">
+                        {pe.exercises.is_timed ? "Tiempo" : "Reps"}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">1RM (%)</span>
+                      <span />
+                    </div>
 
-                {!readOnly && (
-                  <button
-                    onClick={() => removeExercise(pe.id)}
-                    className="shrink-0 self-start rounded-lg p-2 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-red-400 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                    aria-label="Eliminar ejercicio"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                    {/* Series rows */}
+                    {pe.set_configs.map((s) => (
+                      <SetConfigRow
+                        key={s.id}
+                        config={s}
+                        saving={saving === pe.id}
+                        onChange={(field, value) => updateSetConfig(pe.id, s.id, field, value)}
+                        onRemove={() => removeSetConfig(pe.id, s.id)}
+                      />
+                    ))}
+
+                    {/* Add serie button */}
+                    <div className="px-3 py-2">
+                      <button
+                        onClick={() => addSetConfig(pe.id)}
+                        className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-700/60 py-2 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-all cursor-pointer"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Añadir Serie
+                      </button>
+                    </div>
+
+                    {/* Footer: Descanso + Notes */}
+                    <div className="border-t border-white/5 px-3 py-2 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-500 shrink-0">Descanso:</span>
+                        <InlineNum value={pe.rest_seconds} min={0} max={300} saving={saving === pe.id} suffix="s" onChange={(v) => updateField(pe.id, "rest_seconds", v ?? 60)} />
+                      </div>
+                      <NotesField
+                        value={pe.notes ?? ""}
+                        saving={saving === pe.id}
+                        onSave={(v: string) => updateNotes(pe.id, v)}
+                      />
+                    </div>
+                  </>
                 )}
               </div>
-              {!readOnly && (
-                <div className="px-3 pb-3">
-                  <NotesField
-                    value={pe.notes ?? ""}
-                    saving={saving === pe.id}
-                    onSave={(v: string) => updateNotes(pe.id, v)}
-                  />
-                </div>
-              )}
-            </div>
           ))}
                 </div>
               )
@@ -810,23 +831,27 @@ function SetConfigRow({ config, saving, onChange, onRemove }: {
   const isTimed = config.duration_seconds != null
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="w-14 shrink-0 text-xs text-zinc-500">Serie {config.set_number}</span>
+    <div className="grid grid-cols-[28px_1fr_80px_36px] items-center gap-x-2 px-3 py-1.5">
+      <span className="text-center text-sm font-semibold text-zinc-400">{config.set_number}</span>
+
+      {/* Tiempo o Reps */}
       {isTimed ? (
         <InlineNum value={config.duration_seconds} min={1} max={300} saving={saving} suffix="s" onChange={(v) => onChange("duration_seconds", v)} />
       ) : (
-        <>
+        <div className="flex items-center gap-1">
           <InlineNum value={config.reps} min={1} max={99} saving={saving} onChange={(v) => onChange("reps", v)} />
           <span className="text-xs text-zinc-600">–</span>
           <InlineNum value={config.reps_max} min={1} max={99} saving={saving} placeholder="—" onChange={(v) => onChange("reps_max", v)} />
-          <span className="text-xs text-zinc-600">reps</span>
-        </>
+        </div>
       )}
-      <span className="text-xs text-zinc-600 ml-1">1RM</span>
+
+      {/* 1RM % */}
       <InlineNum value={config.percent_1rm} min={1} max={100} saving={saving} suffix="%" placeholder="—" onChange={(v) => onChange("percent_1rm", v)} />
+
+      {/* Eliminar */}
       <button
         onClick={onRemove}
-        className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-800 hover:text-red-400 transition-all"
+        className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-800 hover:text-red-400 transition-all"
         aria-label="Eliminar serie"
       >
         <X className="h-3.5 w-3.5" />
