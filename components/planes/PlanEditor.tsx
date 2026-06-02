@@ -584,8 +584,9 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                           <Plus className="h-3 w-3" />
                           Agregar serie
                         </button>
-                        <div className="pt-1 pb-1">
-                          <NumberField label="Descanso (s)" value={pe.rest_seconds} min={0} max={300} step={15} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "rest_seconds", v)} />
+                        <div className="flex items-center gap-2 pt-1 pb-1 border-t border-white/5 mt-1">
+                          <span className="text-xs text-zinc-500 shrink-0">Descanso</span>
+                          <InlineNum value={pe.rest_seconds} min={0} max={300} saving={saving === pe.id} suffix="s" onChange={(v) => updateField(pe.id, "rest_seconds", v ?? 60)} />
                         </div>
                       </>
                     )}
@@ -821,14 +822,14 @@ function SetConfigRow({ config, saving, onChange, onRemove }: {
           <span className="text-xs text-zinc-600">reps</span>
         </>
       )}
-      <span className="text-xs text-zinc-600 ml-1">@</span>
+      <span className="text-xs text-zinc-600 ml-1">1RM</span>
       <InlineNum value={config.percent_1rm} min={1} max={100} saving={saving} suffix="%" placeholder="—" onChange={(v) => onChange("percent_1rm", v)} />
       <button
         onClick={onRemove}
-        className="ml-auto text-zinc-600 hover:text-red-400 transition-colors"
+        className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-800 hover:text-red-400 transition-all"
         aria-label="Eliminar serie"
       >
-        <X className="h-3 w-3" />
+        <X className="h-3.5 w-3.5" />
       </button>
     </div>
   )
