@@ -831,30 +831,39 @@ function SetConfigRow({ config, saving, onChange, onRemove }: {
   const isTimed = config.duration_seconds != null
 
   return (
-    <div className="grid grid-cols-[28px_1fr_80px_36px] items-center gap-x-2 px-3 py-1.5">
-      <span className="text-center text-sm font-semibold text-zinc-400">{config.set_number}</span>
+    <div className="grid grid-cols-[40px_1fr_120px_48px] items-center gap-x-2 px-3 py-2.5">
+      {/* # */}
+      <span className="text-center text-base font-semibold text-zinc-300">{config.set_number}</span>
 
       {/* Tiempo o Reps */}
-      {isTimed ? (
-        <InlineNum value={config.duration_seconds} min={1} max={300} saving={saving} suffix="s" onChange={(v) => onChange("duration_seconds", v)} />
-      ) : (
-        <div className="flex items-center gap-1">
-          <InlineNum value={config.reps} min={1} max={99} saving={saving} onChange={(v) => onChange("reps", v)} />
-          <span className="text-xs text-zinc-600">–</span>
-          <InlineNum value={config.reps_max} min={1} max={99} saving={saving} placeholder="—" onChange={(v) => onChange("reps_max", v)} />
-        </div>
-      )}
+      <div className="flex items-center gap-1.5">
+        {isTimed ? (
+          <>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-sm text-zinc-500 select-none">—</span>
+            <InlineNum value={config.duration_seconds} min={1} max={300} saving={saving} suffix="s" onChange={(v) => onChange("duration_seconds", v)} />
+          </>
+        ) : (
+          <>
+            <InlineNum value={config.reps} min={1} max={99} saving={saving} onChange={(v) => onChange("reps", v)} />
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-sm text-zinc-500 select-none">—</span>
+            <InlineNum value={config.reps_max} min={1} max={99} saving={saving} placeholder="—" onChange={(v) => onChange("reps_max", v)} />
+          </>
+        )}
+      </div>
 
       {/* 1RM % */}
-      <InlineNum value={config.percent_1rm} min={1} max={100} saving={saving} suffix="%" placeholder="—" onChange={(v) => onChange("percent_1rm", v)} />
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-zinc-500 shrink-0">1RM</span>
+        <InlineNum value={config.percent_1rm} min={1} max={100} saving={saving} suffix="%" placeholder="—" onChange={(v) => onChange("percent_1rm", v)} />
+      </div>
 
       {/* Eliminar */}
       <button
         onClick={onRemove}
-        className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-800 hover:text-red-400 transition-all"
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-red-400 transition-all"
         aria-label="Eliminar serie"
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="h-4 w-4" />
       </button>
     </div>
   )
