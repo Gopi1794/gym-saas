@@ -155,7 +155,8 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     const phase = pickerPhase
     try {
       const dayId = await ensureDayExists(selectedDay)
-      const order = days[selectedDay].exercises.length
+      const exs = days[selectedDay].exercises
+      const order = exs.length > 0 ? Math.max(...exs.map((e) => e.order_index)) + 1 : 0
 
       const { data, error } = await supabase
         .from("workout_plan_exercises")
@@ -208,7 +209,8 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       const sourceExercises = days[fromDow].exercises
       if (sourceExercises.length === 0) return
       const targetDayId = await ensureDayExists(selectedDay)
-      const startOrder = days[selectedDay].exercises.length
+      const targetExs = days[selectedDay].exercises
+      const startOrder = targetExs.length > 0 ? Math.max(...targetExs.map((e) => e.order_index)) + 1 : 0
 
       const inserts = sourceExercises.map((pe, i) => ({
         day_id: targetDayId,
