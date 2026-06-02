@@ -185,9 +185,12 @@ export default function ChatPanel({
                               : "rounded-bl-sm bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
                           )}>
                             {m.content || (
-                              <span className="flex items-center gap-1.5 text-zinc-400 dark:text-zinc-500">
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                                Procesando…
+                              <span className="flex flex-col gap-1 text-zinc-400 dark:text-zinc-500">
+                                <span className="flex items-center gap-1.5">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Procesando…
+                                </span>
+                                <span className="text-[11px] text-zinc-500">Esto puede tardar hasta 30 segundos</span>
                               </span>
                             )}
                           </div>

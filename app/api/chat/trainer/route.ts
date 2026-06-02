@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server"
+
+export const maxDuration = 60
 import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@/lib/supabase/server"
 import { generatePlan } from "@/app/actions/generate-plan"
@@ -145,29 +147,10 @@ export async function POST(req: NextRequest) {
       return Response.json({ reply: `No pude crear el plan: ${result.error}` })
     }
 
-    // Ask Claude to generate a confirmation message
-    const confirmResponse = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 256,
-      system: SYSTEM_PROMPT,
-      tools,
-      messages: [
-        ...body.messages,
-        { role: "assistant", content: response.content },
-        {
-          role: "user",
-          content: [{
-            type: "tool_result",
-            tool_use_id: toolUse.id,
-            content: `Plan creado exitosamente con ID: ${result.planId}`,
-          }],
-        },
-      ],
+    return Response.json({
+      reply: `Listo. El plan fue creado correctamente. Podés revisarlo y ajustarlo desde el editor.`,
+      planId: result.planId,
     })
-
-    const replyText = confirmResponse.content.find((b) => b.type === "text")?.text ?? "Plan creado."
-
-    return Response.json({ reply: replyText, planId: result.planId })
   }
 
   const replyText = response.content.find((b) => b.type === "text")?.text ?? ""
