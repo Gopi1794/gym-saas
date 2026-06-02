@@ -24,6 +24,16 @@ type Exercise = {
   muscle_groups: string[];
 };
 
+type SetConfig = {
+  id: string;
+  set_number: number;
+  reps: number | null;
+  reps_max: number | null;
+  percent_1rm: number | null;
+  duration_seconds: number | null;
+  notes: string | null;
+};
+
 type PlanExercise = {
   id: string;
   sets: number;
@@ -33,6 +43,7 @@ type PlanExercise = {
   order_index: number;
   notes: string | null;
   duration_seconds: number | null;
+  set_configs: SetConfig[];
   exercises: Exercise;
 };
 
@@ -157,14 +168,19 @@ export default function WorkoutSession({
   const category = current.exercises.category;
   const isStrengthLike = category === "strength" || category === "hiit";
   const isCardio = category === "cardio";
-  const isDuration = current.duration_seconds != null;
 
-  const [durationLeft, setDurationLeft] = useState<number>(current.duration_seconds ?? 0);
+  const currentSetConfig = current.set_configs?.[currentSet - 1] ?? null;
+  const currentReps = currentSetConfig?.reps ?? current.reps;
+  const currentRepsMax = currentSetConfig?.reps_max ?? current.reps_max;
+  const currentDuration = currentSetConfig?.duration_seconds ?? current.duration_seconds;
+  const isDuration = currentDuration != null;
+
+  const [durationLeft, setDurationLeft] = useState<number>(currentDuration ?? 0);
 
   // Reset duration countdown when exercise/set changes
   useEffect(() => {
-    setDurationLeft(current.duration_seconds ?? 0);
-  }, [exerciseIdx, currentSet, current.duration_seconds]);
+    setDurationLeft(currentDuration ?? 0);
+  }, [exerciseIdx, currentSet, currentDuration]);
 
   // Duration countdown timer
   useEffect(() => {
@@ -241,7 +257,7 @@ export default function WorkoutSession({
       exercise_name: current.exercises.name,
       category: current.exercises.category,
       set_number: currentSet,
-      reps: !isCardio && !isDuration ? current.reps : undefined,
+      reps: !isCardio && !isDuration ? currentReps : undefined,
       weight_kg:
         isStrengthLike && !isDuration && currentWeight !== ""
           ? parseFloat(currentWeight)
@@ -467,7 +483,7 @@ export default function WorkoutSession({
               className="font-display text-8xl tabular-nums text-zinc-50 leading-none"
               style={{ textShadow: "0 0 40px rgba(213,0,0,0.4)" }}
             >
-              {current.reps_max != null ? `${current.reps}–${current.reps_max}` : current.reps}
+              {currentRepsMax != null ? `${currentReps}–${currentRepsMax}` : currentReps}
             </span>
             <span className="font-heading text-2xl text-zinc-500 pb-1">
               reps
@@ -524,7 +540,8 @@ export default function WorkoutSession({
         {/* Weight input — strength / hiit only */}
         {isStrengthLike && !isDuration && (() => {
           const currentMax = exerciseMaxes[current.exercises.id];
-          const rmPercent = parseRmPercent(current.notes);
+          const rmPct = currentSetConfig?.percent_1rm ?? null;
+          const rmPercent = rmPct != null ? { min: rmPct, max: rmPct } : parseRmPercent(current.notes);
           const suggestedWeight = rmPercent && currentMax
             ? Math.round(currentMax * rmPercent.min / 100 * 2) / 2
             : null;

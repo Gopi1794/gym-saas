@@ -33,6 +33,16 @@ type Exercise = {
   muscle_groups: string[];
 };
 
+type SetConfig = {
+  id: string;
+  set_number: number;
+  reps: number | null;
+  reps_max: number | null;
+  percent_1rm: number | null;
+  duration_seconds: number | null;
+  notes: string | null;
+};
+
 type PlanExercise = {
   id: string;
   sets: number;
@@ -42,6 +52,7 @@ type PlanExercise = {
   order_index: number;
   notes: string | null;
   duration_seconds: number | null;
+  set_configs: SetConfig[];
   exercises: Exercise;
 };
 

@@ -29,14 +29,8 @@ type PlanDay = {
     order_index: number
     notes: string | null
     duration_seconds: number | null
-    exercises: {
-      id: string
-      name: string
-      category: string
-
-      image_url: string | null
-      muscle_groups: string[]
-    }
+    exercises: { id: string; name: string; category: string; image_url: string | null; muscle_groups: string[] }
+    set_configs: { id: string; set_number: number; reps: number | null; reps_max: number | null; percent_1rm: number | null; duration_seconds: number | null; notes: string | null }[]
   }[]
 }
 
@@ -94,7 +88,8 @@ export default async function ExercisesPage() {
           id, day_of_week, name,
           workout_plan_exercises(
             id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds,
-            exercises(id, name, category, image_url, muscle_groups)
+            exercises(id, name, category, image_url, muscle_groups),
+            set_configs:workout_plan_set_configs(id, set_number, reps, reps_max, percent_1rm, duration_seconds, notes)
           )
         `)
         .eq("plan_id", plan.id)
