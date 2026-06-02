@@ -52,6 +52,7 @@ type PlanExercise = {
   order_index: number;
   notes: string | null;
   duration_seconds: number | null;
+  phase: "warmup" | "main" | "cooldown";
   set_configs: SetConfig[];
   exercises: Exercise;
 };

@@ -43,8 +43,16 @@ type PlanExercise = {
   order_index: number;
   notes: string | null;
   duration_seconds: number | null;
+  phase: "warmup" | "main" | "cooldown";
   set_configs: SetConfig[];
   exercises: Exercise;
+};
+
+const PHASE_ORDER: Record<string, number> = { warmup: 0, main: 1, cooldown: 2 };
+const PHASE_LABEL: Record<string, string> = {
+  warmup: "🔥 Precalentamiento",
+  main: "💪 Principal",
+  cooldown: "🧘 Estiramiento",
 };
 
 type Phase = "exercising" | "resting" | "finished";
@@ -142,6 +150,12 @@ export default function WorkoutSession({
   exerciseMaxes = {},
   onClose,
 }: Props) {
+  const sortedExercises = [...exercises].sort((a, b) => {
+    const ao = PHASE_ORDER[a.phase ?? "main"] ?? 1;
+    const bo = PHASE_ORDER[b.phase ?? "main"] ?? 1;
+    return ao !== bo ? ao - bo : a.order_index - b.order_index;
+  });
+
   const [exerciseIdx, setExerciseIdx] = useState(0);
   const [currentSet, setCurrentSet] = useState(1);
   const [phase, setPhase] = useState<Phase>("exercising");
@@ -162,10 +176,10 @@ export default function WorkoutSession({
 
   const savedRef = useRef(false);
 
-  const current = exercises[exerciseIdx];
+  const current = sortedExercises[exerciseIdx];
   const effectiveSets = current.set_configs?.length > 0 ? current.set_configs.length : current.sets;
   const isLastSet = currentSet === effectiveSets;
-  const isLastExercise = exerciseIdx === exercises.length - 1;
+  const isLastExercise = exerciseIdx === sortedExercises.length - 1;
   const category = current.exercises.category;
   const isStrengthLike = category === "strength" || category === "hiit";
   const isCardio = category === "cardio";
@@ -209,7 +223,7 @@ export default function WorkoutSession({
         plan_id: planId,
         day_of_week: dayOfWeek,
         day_name: dayName,
-        exercises_count: exercises.length,
+        exercises_count: sortedExercises.length,
         rest_skips: restSkips,
         sets: collectedSets,
       });
@@ -218,7 +232,7 @@ export default function WorkoutSession({
     }
 
     finish();
-  }, [phase, planId, dayOfWeek, dayName, exercises.length, restSkips, collectedSets]);
+  }, [phase, planId, dayOfWeek, dayName, sortedExercises.length, restSkips, collectedSets]);
 
   // Rest countdown
   useEffect(() => {
@@ -308,7 +322,7 @@ export default function WorkoutSession({
     return (
       <WorkoutFinished
         dayName={dayName}
-        total={exercises.length}
+        total={sortedExercises.length}
         onClose={onClose}
       />
     );
@@ -316,9 +330,11 @@ export default function WorkoutSession({
 
   /* ── Resting view ── */
   if (phase === "resting") {
+    const nextEx = isLastSet ? sortedExercises[exerciseIdx + 1] : null;
     const nextLabel = isLastSet
-      ? exercises[exerciseIdx + 1]?.exercises.name
+      ? nextEx?.exercises.name
       : `${current.exercises.name} — serie ${currentSet + 1}`;
+    const phaseChanging = isLastSet && nextEx && (nextEx.phase ?? "main") !== (current.phase ?? "main");
 
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-8 overflow-hidden bg-zinc-950 px-6">
@@ -331,6 +347,11 @@ export default function WorkoutSession({
         <RestTimerKnob total={restTotal} left={restLeft} />
 
         <div className="rounded-2xl border border-white/8 bg-white/5 px-6 py-3 text-center backdrop-blur-md">
+          {phaseChanging && (
+            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-500 mb-0.5">
+              {PHASE_LABEL[nextEx!.phase ?? "main"]}
+            </p>
+          )}
           <p className="text-xs text-zinc-500">A continuación</p>
           <p className="mt-0.5 text-sm font-semibold capitalize text-zinc-200">
             {nextLabel}
@@ -352,9 +373,9 @@ export default function WorkoutSession({
   }
 
   /* ── Exercising view ── */
-  const totalSets = exercises.reduce((s, e) => s + (e.set_configs?.length > 0 ? e.set_configs.length : e.sets), 0);
+  const totalSets = sortedExercises.reduce((s, e) => s + (e.set_configs?.length > 0 ? e.set_configs.length : e.sets), 0);
   const doneSets =
-    exercises.slice(0, exerciseIdx).reduce((s, e) => s + (e.set_configs?.length > 0 ? e.set_configs.length : e.sets), 0) +
+    sortedExercises.slice(0, exerciseIdx).reduce((s, e) => s + (e.set_configs?.length > 0 ? e.set_configs.length : e.sets), 0) +
     (currentSet - 1);
   const progressPct = totalSets > 0 ? (doneSets / totalSets) * 100 : 0;
 
@@ -434,6 +455,11 @@ export default function WorkoutSession({
 
         {/* Name + muscles */}
         <div className="text-center">
+          {PHASE_LABEL[current.phase ?? "main"] && (
+            <p className="mb-1 font-heading text-xs tracking-widest text-zinc-600">
+              {PHASE_LABEL[current.phase ?? "main"]}
+            </p>
+          )}
           <h1 className="font-display text-2xl capitalize text-zinc-50">
             {current.exercises.name}
           </h1>
@@ -640,7 +666,7 @@ export default function WorkoutSession({
         {!(isLastSet && isLastExercise) && (
           <p className="text-center text-xs text-zinc-600">
             {isLastSet
-              ? `Siguiente: ${exercises[exerciseIdx + 1]?.exercises.name}`
+              ? `Siguiente: ${sortedExercises[exerciseIdx + 1]?.exercises.name}`
               : `${current.rest_seconds}s de descanso después de esta serie`}
           </p>
         )}

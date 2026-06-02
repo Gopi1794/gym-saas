@@ -33,13 +33,21 @@ type SetConfig = {
   notes: string | null
 }
 
+type Phase = "warmup" | "main" | "cooldown"
+
 type PlanExercise = {
   id: string; sets: number; reps: number; reps_max: number | null
   rest_seconds: number; order_index: number; notes: string | null
-  duration_seconds: number | null
+  duration_seconds: number | null; phase: Phase
   set_configs: SetConfig[]
   exercises: Exercise
 }
+
+const PHASES: { key: Phase; label: string; emoji: string }[] = [
+  { key: "warmup",   label: "Precalentamiento", emoji: "🔥" },
+  { key: "main",     label: "Principal",         emoji: "💪" },
+  { key: "cooldown", label: "Estiramiento",       emoji: "🧘" },
+]
 
 type DayData = {
   id: string | null   // null = day not yet created in DB
@@ -97,6 +105,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   const copyMenuRef = useRef<HTMLDivElement>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [pickerPhase, setPickerPhase] = useState<Phase>("main")
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -143,14 +152,15 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   async function addExercise(exercise: Exercise) {
     setPickerOpen(false)
     setSearch("")
+    const phase = pickerPhase
     try {
       const dayId = await ensureDayExists(selectedDay)
-      const order = days[selectedDay].exercises.length
+      const order = days[selectedDay].exercises.filter((pe) => pe.phase === phase).length
 
       const { data, error } = await supabase
         .from("workout_plan_exercises")
-        .insert({ day_id: dayId, exercise_id: exercise.id, sets: 3, reps: 10, reps_max: null, rest_seconds: 60, order_index: order, duration_seconds: exercise.is_timed ? 30 : null })
-        .select("id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds")
+        .insert({ day_id: dayId, exercise_id: exercise.id, sets: 3, reps: 10, reps_max: null, rest_seconds: 60, order_index: order, duration_seconds: exercise.is_timed ? 30 : null, phase })
+        .select("id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds, phase")
         .single() as unknown as { data: Omit<PlanExercise, "exercises"> | null; error: unknown }
 
       console.error("[addExercise] dayId:", dayId, "error:", error, "data:", data)
@@ -483,14 +493,6 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                   </div>
                 ) : null
               })()}
-              <Button
-                onClick={() => setPickerOpen(true)}
-                size="sm"
-                className="bg-brand-700 hover:bg-brand-800 text-white"
-              >
-                <Plus className="mr-1.5 h-4 w-4" />
-                Agregar
-              </Button>
             </div>
           )}
         </div>
@@ -503,7 +505,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
             <p className="text-sm text-zinc-500">Día de descanso</p>
             {!readOnly && (
               <Button
-                onClick={() => setPickerOpen(true)}
+                onClick={() => { setPickerPhase("main"); setPickerOpen(true) }}
                 variant="outline" size="sm"
                 className="border-zinc-700 text-zinc-400 hover:bg-zinc-800"
               >
@@ -513,10 +515,32 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
             )}
           </div>
         ) : (
-          <div className="divide-y divide-white/5">
-            {currentDay.exercises.map((pe, index) => (
+          <div>
+            {PHASES.map(({ key: phaseKey, label, emoji }) => {
+              const phaseExs = currentDay.exercises.filter((pe) => (pe.phase ?? "main") === phaseKey)
+              if (phaseExs.length === 0 && readOnly) return null
+              return (
+                <div key={phaseKey} className="border-t border-white/5 first:border-t-0">
+                  <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+                      {emoji} {label}{phaseExs.length > 0 ? ` · ${phaseExs.length}` : ""}
+                    </span>
+                    {!readOnly && (
+                      <button
+                        onClick={() => { setPickerPhase(phaseKey); setPickerOpen(true) }}
+                        className="flex items-center gap-1 text-xs text-zinc-600 hover:text-brand-400 transition-colors"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Agregar
+                      </button>
+                    )}
+                  </div>
+                  {phaseExs.length === 0 && !readOnly && (
+                    <p className="px-4 pb-3 text-xs text-zinc-700 italic">Sin ejercicios</p>
+                  )}
+                  {phaseExs.map((pe, index) => (
               <div key={pe.id} className="flex flex-col">
-                <div className="flex gap-4 p-4">
+                <div className="flex gap-4 px-4 py-3">
                 <div className="flex shrink-0 flex-col items-center gap-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-700/20 text-xs font-bold text-brand-500">
                     {index + 1}
@@ -592,7 +616,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                 </div>
               )}
             </div>
-            ))}
+          ))}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

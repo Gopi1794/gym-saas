@@ -33,7 +33,7 @@ export default async function PlanPage({ params }: Props) {
       .select(`
         id, day_of_week, name,
         workout_plan_exercises(
-          id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds,
+          id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds, phase,
           exercises(id, name, category, image_url, muscle_groups, is_timed),
           set_configs:workout_plan_set_configs(id, set_number, reps, reps_max, percent_1rm, duration_seconds, notes)
         )
