@@ -317,6 +317,30 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["workout_session_sets"]["Insert"]>
         Relationships: []
       }
+      workout_plan_set_configs: {
+        Row: {
+          id: string
+          exercise_id: string
+          set_number: number
+          reps: number | null
+          reps_max: number | null
+          percent_1rm: number | null
+          duration_seconds: number | null
+          notes: string | null
+        }
+        Insert: {
+          id?: string
+          exercise_id: string
+          set_number: number
+          reps?: number | null
+          reps_max?: number | null
+          percent_1rm?: number | null
+          duration_seconds?: number | null
+          notes?: string | null
+        }
+        Update: Partial<Database["public"]["Tables"]["workout_plan_set_configs"]["Insert"]>
+        Relationships: []
+      }
       exercise_maxes: {
         Row: {
           id: string
