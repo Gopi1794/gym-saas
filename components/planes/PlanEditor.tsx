@@ -531,29 +531,29 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                     )}
                   </div>
                   {phaseExs.length === 0 && !readOnly && (
-                    <p className="px-4 pb-3 text-xs text-zinc-700 italic">Sin ejercicios</p>
+                    <p className="px-4 pb-3 text-xs text-zinc-500">Sin ejercicios</p>
                   )}
                   {phaseExs.map((pe, index) => (
-              <div key={pe.id} className="flex flex-col">
-                <div className="flex gap-4 px-4 py-3">
+              <div key={pe.id} className="mx-3 mb-2 flex flex-col rounded-xl border border-white/5 bg-zinc-900/60">
+                <div className="flex gap-3 px-3 pt-3">
                 <div className="flex shrink-0 flex-col items-center gap-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-700/20 text-xs font-bold text-brand-500">
                     {index + 1}
                   </span>
                   {pe.exercises.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={pe.exercises.image_url} alt={pe.exercises.name} className="h-16 w-16 rounded-lg object-cover" />
+                    <img src={pe.exercises.image_url} alt={pe.exercises.name} className="h-14 w-14 rounded-lg object-cover" />
                   ) : (
-                    <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-zinc-800">
-                      {(() => { const Icon = CATEGORY_ICONS[pe.exercises.category] ?? StrengthIcon; return <Icon size={32} /> })()}
+                    <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-zinc-800">
+                      {(() => { const Icon = CATEGORY_ICONS[pe.exercises.category] ?? StrengthIcon; return <Icon size={28} /> })()}
                     </div>
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <p className="truncate font-medium capitalize text-zinc-100">{pe.exercises.name}</p>
-                  <p className="text-xs capitalize text-zinc-500">{pe.exercises.category}</p>
-                  <div className="mt-3 space-y-1.5">
+                  <p className="truncate font-semibold capitalize text-zinc-100 leading-tight">{pe.exercises.name}</p>
+                  <p className="text-xs capitalize text-zinc-500 mb-2">{pe.exercises.category}</p>
+                  <div className="space-y-1.5">
                     {readOnly ? (
                       <div className="space-y-1">
                         {pe.set_configs.length > 0
@@ -579,12 +579,12 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                         ))}
                         <button
                           onClick={() => addSetConfig(pe.id)}
-                          className="flex items-center gap-1 text-xs text-zinc-500 hover:text-brand-400 transition-colors py-0.5"
+                          className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-brand-400 transition-all cursor-pointer min-h-[36px]"
                         >
                           <Plus className="h-3 w-3" />
                           Agregar serie
                         </button>
-                        <div className="pt-1">
+                        <div className="pt-1 pb-1">
                           <NumberField label="Descanso (s)" value={pe.rest_seconds} min={0} max={300} step={15} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "rest_seconds", v)} />
                         </div>
                       </>
@@ -595,14 +595,15 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                 {!readOnly && (
                   <button
                     onClick={() => removeExercise(pe.id)}
-                    className="shrink-0 self-start rounded-lg p-1.5 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-red-400"
+                    className="shrink-0 self-start rounded-lg p-2 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-red-400 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    aria-label="Eliminar ejercicio"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}
               </div>
               {!readOnly && (
-                <div className="px-4 pb-3">
+                <div className="px-3 pb-3">
                   <NotesField
                     value={pe.notes ?? ""}
                     saving={saving === pe.id}
