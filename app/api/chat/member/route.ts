@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
 
   // ── 8. Llamada a Claude con streaming ───────────────────────────────────────
   const stream = anthropic.messages.stream({
-    model:      "claude-haiku-4-5-20251001",
+    model:      "claude-haiku-3-5-20241022",
     max_tokens: 1024,
     system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
     messages,
