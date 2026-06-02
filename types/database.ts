@@ -235,6 +235,7 @@ export interface Database {
           notes: string | null
           duration_seconds: number | null
           reps_max: number | null
+          phase: "warmup" | "main" | "cooldown"
           created_at: string
         }
         Insert: {
@@ -248,6 +249,7 @@ export interface Database {
           order_index?: number
           notes?: string | null
           duration_seconds?: number | null
+          phase?: "warmup" | "main" | "cooldown"
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["workout_plan_exercises"]["Insert"]>
