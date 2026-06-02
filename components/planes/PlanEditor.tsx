@@ -244,20 +244,22 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   async function addSetConfig(peId: string) {
     const pe = days[selectedDay].exercises.find((e) => e.id === peId)
     if (!pe) return
-    const nextNum = (pe.set_configs.length > 0 ? Math.max(...pe.set_configs.map((s) => s.set_number)) : 0) + 1
-    const last = pe.set_configs[pe.set_configs.length - 1]
-    const { data } = await (supabase as unknown as { from: (t: string) => { insert: (v: object) => { select: (s: string) => { single: () => Promise<{ data: SetConfig | null }> } } } })
+    const configs = pe.set_configs ?? []
+    const nextNum = configs.length > 0 ? Math.max(...configs.map((s) => s.set_number)) + 1 : 1
+    const last = configs[configs.length - 1]
+    const { data, error } = await supabase
       .from("workout_plan_set_configs")
       .insert({ exercise_id: peId, set_number: nextNum, reps: last?.reps ?? 10, reps_max: last?.reps_max ?? null, percent_1rm: last?.percent_1rm ?? null, duration_seconds: last?.duration_seconds ?? null })
       .select("id, set_number, reps, reps_max, percent_1rm, duration_seconds, notes")
       .single()
+    if (error) { console.error("[addSetConfig]", error); return }
     if (data) {
       setDays((prev) => ({
         ...prev,
         [selectedDay]: {
           ...prev[selectedDay],
           exercises: prev[selectedDay].exercises.map((e) =>
-            e.id === peId ? { ...e, set_configs: [...e.set_configs, data] } : e
+            e.id === peId ? { ...e, set_configs: [...(e.set_configs ?? []), data as SetConfig] } : e
           ),
         },
       }))
@@ -265,7 +267,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   }
 
   async function removeSetConfig(peId: string, configId: string) {
-    await supabase.from("workout_plan_set_configs" as never).delete().eq("id", configId)
+    await supabase.from("workout_plan_set_configs").delete().eq("id", configId)
     setDays((prev) => ({
       ...prev,
       [selectedDay]: {
@@ -278,7 +280,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   }
 
   async function updateSetConfig(peId: string, configId: string, field: keyof Omit<SetConfig, "id" | "set_number">, value: number | string | null) {
-    await supabase.from("workout_plan_set_configs" as never).update({ [field]: value } as never).eq("id", configId)
+    await supabase.from("workout_plan_set_configs").update({ [field]: value } as never).eq("id", configId)
     setDays((prev) => ({
       ...prev,
       [selectedDay]: {
