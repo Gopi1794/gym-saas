@@ -523,11 +523,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                     {!readOnly && (
                       <button
                         onClick={() => { setPickerPhase(phaseKey); setPickerOpen(true) }}
-                        className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 transition-all cursor-pointer"
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-700 hover:bg-brand-800 text-white transition-colors cursor-pointer shadow-sm shadow-brand-700/30 active:scale-95"
                         aria-label={`Agregar ejercicio a ${label}`}
                       >
-                        <Plus className="h-3 w-3" />
-                        Agregar
+                        <Plus className="h-4 w-4" />
                       </button>
                     )}
                   </div>
