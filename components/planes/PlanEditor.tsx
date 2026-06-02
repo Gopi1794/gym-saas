@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, Trash2, Search, Moon, Copy } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -23,10 +23,21 @@ type Exercise = {
   is_timed: boolean
 }
 
+type SetConfig = {
+  id: string
+  set_number: number
+  reps: number | null
+  reps_max: number | null
+  percent_1rm: number | null
+  duration_seconds: number | null
+  notes: string | null
+}
+
 type PlanExercise = {
   id: string; sets: number; reps: number; reps_max: number | null
   rest_seconds: number; order_index: number; notes: string | null
   duration_seconds: number | null
+  set_configs: SetConfig[]
   exercises: Exercise
 }
 
@@ -145,11 +156,22 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       console.error("[addExercise] dayId:", dayId, "error:", error, "data:", data)
 
       if (!error && data) {
+        const defaultConfigs = Array.from({ length: 3 }, (_, i) => ({
+          exercise_id: data.id,
+          set_number: i + 1,
+          reps: exercise.is_timed ? null : 10,
+          duration_seconds: exercise.is_timed ? 30 : null,
+        }))
+        const { data: configs } = await (supabase as never as { from: (t: string) => { insert: (v: object[]) => { select: (s: string) => Promise<{ data: SetConfig[] | null }> } } })
+          .from("workout_plan_set_configs")
+          .insert(defaultConfigs)
+          .select("id, set_number, reps, reps_max, percent_1rm, duration_seconds, notes")
+
         setDays((prev) => ({
           ...prev,
           [selectedDay]: {
             ...prev[selectedDay],
-            exercises: [...prev[selectedDay].exercises, { ...data, exercises: exercise }],
+            exercises: [...prev[selectedDay].exercises, { ...data, set_configs: configs ?? [], exercises: exercise }],
           },
         }))
       }
@@ -196,9 +218,15 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       ) as unknown as { data: (Omit<PlanExercise, "exercises"> & { exercise_id: string })[] | null; error: unknown }
 
       if (!error && data) {
-        const newEntries = data.map((row, i) => ({
-          ...row,
-          exercises: sourceExercises[i].exercises,
+        // Copy set_configs for each new exercise
+        const newEntries = await Promise.all(data.map(async (row, i) => {
+          const srcConfigs = sourceExercises[i].set_configs ?? []
+          if (srcConfigs.length === 0) return { ...row, set_configs: [], exercises: sourceExercises[i].exercises }
+          const { data: newConfigs } = await (supabase as never as { from: (t: string) => { insert: (v: object[]) => { select: (s: string) => Promise<{ data: SetConfig[] | null }> } } })
+            .from("workout_plan_set_configs")
+            .insert(srcConfigs.map((c) => ({ exercise_id: row.id, set_number: c.set_number, reps: c.reps, reps_max: c.reps_max, percent_1rm: c.percent_1rm, duration_seconds: c.duration_seconds, notes: c.notes })))
+            .select("id, set_number, reps, reps_max, percent_1rm, duration_seconds, notes")
+          return { ...row, set_configs: newConfigs ?? [], exercises: sourceExercises[i].exercises }
         }))
         setDays((prev) => ({
           ...prev,
@@ -211,6 +239,57 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     } finally {
       setCopying(false)
     }
+  }
+
+  async function addSetConfig(peId: string) {
+    const pe = days[selectedDay].exercises.find((e) => e.id === peId)
+    if (!pe) return
+    const nextNum = (pe.set_configs.length > 0 ? Math.max(...pe.set_configs.map((s) => s.set_number)) : 0) + 1
+    const last = pe.set_configs[pe.set_configs.length - 1]
+    const { data } = await (supabase as unknown as { from: (t: string) => { insert: (v: object) => { select: (s: string) => { single: () => Promise<{ data: SetConfig | null }> } } } })
+      .from("workout_plan_set_configs")
+      .insert({ exercise_id: peId, set_number: nextNum, reps: last?.reps ?? 10, reps_max: last?.reps_max ?? null, percent_1rm: last?.percent_1rm ?? null, duration_seconds: last?.duration_seconds ?? null })
+      .select("id, set_number, reps, reps_max, percent_1rm, duration_seconds, notes")
+      .single()
+    if (data) {
+      setDays((prev) => ({
+        ...prev,
+        [selectedDay]: {
+          ...prev[selectedDay],
+          exercises: prev[selectedDay].exercises.map((e) =>
+            e.id === peId ? { ...e, set_configs: [...e.set_configs, data] } : e
+          ),
+        },
+      }))
+    }
+  }
+
+  async function removeSetConfig(peId: string, configId: string) {
+    await supabase.from("workout_plan_set_configs" as never).delete().eq("id", configId)
+    setDays((prev) => ({
+      ...prev,
+      [selectedDay]: {
+        ...prev[selectedDay],
+        exercises: prev[selectedDay].exercises.map((e) =>
+          e.id === peId ? { ...e, set_configs: e.set_configs.filter((s) => s.id !== configId) } : e
+        ),
+      },
+    }))
+  }
+
+  async function updateSetConfig(peId: string, configId: string, field: keyof Omit<SetConfig, "id" | "set_number">, value: number | string | null) {
+    await supabase.from("workout_plan_set_configs" as never).update({ [field]: value } as never).eq("id", configId)
+    setDays((prev) => ({
+      ...prev,
+      [selectedDay]: {
+        ...prev[selectedDay],
+        exercises: prev[selectedDay].exercises.map((e) =>
+          e.id === peId
+            ? { ...e, set_configs: e.set_configs.map((s) => s.id === configId ? { ...s, [field]: value } : s) }
+            : e
+        ),
+      },
+    }))
   }
 
   async function updateNotes(peId: string, notes: string) {
@@ -453,61 +532,40 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                 <div className="flex-1 min-w-0">
                   <p className="truncate font-medium capitalize text-zinc-100">{pe.exercises.name}</p>
                   <p className="text-xs capitalize text-zinc-500">{pe.exercises.category}</p>
-                  <div className="mt-3 flex flex-wrap gap-3">
+                  <div className="mt-3 space-y-1.5">
                     {readOnly ? (
-                      <>
-                        <StatBadge label="Series" value={pe.sets} />
-                        {pe.duration_seconds != null
-                          ? <StatBadge label="Duración" value={`${pe.duration_seconds}s`} />
-                          : <StatBadge label="Reps" value={pe.reps_max != null ? `${pe.reps}-${pe.reps_max}` : pe.reps} />}
-                        <StatBadge label="Descanso" value={`${pe.rest_seconds}s`} />
-                      </>
+                      <div className="space-y-1">
+                        {pe.set_configs.length > 0
+                          ? pe.set_configs.map((s) => (
+                              <p key={s.id} className="text-xs text-zinc-400">
+                                Serie {s.set_number}: {s.duration_seconds != null ? `${s.duration_seconds}s` : `${s.reps}${s.reps_max ? `–${s.reps_max}` : ""} reps`}{s.percent_1rm ? ` · @${s.percent_1rm}%` : ""}
+                              </p>
+                            ))
+                          : <StatBadge label="Reps" value={pe.reps} />
+                        }
+                        <p className="text-xs text-zinc-500 pt-1">Descanso: {pe.rest_seconds}s</p>
+                      </div>
                     ) : (
                       <>
-                        <NumberField label="Series" value={pe.sets} min={1} max={10} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "sets", v)} />
-                        {pe.duration_seconds != null ? (
-                          <NumberField label="Duración (s)" value={pe.duration_seconds} min={5} max={3600} step={5} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "duration_seconds", v)} />
-                        ) : (
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="text-xs text-zinc-500">{pe.reps_max != null ? "Reps min–max" : "Reps"}</span>
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number" min={1} max={100}
-                                value={pe.reps}
-                                disabled={saving === pe.id}
-                                onChange={(e) => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) updateField(pe.id, "reps", v) }}
-                                className="w-10 rounded-md border border-zinc-700 bg-zinc-800 px-1 py-1 text-center text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-1 focus:ring-brand-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                              />
-                              {pe.reps_max != null && (
-                                <>
-                                  <span className="text-xs text-zinc-500">–</span>
-                                  <input
-                                    type="number" min={pe.reps + 1} max={100}
-                                    value={pe.reps_max}
-                                    disabled={saving === pe.id}
-                                    onChange={(e) => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) updateField(pe.id, "reps_max", v) }}
-                                    className="w-10 rounded-md border border-zinc-700 bg-zinc-800 px-1 py-1 text-center text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-1 focus:ring-brand-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                                  />
-                                </>
-                              )}
-                              <button
-                                title={pe.reps_max != null ? "Quitar rango" : "Agregar rango"}
-                                onClick={() => updateField(pe.id, "reps_max", pe.reps_max != null ? null : pe.reps + 2)}
-                                className="rounded px-1 py-0.5 text-[10px] text-zinc-500 border border-zinc-700 hover:bg-zinc-800 hover:text-zinc-300 transition-colors"
-                              >
-                                {pe.reps_max != null ? "×" : "+"}
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                        {pe.set_configs.map((s) => (
+                          <SetConfigRow
+                            key={s.id}
+                            config={s}
+                            saving={saving === pe.id}
+                            onChange={(field, value) => updateSetConfig(pe.id, s.id, field, value)}
+                            onRemove={() => removeSetConfig(pe.id, s.id)}
+                          />
+                        ))}
                         <button
-                          title={pe.duration_seconds != null ? "Cambiar a reps" : "Cambiar a tiempo"}
-                          onClick={() => updateField(pe.id, "duration_seconds", pe.duration_seconds != null ? null : 30)}
-                          className="self-end mb-0.5 rounded-md px-2 py-1 text-xs font-medium text-zinc-400 border border-zinc-700 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                          onClick={() => addSetConfig(pe.id)}
+                          className="flex items-center gap-1 text-xs text-zinc-500 hover:text-brand-400 transition-colors py-0.5"
                         >
-                          {pe.duration_seconds != null ? "×" : "⏱"}
+                          <Plus className="h-3 w-3" />
+                          Agregar serie
                         </button>
-                        <NumberField label="Descanso (s)" value={pe.rest_seconds} min={0} max={300} step={15} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "rest_seconds", v)} />
+                        <div className="pt-1">
+                          <NumberField label="Descanso (s)" value={pe.rest_seconds} min={0} max={300} step={15} saving={saving === pe.id} onChange={(v) => updateField(pe.id, "rest_seconds", v)} />
+                        </div>
                       </>
                     )}
                   </div>
@@ -676,5 +734,77 @@ function NotesField({ value, saving, onSave }: {
         saving && "opacity-50"
       )}
     />
+  )
+}
+
+function InlineNum({ value, min, max, saving, onChange, suffix, placeholder }: {
+  value: number | null; min: number; max: number; saving: boolean
+  onChange: (v: number | null) => void; suffix?: string; placeholder?: string
+}) {
+  const [local, setLocal] = useState(value != null ? String(value) : "")
+  useEffect(() => { setLocal(value != null ? String(value) : "") }, [value])
+
+  function handleBlur() {
+    if (local === "") { onChange(null); return }
+    const parsed = parseInt(local, 10)
+    if (isNaN(parsed)) { setLocal(value != null ? String(value) : ""); return }
+    const clamped = Math.min(max, Math.max(min, parsed))
+    setLocal(String(clamped))
+    if (clamped !== value) onChange(clamped)
+  }
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <input
+        type="number"
+        min={min}
+        max={max}
+        value={local}
+        placeholder={placeholder ?? ""}
+        disabled={saving}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+        className={cn(
+          "w-10 rounded border border-zinc-700 bg-zinc-800 px-1 py-0.5 text-center text-xs font-medium text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+          saving && "opacity-50"
+        )}
+      />
+      {suffix && <span className="text-zinc-500 text-xs">{suffix}</span>}
+    </div>
+  )
+}
+
+function SetConfigRow({ config, saving, onChange, onRemove }: {
+  config: SetConfig
+  saving: boolean
+  onChange: (field: keyof Omit<SetConfig, "id" | "set_number">, value: number | null) => void
+  onRemove: () => void
+}) {
+  const isTimed = config.duration_seconds != null
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-14 shrink-0 text-xs text-zinc-500">Serie {config.set_number}</span>
+      {isTimed ? (
+        <InlineNum value={config.duration_seconds} min={1} max={300} saving={saving} suffix="s" onChange={(v) => onChange("duration_seconds", v)} />
+      ) : (
+        <>
+          <InlineNum value={config.reps} min={1} max={99} saving={saving} onChange={(v) => onChange("reps", v)} />
+          <span className="text-xs text-zinc-600">–</span>
+          <InlineNum value={config.reps_max} min={1} max={99} saving={saving} placeholder="—" onChange={(v) => onChange("reps_max", v)} />
+          <span className="text-xs text-zinc-600">reps</span>
+        </>
+      )}
+      <span className="text-xs text-zinc-600 ml-1">@</span>
+      <InlineNum value={config.percent_1rm} min={1} max={100} saving={saving} suffix="%" placeholder="—" onChange={(v) => onChange("percent_1rm", v)} />
+      <button
+        onClick={onRemove}
+        className="ml-auto text-zinc-600 hover:text-red-400 transition-colors"
+        aria-label="Eliminar serie"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
   )
 }
