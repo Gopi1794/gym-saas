@@ -155,7 +155,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     const phase = pickerPhase
     try {
       const dayId = await ensureDayExists(selectedDay)
-      const order = days[selectedDay].exercises.filter((pe) => pe.phase === phase).length
+      const order = days[selectedDay].exercises.length
 
       const { data, error } = await supabase
         .from("workout_plan_exercises")
@@ -497,22 +497,12 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
           )}
         </div>
 
-        {currentDay.exercises.length === 0 ? (
+        {currentDay.exercises.length === 0 && readOnly ? (
           <div className="flex flex-col items-center gap-3 py-14 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800">
               <Moon className="h-5 w-5 text-zinc-500" />
             </div>
             <p className="text-sm text-zinc-500">Día de descanso</p>
-            {!readOnly && (
-              <Button
-                onClick={() => { setPickerPhase("main"); setPickerOpen(true) }}
-                variant="outline" size="sm"
-                className="border-zinc-700 text-zinc-400 hover:bg-zinc-800"
-              >
-                <Plus className="mr-1.5 h-4 w-4" />
-                Agregar ejercicio
-              </Button>
-            )}
           </div>
         ) : (
           <div>
