@@ -163,7 +163,8 @@ export default function WorkoutSession({
   const savedRef = useRef(false);
 
   const current = exercises[exerciseIdx];
-  const isLastSet = currentSet === current.sets;
+  const effectiveSets = current.set_configs?.length > 0 ? current.set_configs.length : current.sets;
+  const isLastSet = currentSet === effectiveSets;
   const isLastExercise = exerciseIdx === exercises.length - 1;
   const category = current.exercises.category;
   const isStrengthLike = category === "strength" || category === "hiit";
@@ -351,9 +352,9 @@ export default function WorkoutSession({
   }
 
   /* ── Exercising view ── */
-  const totalSets = exercises.reduce((s, e) => s + e.sets, 0);
+  const totalSets = exercises.reduce((s, e) => s + (e.set_configs?.length > 0 ? e.set_configs.length : e.sets), 0);
   const doneSets =
-    exercises.slice(0, exerciseIdx).reduce((s, e) => s + e.sets, 0) +
+    exercises.slice(0, exerciseIdx).reduce((s, e) => s + (e.set_configs?.length > 0 ? e.set_configs.length : e.sets), 0) +
     (currentSet - 1);
   const progressPct = totalSets > 0 ? (doneSets / totalSets) * 100 : 0;
 
@@ -584,7 +585,7 @@ export default function WorkoutSession({
 
         {/* Set dots */}
         <div className="flex items-center gap-2.5">
-          {Array.from({ length: current.sets }).map((_, i) => {
+          {Array.from({ length: effectiveSets }).map((_, i) => {
             const done = i < currentSet - 1;
             const active = i === currentSet - 1;
             return (
@@ -607,7 +608,7 @@ export default function WorkoutSession({
             );
           })}
           <span className="ml-1 font-heading text-xs tracking-wider text-zinc-500">
-            Serie {currentSet} de {current.sets}
+            Serie {currentSet} de {effectiveSets}
           </span>
         </div>
 
