@@ -588,12 +588,12 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                 ) : (
                   <>
                     {/* Table header */}
-                    <div className="grid grid-cols-[40px_1fr_120px_64px] items-center gap-x-2 px-3 py-1.5 border-t border-white/5">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 text-center">#</span>
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">
+                    <div className="grid grid-cols-[56px_1fr_120px_64px] items-center gap-x-4 px-3 py-1.5 border-t border-white/5">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 text-center">Serie</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 text-center">
                         {pe.exercises.is_timed ? "Tiempo" : "Reps"}
                       </span>
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">1RM (%)</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 text-center">1RM (%)</span>
                       <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 text-center">Acciones</span>
                     </div>
 
@@ -831,28 +831,28 @@ function SetConfigRow({ config, saving, onChange, onRemove }: {
   const isTimed = config.duration_seconds != null
 
   return (
-    <div className="grid grid-cols-[40px_1fr_120px_64px] items-center gap-x-2 px-3 py-2.5">
-      {/* # */}
+    <div className="grid grid-cols-[56px_1fr_120px_64px] items-center gap-x-4 px-3 py-2.5 border-b border-white/5">
+      {/* Serie */}
       <span className="text-center text-base font-semibold text-zinc-300">{config.set_number}</span>
 
       {/* Tiempo o Reps */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-center gap-1.5">
         {isTimed ? (
           <>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-sm text-zinc-500 select-none">—</span>
+            <span className="text-zinc-500 text-sm select-none px-1">—</span>
             <InlineNum value={config.duration_seconds} min={1} max={300} saving={saving} suffix="s" onChange={(v) => onChange("duration_seconds", v)} />
           </>
         ) : (
           <>
             <InlineNum value={config.reps} min={1} max={99} saving={saving} onChange={(v) => onChange("reps", v)} />
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-sm text-zinc-500 select-none">—</span>
+            <span className="text-zinc-500 text-sm select-none px-1">—</span>
             <InlineNum value={config.reps_max} min={1} max={99} saving={saving} placeholder="—" onChange={(v) => onChange("reps_max", v)} />
           </>
         )}
       </div>
 
       {/* 1RM % */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-center gap-1.5">
         <span className="text-xs text-zinc-500 shrink-0">1RM</span>
         <InlineNum value={config.percent_1rm} min={1} max={100} saving={saving} suffix="%" onChange={(v) => onChange("percent_1rm", v)} />
       </div>
