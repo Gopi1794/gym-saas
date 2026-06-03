@@ -588,13 +588,13 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                 ) : (
                   <>
                     {/* Table header */}
-                    <div className="grid grid-cols-[28px_1fr_80px_36px] items-center gap-x-2 px-3 py-1.5 border-t border-white/5">
+                    <div className="grid grid-cols-[40px_1fr_120px_64px] items-center gap-x-2 px-3 py-1.5 border-t border-white/5">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 text-center">#</span>
                       <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">
                         {pe.exercises.is_timed ? "Tiempo" : "Reps"}
                       </span>
                       <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">1RM (%)</span>
-                      <span />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 text-center">Acciones</span>
                     </div>
 
                     {/* Series rows */}
@@ -615,7 +615,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                         className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-700/60 py-2 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-all cursor-pointer"
                       >
                         <Plus className="h-3 w-3" />
-                        Añadir Serie
+                        Añadir Nueva Serie
                       </button>
                     </div>
 
@@ -831,7 +831,7 @@ function SetConfigRow({ config, saving, onChange, onRemove }: {
   const isTimed = config.duration_seconds != null
 
   return (
-    <div className="grid grid-cols-[40px_1fr_120px_48px] items-center gap-x-2 px-3 py-2.5">
+    <div className="grid grid-cols-[40px_1fr_120px_64px] items-center gap-x-2 px-3 py-2.5">
       {/* # */}
       <span className="text-center text-base font-semibold text-zinc-300">{config.set_number}</span>
 
@@ -854,7 +854,7 @@ function SetConfigRow({ config, saving, onChange, onRemove }: {
       {/* 1RM % */}
       <div className="flex items-center gap-1.5">
         <span className="text-xs text-zinc-500 shrink-0">1RM</span>
-        <InlineNum value={config.percent_1rm} min={1} max={100} saving={saving} suffix="%" placeholder="—" onChange={(v) => onChange("percent_1rm", v)} />
+        <InlineNum value={config.percent_1rm} min={1} max={100} saving={saving} suffix="%" onChange={(v) => onChange("percent_1rm", v)} />
       </div>
 
       {/* Eliminar */}
