@@ -6,6 +6,8 @@ interface ActivityCardProps {
   unit?: string
   chart: "ring" | "bar" | "line"
   color?: "violet" | "cyan" | "emerald" | "brand"
+  data?: number[]    // bar/line: array of values
+  progress?: number  // ring: 0–1
 }
 
 const COLORS = {
@@ -15,18 +17,18 @@ const COLORS = {
   brand:   { stroke: "#FF2222", fill: "#FF2222", text: "text-brand-500" },
 }
 
-function RingChart({ color }: { color: keyof typeof COLORS }) {
+function RingChart({ color, progress = 0 }: { color: keyof typeof COLORS; progress?: number }) {
   const c = COLORS[color]
   const r = 22, cx = 28, cy = 28
   const circ = 2 * Math.PI * r
-  const progress = circ * 0.65
+  const dash = circ * Math.max(0.03, Math.min(progress, 0.97))
   return (
     <svg viewBox="0 0 56 56" className="h-14 w-14">
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="#27272a" strokeWidth="5" />
       <circle
         cx={cx} cy={cy} r={r} fill="none"
         stroke={c.stroke} strokeWidth="5"
-        strokeDasharray={`${progress} ${circ - progress}`}
+        strokeDasharray={`${dash} ${circ - dash}`}
         strokeDashoffset={circ * 0.25}
         strokeLinecap="round"
       />
@@ -34,15 +36,18 @@ function RingChart({ color }: { color: keyof typeof COLORS }) {
   )
 }
 
-function BarChart({ color }: { color: keyof typeof COLORS }) {
-  const bars = [12, 22, 16, 30, 20, 28, 24]
+function BarChart({ color, data }: { color: keyof typeof COLORS; data?: number[] }) {
+  const raw = data && data.length > 0 ? data : [3, 5, 4, 7, 5, 6, 6]
+  const max = Math.max(...raw, 1)
+  const bars = raw.map(v => Math.max(2, Math.round((v / max) * 36)))
   const c = COLORS[color]
+  const bw = Math.floor(54 / bars.length) - 1
   return (
     <svg viewBox="0 0 56 40" className="h-10 w-14">
       {bars.map((h, i) => (
         <rect
           key={i}
-          x={i * 8 + 1} y={40 - h} width="6" height={h} rx="2"
+          x={i * (bw + 1) + 1} y={40 - h} width={bw} height={h} rx="2"
           fill={c.fill}
           opacity={i === bars.length - 1 ? 1 : 0.35}
         />
@@ -51,8 +56,27 @@ function BarChart({ color }: { color: keyof typeof COLORS }) {
   )
 }
 
-function LineChart({ color }: { color: keyof typeof COLORS }) {
+function LineChart({ color, data }: { color: keyof typeof COLORS; data?: number[] }) {
   const c = COLORS[color]
+  const raw = data && data.length >= 2 ? data : null
+
+  let linePoints: string
+  let areaPoints: string
+
+  if (raw) {
+    const max = Math.max(...raw, 1)
+    const n = raw.length
+    const pts = raw.map((v, i) => ({
+      x: Math.round((i / (n - 1)) * 56),
+      y: Math.round(30 - (v / max) * 28) + 1,
+    }))
+    linePoints = pts.map(p => `${p.x},${p.y}`).join(" ")
+    areaPoints = `0,32 ${linePoints} 56,32`
+  } else {
+    linePoints = "0,28 9,26 18,22 27,18 36,14 45,10 56,6"
+    areaPoints = "0,32 0,28 9,26 18,22 27,18 36,14 45,10 56,6 56,32"
+  }
+
   return (
     <svg viewBox="0 0 56 32" className="h-8 w-14">
       <defs>
@@ -62,29 +86,29 @@ function LineChart({ color }: { color: keyof typeof COLORS }) {
         </linearGradient>
       </defs>
       <polyline
-        points="0,24 9,20 18,14 27,10 36,6 45,4 56,2"
+        points={linePoints}
         fill="none" stroke={c.stroke} strokeWidth="2"
         strokeLinecap="round" strokeLinejoin="round"
       />
       <polygon
-        points="0,24 9,20 18,14 27,10 36,6 45,4 56,2 56,32 0,32"
+        points={areaPoints}
         fill={`url(#lg-${color})`}
       />
     </svg>
   )
 }
 
-export default function ActivityCard({ label, value, unit, chart, color = "violet" }: ActivityCardProps) {
+export default function ActivityCard({ label, value, unit, chart, color = "violet", data, progress }: ActivityCardProps) {
   const c = COLORS[color]
 
   return (
     <div className="flex flex-col gap-3 overflow-hidden rounded-2xl border border-white/8 bg-zinc-900/60 p-4 backdrop-blur-md">
       <div className="flex items-center justify-center">
         {chart === "ring"
-          ? <RingChart color={color} />
+          ? <RingChart color={color} progress={progress} />
           : chart === "bar"
-          ? <BarChart color={color} />
-          : <LineChart color={color} />
+          ? <BarChart color={color} data={data} />
+          : <LineChart color={color} data={data} />
         }
       </div>
 

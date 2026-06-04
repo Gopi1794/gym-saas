@@ -51,6 +51,7 @@ export default async function DashboardPage() {
 
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString()
   const twelveMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 11, 1).toISOString()
+  const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(today.getDate() - 6); sevenDaysAgo.setHours(0, 0, 0, 0)
 
   const [
     { count: totalMembers },
@@ -62,6 +63,7 @@ export default async function DashboardPage() {
     { data: paymentsThisMonth },
     { count: newMembersThisMonth },
     { data: paymentsLast12Months },
+    { data: checkInsLast7Days },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -112,6 +114,11 @@ export default async function DashboardPage() {
       .eq("gym_id", p?.gym_id ?? "")
       .eq("status", "approved")
       .gte("created_at", twelveMonthsAgo),
+    supabase
+      .from("check_ins")
+      .select("checked_in_at")
+      .eq("gym_id", p?.gym_id ?? "")
+      .gte("checked_in_at", sevenDaysAgo.toISOString()),
   ])
 
   // ── Member: fetch today's workout + weekly summary ──
@@ -119,7 +126,7 @@ export default async function DashboardPage() {
   const todayDow = (today.getDay() + 6) % 7
   let todayWorkout: { planName: string; dayName: string; exercises: { name: string; sets: number; reps: number }[] } | null = null
   let weeklySummary: { trainingDows: number[]; completedDows: number[] } | null = null
-  let memberActivity: { completedThisWeek: number; trainingDaysThisWeek: number; totalSessions: number; streak: number } | null = null
+  let memberActivity: { completedThisWeek: number; trainingDaysThisWeek: number; totalSessions: number; streak: number; sessionsByWeek: number[]; recentDays: number[] } | null = null
   let recentBadges: RecentBadge[] | null = null
   let membershipPlans: { type: "basic" | "premium" | "vip"; label: string; price: number; duration_days: number; features: string[] }[] = []
 
@@ -203,11 +210,35 @@ export default async function DashboardPage() {
         cursor.setDate(cursor.getDate() - 1)
       }
 
+      // Sessions per week for the last 7 weeks (bar chart)
+      const daysToMonday = jsDay === 0 ? 6 : jsDay - 1
+      const sessionsByWeek = Array.from({ length: 7 }, (_, wi) => {
+        const monday = new Date(today)
+        monday.setDate(today.getDate() - daysToMonday - (6 - wi) * 7)
+        monday.setHours(0, 0, 0, 0)
+        const sunday = new Date(monday)
+        sunday.setDate(monday.getDate() + 7)
+        return (recentSessions ?? []).filter(s => {
+          const d = new Date(s.completed_at)
+          return d >= monday && d < sunday
+        }).length
+      })
+
+      // Last 7 days: 1 = trained, 0 = not (line/sparkline chart)
+      const recentDays = Array.from({ length: 7 }, (_, i) => {
+        const day = new Date(today)
+        day.setDate(today.getDate() - (6 - i))
+        const dayStr = day.toISOString().split("T")[0]
+        return (recentSessions ?? []).some(s => s.completed_at.startsWith(dayStr)) ? 1 : 0
+      })
+
       memberActivity = {
         completedThisWeek: completedDows.length,
         trainingDaysThisWeek: trainingDows.filter((d) => d <= todayDow).length,
         totalSessions: totalSessions ?? 0,
         streak,
+        sessionsByWeek,
+        recentDays,
       }
     }
 
@@ -240,6 +271,21 @@ export default async function DashboardPage() {
   const renewalRate = activeMembers && activeMembers > 0
     ? Math.round(((paymentsThisMonth?.length ?? 0) / activeMembers) * 100)
     : 0
+
+  // Admin chart data
+  const adminMembersProgress = totalMembers ? (activeMembers ?? 0) / totalMembers : 0
+  const checkInWeekData = Array.from({ length: 7 }, (_, i) => {
+    const day = new Date(today)
+    day.setDate(today.getDate() - (6 - i))
+    const dayStr = day.toISOString().split("T")[0]
+    return (checkInsLast7Days ?? []).filter(ci => ci.checked_in_at.startsWith(dayStr)).length
+  })
+  const revenueTrend = Array.from({ length: 7 }, (_, i) => {
+    const m = new Date(today.getFullYear(), today.getMonth() - (6 - i), 1)
+    return (paymentsLast12Months ?? [])
+      .filter(pay => { const d = new Date(pay.created_at); return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear() })
+      .reduce((sum, pay) => sum + (pay.amount ?? 0), 0)
+  })
 
   const hour = today.getHours()
   const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches"
@@ -342,9 +388,10 @@ export default async function DashboardPage() {
               unit={memberActivity.trainingDaysThisWeek > 0 ? `/${memberActivity.trainingDaysThisWeek}` : undefined}
               chart="ring"
               color="emerald"
+              progress={memberActivity.trainingDaysThisWeek > 0 ? memberActivity.completedThisWeek / memberActivity.trainingDaysThisWeek : 0}
             />
-            <ActivityCard label="Total" value={memberActivity.totalSessions} chart="bar" color="brand" />
-            <ActivityCard label="Racha" value={memberActivity.streak} unit="días" chart="line" color="cyan" />
+            <ActivityCard label="Total" value={memberActivity.totalSessions} chart="bar" color="brand" data={memberActivity.sessionsByWeek} />
+            <ActivityCard label="Racha" value={memberActivity.streak} unit="días" chart="line" color="cyan" data={memberActivity.recentDays} />
           </div>
         </div>
       ) : (
@@ -354,9 +401,9 @@ export default async function DashboardPage() {
             <span className="text-xs font-medium text-brand-500">Hoy</span>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <ActivityCard label="Miembros" value={totalMembers ?? 0} chart="ring" color="violet" />
-            <ActivityCard label="Check-ins hoy" value={todayCheckIns ?? 0} chart="bar" color="cyan" />
-            <ActivityCard label="Activos" value={activeMembers ?? 0} chart="line" color="emerald" />
+            <ActivityCard label="Miembros" value={totalMembers ?? 0} chart="ring" color="violet" progress={adminMembersProgress} />
+            <ActivityCard label="Check-ins hoy" value={todayCheckIns ?? 0} chart="bar" color="cyan" data={checkInWeekData} />
+            <ActivityCard label="Activos" value={activeMembers ?? 0} chart="line" color="emerald" data={revenueTrend} />
           </div>
         </div>
       )}
