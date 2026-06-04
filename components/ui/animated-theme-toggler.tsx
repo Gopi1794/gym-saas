@@ -71,9 +71,58 @@ export function AnimatedThemeToggler({ sound = true }: AnimatedThemeTogglerProps
 
   const isDark = resolvedTheme === "dark"
 
-  const toggle = () => {
-    setTheme(isDark ? "light" : "dark")
+  const toggle = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (sound) tick(lastSnd)
+
+    const nextDark = !isDark
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = rect.left + rect.width / 2
+    const y = rect.top + rect.height / 2
+    const maxR = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    )
+
+    if (prefersReduced) {
+      setTheme(nextDark ? "dark" : "light")
+      return
+    }
+
+    // View Transitions API — Chrome/Edge 111+
+    if (document.startViewTransition) {
+      const html = document.documentElement
+      html.dataset.themeDir = nextDark ? "to-dark" : "to-light"
+      const vt = document.startViewTransition(() => {
+        setTheme(nextDark ? "dark" : "light")
+      })
+      vt.ready.then(() => {
+        if (nextDark) {
+          // Cierre de iris: la vista vieja (clara) se cierra hacia el botón
+          html.animate(
+            { clipPath: [`circle(${maxR}px at ${x}px ${y}px)`, `circle(0px at ${x}px ${y}px)`] },
+            { duration: 500, easing: "cubic-bezier(0.4, 0, 1, 1)", pseudoElement: "::view-transition-old(root)", fill: "forwards" as FillMode }
+          )
+        } else {
+          // Apertura de iris: la vista nueva (clara) se abre desde el botón
+          html.animate(
+            { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${maxR}px at ${x}px ${y}px)`] },
+            { duration: 500, easing: "cubic-bezier(0, 0, 0.2, 1)", pseudoElement: "::view-transition-new(root)", fill: "forwards" as FillMode }
+          )
+        }
+      })
+      vt.finished.then(() => delete html.dataset.themeDir)
+      return
+    }
+
+    // Fallback para Firefox / Safari — overlay div con clip-path
+    setTheme(nextDark ? "dark" : "light")
+    const overlay = document.createElement("div")
+    overlay.style.cssText = `position:fixed;inset:0;z-index:9999;pointer-events:none;background:${nextDark ? "#f4f4f5" : "#09090b"};clip-path:circle(${maxR}px at ${x}px ${y}px)`
+    document.body.appendChild(overlay)
+    overlay.animate(
+      { clipPath: [`circle(${maxR}px at ${x}px ${y}px)`, `circle(0px at ${x}px ${y}px)`] },
+      { duration: 500, easing: "ease-in-out", fill: "forwards" as FillMode }
+    ).finished.then(() => overlay.remove())
   }
 
   if (!mounted) return <div className="h-9 w-9" />
@@ -84,7 +133,7 @@ export function AnimatedThemeToggler({ sound = true }: AnimatedThemeTogglerProps
 
   return (
     <motion.button
-      onClick={toggle}
+      onClick={(e) => toggle(e as unknown as React.MouseEvent<HTMLButtonElement>)}
       whileHover={prefersReduced ? {} : { scale: 1.1 }}
       whileTap={prefersReduced ? {} : { scale: 0.86 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}

@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useRef, useEffect, type ElementType } from "react"
+import { useState, useRef, useEffect, useCallback, type ElementType } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X, Flame, Dumbbell, Wind } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X, Flame, Dumbbell, Wind, RefreshCw, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -52,9 +53,9 @@ const PHASES: PhaseConfig[] = [
 ]
 
 const PHASE_CARD: Record<Phase, string> = {
-  warmup:   "bg-yellow-950/40 border-yellow-900/20",
-  main:     "bg-red-950/40   border-red-900/20",
-  cooldown: "bg-blue-950/40  border-blue-900/20",
+  warmup:   "bg-orange-50 border-orange-200/60 dark:bg-yellow-950/40 dark:border-yellow-900/20",
+  main:     "bg-red-50 border-red-200/60 dark:bg-red-950/40 dark:border-red-900/20",
+  cooldown: "bg-sky-50 border-sky-200/60 dark:bg-blue-950/40 dark:border-blue-900/20",
 }
 
 type DayData = {
@@ -107,6 +108,17 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   const [selectedDay, setSelectedDay] = useState(todayDow)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [search, setSearch] = useState("")
+  const [exercises, setExercises] = useState<Exercise[]>(allExercises)
+  const [refreshing, setRefreshing] = useState(false)
+  const [collapsedPhases, setCollapsedPhases] = useState<Set<Phase>>(new Set())
+
+  function togglePhase(phase: Phase) {
+    setCollapsedPhases(prev => {
+      const next = new Set(prev)
+      next.has(phase) ? next.delete(phase) : next.add(phase)
+      return next
+    })
+  }
   const [saving, setSaving] = useState<string | null>(null)
   const [copyMenuOpen, setCopyMenuOpen] = useState(false)
   const [copying, setCopying] = useState(false)
@@ -127,9 +139,19 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   const supabase = createClient()
   const router = useRouter()
 
+  const refreshExercises = useCallback(async () => {
+    setRefreshing(true)
+    const { data } = await supabase
+      .from("exercises")
+      .select("id, name, category, image_url, muscle_groups, is_timed")
+      .order("name")
+    if (data) setExercises(data as Exercise[])
+    setRefreshing(false)
+  }, [supabase])
+
   const currentDay = days[selectedDay]
   const inPlanIds = new Set(currentDay.exercises.map((pe) => pe.exercises.id))
-  const filtered = allExercises.filter(
+  const filtered = exercises.filter(
     (ex) => !inPlanIds.has(ex.id) && ex.name.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -433,7 +455,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                 "relative shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition-all",
                 selectedDay === i
                   ? "bg-brand-700 text-white shadow-lg shadow-brand-700/30"
-                  : "bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                  : "bg-zinc-200/80 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-300 dark:hover:bg-zinc-700 hover:text-zinc-800 dark:hover:text-zinc-200"
               )}
             >
               <span className="flex flex-col items-center gap-0.5">
@@ -459,8 +481,8 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       </div>
 
       {/* Day content */}
-      <div className="rounded-2xl border border-white/8 bg-zinc-900/50 backdrop-blur-md">
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
+      <div className="rounded-2xl border border-zinc-300 dark:border-white/[6%] bg-white dark:bg-zinc-900/50 backdrop-blur-md overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-300 dark:border-white/[6%] px-5 py-4 bg-white dark:bg-[#111113] rounded-t-2xl">
           <div>
             <p className="font-semibold text-zinc-100">{DAY_FULL[selectedDay]}</p>
             <p className="text-xs text-zinc-500">
@@ -520,12 +542,16 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
               const phaseExs = currentDay.exercises.filter((pe) => (pe.phase ?? "main") === phaseKey)
               if (phaseExs.length === 0 && readOnly) return null
               return (
-                <div key={phaseKey} className="border-t border-white/5 first:border-t-0">
-                  <div className="flex items-center justify-between px-4 pt-3 pb-1">
-                    <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-zinc-400">
+                <div key={phaseKey} className="border-t border-zinc-300/80 dark:border-white/[3%] first:border-t-0">
+                  <div className="sticky top-[73px] z-10 flex items-center justify-between border-b border-zinc-300 dark:border-white/[6%] px-4 py-2.5 bg-white dark:bg-[#111113]">
+                    <button
+                      onClick={() => togglePhase(phaseKey)}
+                      className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
+                    >
                       <Icon className={cn("h-3.5 w-3.5", color)} />
                       {label}{phaseExs.length > 0 ? ` · ${phaseExs.length}` : ""}
-                    </span>
+                      <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", collapsedPhases.has(phaseKey) && "-rotate-90")} />
+                    </button>
                     {!readOnly && (
                       <button
                         onClick={() => { setPickerPhase(phaseKey); setPickerOpen(true) }}
@@ -536,20 +562,29 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                       </button>
                     )}
                   </div>
-                  {phaseExs.length === 0 && !readOnly && (
-                    <p className="px-4 pb-3 text-xs text-zinc-500">Sin ejercicios</p>
-                  )}
-                  {phaseExs.map((pe, index) => (
-              <div key={pe.id} className={cn("mx-3 mb-2 rounded-xl border overflow-hidden", PHASE_CARD[phaseKey])}>
+                  <AnimatePresence initial={false}>
+                    {!collapsedPhases.has(phaseKey) && (
+                      <motion.div
+                        key={phaseKey + "-content"}
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1, transition: { duration: 0.2, ease: "easeOut" } }}
+                        exit={{ height: 0, opacity: 0, transition: { duration: 0.14, ease: "easeIn" } }}
+                        style={{ overflow: "hidden" }}
+                      >
+                        {phaseExs.length === 0 && !readOnly && (
+                          <p className="px-4 py-3 text-xs text-zinc-500">Sin ejercicios</p>
+                        )}
+                        {phaseExs.map((pe, index) => (
+                  <div key={pe.id} style={{ scrollMarginTop: '104px' }} className={cn("mx-3 mb-2 rounded-xl border overflow-hidden", PHASE_CARD[phaseKey])}>
 
                 {/* Card header: image + name + trash */}
-                <div className="flex items-center gap-3 px-3 pt-3 pb-2">
+                <div className="flex items-center gap-3 px-3 pt-3 pb-2 bg-white/30 dark:bg-white/[5%]">
                   <div className="relative shrink-0">
                     {pe.exercises.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={pe.exercises.image_url} alt={pe.exercises.name} className="h-12 w-12 rounded-lg object-cover" />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-zinc-800/80">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800/80">
                         {(() => { const Icon = CATEGORY_ICONS[pe.exercises.category] ?? StrengthIcon; return <Icon size={24} /> })()}
                       </div>
                     )}
@@ -564,7 +599,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                   {!readOnly && (
                     <button
                       onClick={() => removeExercise(pe.id)}
-                      className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-800/60 hover:text-red-400 transition-all"
+                      className="shrink-0 flex h-8 w-8 items-center justify-center rounded-full border border-zinc-300 dark:border-white/[12%] text-zinc-400 dark:text-zinc-500 hover:border-red-400/60 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500 transition-all"
                       aria-label="Eliminar ejercicio"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -574,7 +609,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
 
                 {/* Series section */}
                 {readOnly ? (
-                  <div className="px-3 pb-3 space-y-1 border-t border-white/5 pt-2">
+                  <div className="px-3 pb-3 space-y-1 border-t border-zinc-300/80 dark:border-white/[3%] pt-2">
                     {pe.set_configs.length > 0
                       ? pe.set_configs.map((s) => (
                           <p key={s.id} className="text-xs text-zinc-400">
@@ -588,7 +623,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                 ) : (
                   <>
                     {/* Table header */}
-                    <div className="grid grid-cols-[56px_1fr_120px_64px] items-center gap-x-4 px-3 py-1.5 border-t border-white/5">
+                    <div className="grid grid-cols-[56px_1fr_120px_64px] items-center gap-x-4 px-3 py-1.5 border-t border-zinc-300/80 dark:border-white/[3%]">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 text-center">Serie</span>
                       <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 text-center">
                         {pe.exercises.is_timed ? "Tiempo" : "Reps"}
@@ -612,7 +647,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                     <div className="px-3 py-2">
                       <button
                         onClick={() => addSetConfig(pe.id)}
-                        className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-700/60 py-2 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-all cursor-pointer"
+                        className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700/60 py-2 text-xs text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 dark:hover:border-zinc-500 dark:hover:text-zinc-300 transition-all cursor-pointer"
                       >
                         <Plus className="h-3 w-3" />
                         Añadir Nueva Serie
@@ -620,7 +655,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                     </div>
 
                     {/* Footer: Descanso + Notes */}
-                    <div className="border-t border-white/5 px-3 py-2 space-y-2">
+                    <div className="border-t border-zinc-300/80 dark:border-white/[3%] px-3 py-2 space-y-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-zinc-500 shrink-0">Descanso:</span>
                         <InlineNum value={pe.rest_seconds} min={0} max={300} saving={saving === pe.id} suffix="s" onChange={(v) => updateField(pe.id, "rest_seconds", v ?? 60)} />
@@ -634,7 +669,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                   </>
                 )}
               </div>
-          ))}
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )
             })}
@@ -643,7 +681,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       </div>
 
       {/* Weekly overview */}
-      <div className="rounded-2xl border border-white/8 bg-zinc-900/50 backdrop-blur-md p-4">
+      <div className="rounded-2xl border border-zinc-300 dark:border-white/[6%] bg-white dark:bg-zinc-900/50 backdrop-blur-md p-4">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Resumen semanal</p>
         <div className="grid grid-cols-7 gap-1.5">
           {DAY_SHORT.map((label, i) => {
@@ -654,7 +692,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                 onClick={() => setSelectedDay(i)}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-xl py-2.5 transition-all",
-                  selectedDay === i ? "bg-brand-700/20 ring-1 ring-brand-700/40" : "hover:bg-zinc-800"
+                  selectedDay === i ? "bg-brand-700/20 ring-1 ring-brand-700/40" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 )}
               >
                 <span className="text-[10px] font-semibold text-zinc-500">{label}</span>
@@ -672,11 +710,31 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
 
       {/* Exercise picker — trainer only */}
       {!readOnly && <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogContent className="max-h-[80vh] overflow-hidden flex flex-col sm:max-w-lg">
+        <DialogContent className="max-h-[80vh] overflow-hidden flex flex-col sm:max-w-lg [&>button:last-child]:hidden">
           <DialogHeader>
-            <DialogTitle className="text-zinc-50">
-              Agregar a {DAY_FULL[selectedDay]}
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-zinc-50">
+                Agregar a {DAY_FULL[selectedDay]}
+              </DialogTitle>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={refreshExercises}
+                  disabled={refreshing}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all disabled:opacity-50"
+                  title="Actualizar lista"
+                >
+                  <RefreshCw className={cn("h-3 w-3", refreshing && "animate-spin")} />
+                  Actualizar
+                </button>
+                <button
+                  onClick={() => setPickerOpen(false)}
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-all"
+                  title="Cerrar"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
           </DialogHeader>
           <div className="relative mt-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
@@ -698,7 +756,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                 <button
                   key={ex.id}
                   onClick={() => addExercise(ex)}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-zinc-800"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 >
                   {(() => { const Icon = CATEGORY_ICONS[ex.category] ?? StrengthIcon; return <Icon size={24} /> })()}
                   <div className="min-w-0">
@@ -777,7 +835,7 @@ function NotesField({ value, saving, onSave }: {
       onBlur={() => { if (local !== value) onSave(local) }}
       onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
       className={cn(
-        "w-full rounded-md border border-zinc-700/50 bg-transparent px-2 py-1 text-xs text-zinc-400 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 focus:text-zinc-300",
+        "w-full rounded-md border border-zinc-300 dark:border-zinc-700/50 bg-transparent px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 focus:text-zinc-800 dark:focus:text-zinc-300",
         saving && "opacity-50"
       )}
     />
@@ -813,7 +871,7 @@ function InlineNum({ value, min, max, saving, onChange, suffix, placeholder }: {
         onBlur={handleBlur}
         onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
         className={cn(
-          "w-10 rounded border border-zinc-700 bg-zinc-800 px-1 py-0.5 text-center text-xs font-medium text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+          "w-10 rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 text-center text-xs font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
           saving && "opacity-50"
         )}
       />
@@ -831,7 +889,7 @@ function SetConfigRow({ config, saving, onChange, onRemove }: {
   const isTimed = config.duration_seconds != null
 
   return (
-    <div className="grid grid-cols-[56px_1fr_120px_64px] items-center gap-x-4 px-3 py-2.5 border-b border-white/5">
+    <div className="grid grid-cols-[56px_1fr_120px_64px] items-center gap-x-4 px-3 py-2.5 border-b border-zinc-300/60 dark:border-white/[3%]">
       {/* Serie */}
       <span className="text-center text-base font-semibold text-zinc-300">{config.set_number}</span>
 
@@ -860,7 +918,7 @@ function SetConfigRow({ config, saving, onChange, onRemove }: {
       {/* Eliminar */}
       <button
         onClick={onRemove}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-red-400 transition-all"
+        className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-300 dark:border-white/[12%] text-zinc-400 dark:text-zinc-500 hover:border-red-400/60 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500 transition-all"
         aria-label="Eliminar serie"
       >
         <X className="h-4 w-4" />

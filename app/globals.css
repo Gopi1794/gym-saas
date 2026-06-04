@@ -77,6 +77,21 @@
   100% { background-position: -200% 0; }
 }
 
+/* View transition — iris theme toggle */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Cierre de iris (→ dark): vista vieja (clara) cierra encima */
+[data-theme-dir="to-dark"] ::view-transition-old(root) { z-index: 999; }
+[data-theme-dir="to-dark"] ::view-transition-new(root) { z-index: 1; }
+
+/* Apertura de iris (→ light): vista nueva (clara) abre encima */
+[data-theme-dir="to-light"] ::view-transition-old(root) { z-index: 1; }
+[data-theme-dir="to-light"] ::view-transition-new(root) { z-index: 999; }
+
 @keyframes float {
   0%, 100% {
     transform: translateY(0px);
