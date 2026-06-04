@@ -36,18 +36,18 @@ export default function TodayWorkoutCard({
     return (
       <Link href={restHref} className="block">
         <div
-          className="relative overflow-hidden rounded-2xl"
+          className="relative overflow-hidden rounded-2xl bg-brand-950"
           style={{ minHeight: 140 }}
         >
           <Image
             src="/dia-de-descanso.jpg"
             alt=""
             fill
-            className="object-cover object-[center_5%] sm:object-[right_5%]"
+            className="object-cover object-[38%_38%]"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-brand-950 via-brand-950/70 sm:via-brand-950/40 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-brand-950 via-brand-950/80 to-brand-950/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
 
           <div className="relative z-10 flex h-full min-h-[140px] sm:min-h-[180px] items-center p-5">
             <div className="max-w-[60%]">
