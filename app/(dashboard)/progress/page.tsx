@@ -3,6 +3,8 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import ProgressView, { type SessionRecord } from "@/components/progress/ProgressView"
 import PageTour from "@/components/onboarding/PageTour"
+import WeightChart from "@/components/nutrition/WeightChart"
+import { getWeightHistory } from "@/app/actions/nutrition-tracking"
 import type { Step } from "react-joyride"
 
 const PROGRESS_STEPS: Step[] = [
@@ -28,10 +30,10 @@ export default async function ProgressPage() {
 
   const { data: profileData } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, weight_kg, goal")
     .eq("id", user!.id)
     .single()
-  const profile = profileData as { role: string } | null
+  const profile = profileData as { role: string; weight_kg: number | null; goal: string | null } | null
 
   if (profile?.role !== "member") redirect("/dashboard")
 
@@ -53,6 +55,8 @@ export default async function ProgressPage() {
     .limit(1)
     .maybeSingle() as unknown as Promise<{ data: { id: string } | null }>)
 
+  const weightHistory = await getWeightHistory(user!.id)
+
   let trainingDays = 0
   if (plan) {
     const { data: planDays } = await (supabase
@@ -69,6 +73,8 @@ export default async function ProgressPage() {
         <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">Mi progreso</h1>
         <p className="text-sm text-muted-foreground">Tu historial de entrenamientos</p>
       </div>
+      <WeightChart history={weightHistory} goalWeight={profile?.weight_kg ?? null} />
+
       <div data-tour="progress-content">
         <ProgressView
           sessions={sessions ?? []}

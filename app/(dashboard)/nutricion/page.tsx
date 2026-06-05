@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getNutritionPlans, getMemberNutritionPlan } from "@/app/actions/nutrition"
+import { getMealLogsForDate, getWaterToday, getNutritionStreak } from "@/app/actions/nutrition-tracking"
 import NutritionPlansPanel from "@/components/nutrition/NutritionPlansPanel"
 import MemberNutritionView from "@/components/nutrition/MemberNutritionView"
 
@@ -22,10 +23,28 @@ export default async function NutricionPage() {
 
   const gymId = profile.gym_id ?? ""
   const role = profile.role
+  const today = new Date().toISOString().split("T")[0]
 
   if (role === "member") {
-    const plan = await getMemberNutritionPlan(user!.id)
-    return <MemberNutritionView plan={plan} />
+    const [plan, waterGlasses, streak] = await Promise.all([
+      getMemberNutritionPlan(user!.id),
+      getWaterToday(user!.id),
+      getNutritionStreak(user!.id),
+    ])
+
+    const checkedMealIds = plan
+      ? await getMealLogsForDate(user!.id, today)
+      : []
+
+    return (
+      <MemberNutritionView
+        plan={plan}
+        checkedMealIds={checkedMealIds}
+        waterGlasses={waterGlasses}
+        streak={streak}
+        today={today}
+      />
+    )
   }
 
   const [plans, membersRaw] = await Promise.all([
