@@ -13,6 +13,10 @@ export type Food = {
   protein: number
   carbs: number
   fat: number
+  fiber: number
+  sodium: number
+  household_unit: string | null
+  grams_per_unit: number | null
 }
 
 export type MealItem = {
