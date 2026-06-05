@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, Users, QrCode, User,
-  TrendingUp, Dumbbell,
+  TrendingUp, Dumbbell, Apple,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -31,7 +31,7 @@ const ITEMS_BY_ROLE: Record<string, { href: string; label: string; icon: React.E
   member: [
     { href: "/dashboard",     label: "Inicio",        icon: LayoutDashboard },
     { href: "/entrenamiento", label: "Mi rutina",     icon: Dumbbell },
-    { href: "/progress",      label: "Progreso",      icon: TrendingUp },
+    { href: "/nutricion",     label: "Nutrición",     icon: Apple },
     { href: "/check-in",      label: "Check-in",      icon: QrCode },
     { href: "/profile",       label: "Perfil",        icon: User },
   ],

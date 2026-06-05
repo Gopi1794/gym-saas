@@ -1,0 +1,191 @@
+"use client"
+
+import { useState, useTransition } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Plus, Trash2, User, ChevronRight, Apple } from "lucide-react"
+import { createNutritionPlan, deleteNutritionPlan } from "@/app/actions/nutrition"
+import type { NutritionPlan } from "@/app/actions/nutrition"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getInitials } from "@/lib/utils"
+
+interface Member { id: string; full_name: string | null; avatar_url?: string | null }
+
+interface Props {
+  gymId: string
+  plans: NutritionPlan[]
+  members: Member[]
+}
+
+const GOAL_LABELS = {
+  volumen: "Volumen",
+  definicion: "Definición",
+  mantenimiento: "Mantenimiento",
+  otro: "Otro",
+}
+
+const GOAL_COLORS = {
+  volumen: "bg-blue-500/15 text-blue-400",
+  definicion: "bg-brand-500/15 text-brand-400",
+  mantenimiento: "bg-emerald-500/15 text-emerald-400",
+  otro: "bg-zinc-500/15 text-zinc-400",
+}
+
+export default function NutritionPlansPanel({ gymId, plans: initialPlans, members }: Props) {
+  const router = useRouter()
+  const [plans, setPlans] = useState(initialPlans)
+  const [showCreate, setShowCreate] = useState(false)
+  const [form, setForm] = useState({ memberId: "", name: "", goal: "mantenimiento" as NutritionPlan["goal"], notes: "" })
+  const [isPending, startTransition] = useTransition()
+
+  function handleCreate() {
+    if (!form.memberId || !form.name.trim()) return
+    startTransition(async () => {
+      const id = await createNutritionPlan(gymId, form.memberId, form.name, form.goal, form.notes || undefined)
+      setShowCreate(false)
+      router.push(`/nutricion/${id}`)
+    })
+  }
+
+  function handleDelete(id: string) {
+    if (!confirm("¿Eliminar este plan nutricional?")) return
+    startTransition(async () => {
+      await deleteNutritionPlan(id)
+      setPlans(prev => prev.filter(p => p.id !== id))
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          Nuevo plan
+        </button>
+      </div>
+
+      {plans.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-zinc-700 py-20 text-center">
+          <Apple className="h-8 w-8 text-zinc-600" />
+          <p className="font-medium text-zinc-400">No hay planes nutricionales</p>
+          <p className="text-sm text-zinc-600">Creá el primer plan para un socio</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {plans.map(plan => (
+            <div key={plan.id} className="group flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 dark:border-zinc-800 dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+              <Avatar className="h-9 w-9 shrink-0">
+                <AvatarImage src={plan.profiles?.avatar_url ?? undefined} />
+                <AvatarFallback className="text-xs bg-zinc-200 dark:bg-zinc-700">
+                  {getInitials(plan.profiles?.full_name ?? null)}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-50 truncate">{plan.name}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${GOAL_COLORS[plan.goal]}`}>
+                    {GOAL_LABELS[plan.goal]}
+                  </span>
+                  {!plan.is_active && (
+                    <span className="rounded-full bg-zinc-500/15 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">Inactivo</span>
+                  )}
+                </div>
+                <p className="mt-0.5 flex items-center gap-1 text-sm text-zinc-500">
+                  <User className="h-3 w-3 shrink-0" />
+                  {plan.profiles?.full_name ?? "Socio"}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => handleDelete(plan.id)}
+                  className="rounded-lg p-2 text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <Link href={`/nutricion/${plan.id}`} className="flex items-center gap-1 rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                  Ver plan
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setShowCreate(false)}>
+          <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900" onClick={e => e.stopPropagation()}>
+            <h2 className="mb-5 text-lg font-bold text-zinc-900 dark:text-zinc-50">Nuevo plan nutricional</h2>
+
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-zinc-500">Socio</label>
+                <select
+                  value={form.memberId}
+                  onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+                >
+                  <option value="">Seleccioná un socio…</option>
+                  {members.map(m => (
+                    <option key={m.id} value={m.id}>{m.full_name ?? m.id}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-zinc-500">Nombre del plan</label>
+                <input
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Ej: Plan volumen — Junio"
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-zinc-500">Objetivo</label>
+                <select
+                  value={form.goal}
+                  onChange={e => setForm(f => ({ ...f, goal: e.target.value as NutritionPlan["goal"] }))}
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+                >
+                  <option value="mantenimiento">Mantenimiento</option>
+                  <option value="volumen">Volumen</option>
+                  <option value="definicion">Definición</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-zinc-500">Notas (opcional)</label>
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                  rows={2}
+                  placeholder="Restricciones, observaciones…"
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 resize-none focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setShowCreate(false)} className="flex-1 rounded-xl border border-zinc-200 py-2.5 text-sm font-medium text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 transition-colors">
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={isPending || !form.memberId || !form.name.trim()}
+                className="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 transition-colors"
+              >
+                {isPending ? "Creando…" : "Crear plan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

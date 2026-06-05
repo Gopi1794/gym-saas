@@ -14,6 +14,7 @@ import {
   Settings,
   Dumbbell,
   BarChart2,
+  Apple,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -32,6 +33,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/personas", label: "Personas", icon: Users, adminOnly: true },
   { href: "/entrenamiento", label: "Entrenamiento", icon: Dumbbell },
+  { href: "/nutricion", label: "Nutrición", icon: Apple },
   { href: "/progress", label: "Progreso", icon: TrendingUp, memberOnly: true },
   { href: "/achievements", label: "Logros", icon: Trophy, adminOnly: true },
   { href: "/check-in", label: "Check-in", icon: QrCode },
