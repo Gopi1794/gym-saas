@@ -6,13 +6,30 @@ interface Props {
   plan: NutritionPlan | null
 }
 
-function MacroChip({ label, value, unit, color }: { label: string; value: number; unit: string; color: string }) {
+function MacroChip({
+  label, value, target, unit, color, barColor,
+}: {
+  label: string; value: number; target: number | null; unit: string; color: string; barColor: string
+}) {
+  const pct = target ? Math.min((value / target) * 100, 100) : 0
+  const over = target ? value > target * 1.05 : false
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="flex flex-col rounded-2xl border border-zinc-200 bg-white px-3 py-3 dark:border-zinc-800 dark:bg-zinc-900">
       <p className={`text-xl font-black leading-none ${color}`}>
-        {Math.round(value)}<span className="ml-0.5 text-xs font-medium text-zinc-500">{unit}</span>
+        {Math.round(value)}<span className="ml-0.5 text-[11px] font-medium text-zinc-500">{unit}</span>
       </p>
-      <p className="mt-1 text-xs text-zinc-500">{label}</p>
+      {target && (
+        <p className="text-[10px] text-zinc-500">de {target}{unit}</p>
+      )}
+      <p className="mt-1.5 text-[11px] text-zinc-500">{label}</p>
+      {target && (
+        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+          <div
+            className={`h-full rounded-full transition-all ${over ? "bg-red-500" : barColor}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -95,10 +112,10 @@ export default function MemberNutritionView({ plan }: Props) {
 
       {/* Daily totals */}
       <div className="grid grid-cols-4 gap-3">
-        <MacroChip label="Calorías" value={totals.calories} unit="kcal" color="text-brand-400" />
-        <MacroChip label="Proteínas" value={totals.protein} unit="g" color="text-blue-400" />
-        <MacroChip label="Carbos" value={totals.carbs} unit="g" color="text-amber-400" />
-        <MacroChip label="Grasas" value={totals.fat} unit="g" color="text-emerald-400" />
+        <MacroChip label="Calorías" value={totals.calories} target={plan.target_calories} unit="kcal" color="text-brand-400" barColor="bg-brand-500" />
+        <MacroChip label="Proteínas" value={totals.protein} target={plan.target_protein} unit="g" color="text-blue-400" barColor="bg-blue-500" />
+        <MacroChip label="Carbos" value={totals.carbs} target={plan.target_carbs} unit="g" color="text-amber-400" barColor="bg-amber-500" />
+        <MacroChip label="Grasas" value={totals.fat} target={plan.target_fat} unit="g" color="text-emerald-400" barColor="bg-emerald-500" />
       </div>
 
       {plan.notes && (

@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Plus, Trash2, User, ChevronRight, Apple } from "lucide-react"
-import { createNutritionPlan, deleteNutritionPlan } from "@/app/actions/nutrition"
+import { Plus, Trash2, User, ChevronRight, Apple, Zap } from "lucide-react"
+import { createNutritionPlan, deleteNutritionPlan, getMemberProfileForPlan } from "@/app/actions/nutrition"
 import type { NutritionPlan } from "@/app/actions/nutrition"
+import { calcNutritionTargets } from "@/lib/nutrition"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/lib/utils"
 
@@ -31,17 +32,36 @@ const GOAL_COLORS = {
   otro: "bg-zinc-500/15 text-zinc-400",
 }
 
+type Targets = { calories: number; protein: number; carbs: number; fat: number } | null
+
 export default function NutritionPlansPanel({ gymId, plans: initialPlans, members }: Props) {
   const router = useRouter()
   const [plans, setPlans] = useState(initialPlans)
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ memberId: "", name: "", goal: "mantenimiento" as NutritionPlan["goal"], notes: "" })
+  const [suggestedTargets, setSuggestedTargets] = useState<Targets>(null)
+  const [loadingTargets, setLoadingTargets] = useState(false)
   const [isPending, startTransition] = useTransition()
+
+  async function handleMemberOrGoalChange(memberId: string, goal: NutritionPlan["goal"]) {
+    if (!memberId) { setSuggestedTargets(null); return }
+    setLoadingTargets(true)
+    try {
+      const profile = await getMemberProfileForPlan(memberId)
+      if (profile) {
+        setSuggestedTargets(calcNutritionTargets(profile, goal))
+      } else {
+        setSuggestedTargets(null)
+      }
+    } finally {
+      setLoadingTargets(false)
+    }
+  }
 
   function handleCreate() {
     if (!form.memberId || !form.name.trim()) return
     startTransition(async () => {
-      const id = await createNutritionPlan(gymId, form.memberId, form.name, form.goal, form.notes || undefined)
+      const id = await createNutritionPlan(gymId, form.memberId, form.name, form.goal, form.notes || undefined, suggestedTargets)
       setShowCreate(false)
       router.push(`/nutricion/${id}`)
     })
@@ -97,6 +117,9 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                 <p className="mt-0.5 flex items-center gap-1 text-sm text-zinc-500">
                   <User className="h-3 w-3 shrink-0" />
                   {plan.profiles?.full_name ?? "Socio"}
+                  {plan.target_calories && (
+                    <span className="ml-2 text-xs text-zinc-400">· {plan.target_calories} kcal/día</span>
+                  )}
                 </p>
               </div>
 
@@ -128,7 +151,11 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                 <label className="mb-1 block text-xs font-semibold text-zinc-500">Socio</label>
                 <select
                   value={form.memberId}
-                  onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}
+                  onChange={e => {
+                    const id = e.target.value
+                    setForm(f => ({ ...f, memberId: id }))
+                    handleMemberOrGoalChange(id, form.goal)
+                  }}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
                 >
                   <option value="">Seleccioná un socio…</option>
@@ -150,7 +177,11 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                 <label className="mb-1 block text-xs font-semibold text-zinc-500">Objetivo</label>
                 <select
                   value={form.goal}
-                  onChange={e => setForm(f => ({ ...f, goal: e.target.value as NutritionPlan["goal"] }))}
+                  onChange={e => {
+                    const goal = e.target.value as NutritionPlan["goal"]
+                    setForm(f => ({ ...f, goal }))
+                    handleMemberOrGoalChange(form.memberId, goal)
+                  }}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
                 >
                   <option value="mantenimiento">Mantenimiento</option>
@@ -159,6 +190,41 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                   <option value="otro">Otro</option>
                 </select>
               </div>
+
+              {/* Auto-calculated targets */}
+              {loadingTargets && (
+                <p className="text-xs text-zinc-500 text-center py-2">Calculando targets…</p>
+              )}
+              {suggestedTargets && !loadingTargets && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+                  <div className="mb-2 flex items-center gap-1.5">
+                    <Zap className="h-3.5 w-3.5 text-emerald-400" />
+                    <span className="text-xs font-semibold text-emerald-400">Targets calculados automáticamente (Mifflin-St Jeor)</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div>
+                      <p className="text-base font-black text-brand-400">{suggestedTargets.calories}</p>
+                      <p className="text-[10px] text-zinc-500">kcal</p>
+                    </div>
+                    <div>
+                      <p className="text-base font-black text-blue-400">{suggestedTargets.protein}g</p>
+                      <p className="text-[10px] text-zinc-500">Prot.</p>
+                    </div>
+                    <div>
+                      <p className="text-base font-black text-amber-400">{suggestedTargets.carbs}g</p>
+                      <p className="text-[10px] text-zinc-500">Carbs</p>
+                    </div>
+                    <div>
+                      <p className="text-base font-black text-emerald-400">{suggestedTargets.fat}g</p>
+                      <p className="text-[10px] text-zinc-500">Grasas</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {form.memberId && !suggestedTargets && !loadingTargets && (
+                <p className="text-xs text-zinc-500">No se pudieron calcular targets — el socio no tiene datos de peso/altura/edad/género completos.</p>
+              )}
+
               <div>
                 <label className="mb-1 block text-xs font-semibold text-zinc-500">Notas (opcional)</label>
                 <textarea

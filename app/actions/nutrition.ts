@@ -42,6 +42,10 @@ export type NutritionPlan = {
   notes: string | null
   is_active: boolean
   created_at: string
+  target_calories: number | null
+  target_protein:  number | null
+  target_carbs:    number | null
+  target_fat:      number | null
   profiles?: { full_name: string | null; avatar_url: string | null }
   nutrition_meals?: Meal[]
 }
@@ -137,12 +141,46 @@ export async function getMemberNutritionPlan(memberId: string): Promise<Nutritio
   return plan
 }
 
-export async function createNutritionPlan(gymId: string, memberId: string, name: string, goal: NutritionPlan["goal"], notes?: string) {
+export async function getMemberProfileForPlan(memberId: string) {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from("profiles")
+    .select("weight_kg, height_cm, date_of_birth, gender, training_frequency")
+    .eq("id", memberId)
+    .single()
+  return data as {
+    weight_kg: number | null
+    height_cm: number | null
+    date_of_birth: string | null
+    gender: "male" | "female" | "other" | null
+    training_frequency: "never" | "1-2" | "3-4" | "5+" | null
+  } | null
+}
+
+export async function createNutritionPlan(
+  gymId: string,
+  memberId: string,
+  name: string,
+  goal: NutritionPlan["goal"],
+  notes?: string,
+  targets?: { calories: number; protein: number; carbs: number; fat: number } | null
+) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { data, error } = await supabase
     .from("nutrition_plans" as never)
-    .insert({ gym_id: gymId, member_id: memberId, created_by: user?.id, name, goal, notes: notes ?? null } as never)
+    .insert({
+      gym_id: gymId,
+      member_id: memberId,
+      created_by: user?.id,
+      name,
+      goal,
+      notes: notes ?? null,
+      target_calories: targets?.calories ?? null,
+      target_protein:  targets?.protein  ?? null,
+      target_carbs:    targets?.carbs    ?? null,
+      target_fat:      targets?.fat      ?? null,
+    } as never)
     .select("id")
     .single()
   if (error) throw new Error(error.message)

@@ -15,28 +15,51 @@ interface Props {
   foods: Food[]
 }
 
-function MacroBar({ label, grams, color }: { label: string; grams: number; color: string }) {
+function MacroProgressBar({
+  label, planned, target, unit, barColor, textColor,
+}: {
+  label: string; planned: number; target: number | null; unit: string; barColor: string; textColor: string
+}) {
+  const pct = target ? Math.min((planned / target) * 100, 100) : 0
+  const over = target ? planned > target * 1.05 : false
   return (
-    <div className="text-center">
-      <p className={`text-lg font-black leading-none ${color}`}>{Math.round(grams)}<span className="ml-0.5 text-xs font-medium text-zinc-500">g</span></p>
-      <p className="mt-0.5 text-xs text-zinc-500">{label}</p>
+    <div className="space-y-1.5">
+      <div className="flex items-end justify-between">
+        <span className="text-xs font-semibold text-zinc-500">{label}</span>
+        <div className="text-right">
+          <span className={`text-base font-black leading-none ${textColor}`}>{Math.round(planned)}</span>
+          {target && (
+            <span className="ml-1 text-xs text-zinc-500">/ {target}{unit}</span>
+          )}
+          {!target && <span className="ml-0.5 text-xs text-zinc-500">{unit}</span>}
+        </div>
+      </div>
+      {target && (
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+          <div
+            className={`h-full rounded-full transition-all ${over ? "bg-red-500" : barColor}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
     </div>
   )
 }
 
-function MacroSummary({ meals }: { meals: Meal[] }) {
+function MacroSummary({ meals, plan }: { meals: Meal[]; plan: NutritionPlan }) {
   const m = calcPlanMacros(meals)
+  const hasTargets = plan.target_calories != null
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">Totales del día</p>
-      <div className="grid grid-cols-4 gap-3">
-        <div className="text-center">
-          <p className="text-lg font-black leading-none text-brand-400">{Math.round(m.calories)}<span className="ml-0.5 text-xs font-medium text-zinc-500">kcal</span></p>
-          <p className="mt-0.5 text-xs text-zinc-500">Calorías</p>
-        </div>
-        <MacroBar label="Prot." grams={m.protein} color="text-blue-400" />
-        <MacroBar label="Carbs" grams={m.carbs} color="text-amber-400" />
-        <MacroBar label="Grasas" grams={m.fat} color="text-emerald-400" />
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Totales del día</p>
+        {hasTargets && <p className="text-xs text-zinc-500">planificado / target</p>}
+      </div>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+        <MacroProgressBar label="Calorías" planned={m.calories} target={plan.target_calories} unit="kcal" barColor="bg-brand-500" textColor="text-brand-400" />
+        <MacroProgressBar label="Proteínas" planned={m.protein} target={plan.target_protein} unit="g" barColor="bg-blue-500" textColor="text-blue-400" />
+        <MacroProgressBar label="Carbohidratos" planned={m.carbs} target={plan.target_carbs} unit="g" barColor="bg-amber-500" textColor="text-amber-400" />
+        <MacroProgressBar label="Grasas" planned={m.fat} target={plan.target_fat} unit="g" barColor="bg-emerald-500" textColor="text-emerald-400" />
       </div>
     </div>
   )
@@ -274,7 +297,7 @@ export default function NutritionPlanEditor({ plan, foods }: Props) {
         </button>
       </div>
 
-      {meals.length > 0 && <MacroSummary meals={meals} />}
+      {meals.length > 0 && <MacroSummary meals={meals} plan={plan} />}
 
       {meals.map(meal => (
         <MealCard
