@@ -14,6 +14,9 @@ import AdminKpiCards from "@/components/dashboard/AdminKpiCards"
 import RevenueChart from "@/components/dashboard/RevenueChart"
 import OnboardingTour from "@/components/onboarding/OnboardingTour"
 import RenewMembershipCard from "@/components/dashboard/RenewMembershipCard"
+import NutritionSummaryCard from "@/components/dashboard/NutritionSummaryCard"
+import { getMemberNutritionPlan } from "@/app/actions/nutrition"
+import { getNutritionStreak } from "@/app/actions/nutrition-tracking"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Dashboard" }
@@ -129,6 +132,8 @@ export default async function DashboardPage() {
   let memberActivity: { completedThisWeek: number; trainingDaysThisWeek: number; totalSessions: number; streak: number; sessionsByWeek: number[]; recentDays: number[] } | null = null
   let recentBadges: RecentBadge[] | null = null
   let membershipPlans: { type: "basic" | "premium" | "vip"; label: string; price: number; duration_days: number; features: string[] }[] = []
+  let memberNutritionPlan: Awaited<ReturnType<typeof getMemberNutritionPlan>> = null
+  let nutritionStreak = 0
 
   if (p?.role === "member") {
     type PlanRow = { id: string; name: string }
@@ -251,6 +256,14 @@ export default async function DashboardPage() {
       .limit(3) as unknown as Promise<{ data: RecentBadge[] | null }>)
     recentBadges = recentBadgesData
 
+    // Nutrition plan + streak for dashboard card
+    const [nutritionPlan, streak] = await Promise.all([
+      getMemberNutritionPlan(user!.id),
+      getNutritionStreak(user!.id),
+    ])
+    memberNutritionPlan = nutritionPlan
+    nutritionStreak = streak
+
     // Fetch gym's configured membership plans (only when member may need renewal)
     const exp = p?.membership_expires_at
     const daysLeft = exp ? Math.ceil((new Date(exp).getTime() - Date.now()) / 86_400_000) : null
@@ -347,6 +360,11 @@ export default async function DashboardPage() {
             todayDow={todayDow}
           />
         </div>
+      )}
+
+      {/* Nutrition summary — members only */}
+      {p?.role === "member" && (
+        <NutritionSummaryCard plan={memberNutritionPlan} streak={nutritionStreak} />
       )}
 
       {/* KPI cards — admin only */}
