@@ -532,7 +532,7 @@ function MealDetail({ meal, mealIdx, items, foods, onDelete, onItemsChange }: {
       {/* Food detail modal */}
       {detailFood && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md animate-in fade-in duration-150" onClick={() => setDetailFood(null)}>
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur-2xl shadow-2xl ring-1 ring-inset ring-white/5 animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur-2xl shadow-2xl ring-1 ring-inset ring-white/5 animate-in fade-in duration-200" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between border-b border-zinc-800 px-6 py-4">
               <div>
                 <h2 className="text-lg font-bold text-zinc-50">{detailFood.name}</h2>
@@ -1080,7 +1080,7 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
       {/* USDA Import Modal */}
       {usdaOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-150" onClick={() => setUsdaOpen(false)}>
-          <div className="flex w-full max-w-2xl flex-col max-h-[85vh] rounded-2xl border border-zinc-700 bg-zinc-900 shadow-xl animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+          <div className="flex w-full max-w-2xl flex-col max-h-[85vh] rounded-2xl border border-zinc-700 bg-zinc-900 shadow-xl animate-in fade-in duration-200" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
               <div>
                 <h2 className="text-lg font-bold text-zinc-50">Importar desde USDA</h2>

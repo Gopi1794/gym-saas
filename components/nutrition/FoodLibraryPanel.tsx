@@ -357,7 +357,7 @@ export default function FoodLibraryPanel({ gymId, initialFoods }: Props) {
       {/* Detail modal */}
       {detail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-md animate-in fade-in duration-150" onClick={() => setDetail(null)}>
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/60 shadow-2xl backdrop-blur-2xl ring-1 ring-inset ring-white/5 dark:bg-zinc-900/50 animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/60 shadow-2xl backdrop-blur-2xl ring-1 ring-inset ring-white/5 dark:bg-zinc-900/50 animate-in fade-in duration-200" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-start justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
               <div>
