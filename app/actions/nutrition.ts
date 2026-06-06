@@ -17,6 +17,14 @@ export type Food = {
   sodium: number
   household_unit: string | null
   grams_per_unit: number | null
+  sugars: number | null
+  saturated_fat: number | null
+  potassium: number | null
+  calcium: number | null
+  magnesium: number | null
+  zinc: number | null
+  iron: number | null
+  vitamin_b12: number | null
 }
 
 export type MealItem = {
@@ -42,7 +50,7 @@ export type NutritionPlan = {
   member_id: string
   created_by: string | null
   name: string
-  goal: "volumen" | "definicion" | "mantenimiento" | "otro"
+  goal: "volumen" | "definicion" | "mantenimiento" | "recomposicion" | "rendimiento" | "perdida_moderada" | "otro"
   notes: string | null
   is_active: boolean
   created_at: string
@@ -66,11 +74,15 @@ export async function getFoods(gymId: string): Promise<Food[]> {
   return (data ?? []) as unknown as Food[]
 }
 
-export async function createFood(gymId: string, food: Omit<Food, "id" | "gym_id">) {
+export async function createFood(gymId: string, food: Omit<Food, "id" | "gym_id">): Promise<Food> {
   const supabase = createClient()
-  const { error } = await supabase.from("foods" as never).insert({ ...food, gym_id: gymId } as never)
+  const { data, error } = await supabase
+    .from("foods" as never)
+    .insert({ ...food, gym_id: gymId } as never)
+    .select()
+    .single()
   if (error) throw new Error(error.message)
-  revalidatePath("/admin/alimentos")
+  return data as unknown as Food
 }
 
 export async function updateFood(id: string, food: Partial<Omit<Food, "id" | "gym_id">>) {
@@ -261,5 +273,32 @@ export async function deleteMealItem(id: string) {
   const supabase = createClient()
   const { error } = await supabase.from("nutrition_meal_items" as never).delete().eq("id", id)
   if (error) throw new Error(error.message)
+}
+
+// ── Food favorites ─────────────────────────────────────────────
+
+export async function getFoodFavorites(userId: string): Promise<string[]> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from("nutrition_food_favorites" as never)
+    .select("food_id")
+    .eq("user_id", userId)
+  return (data ?? []).map((r: { food_id: string }) => r.food_id)
+}
+
+export async function addFoodFavorite(userId: string, foodId: string): Promise<void> {
+  const supabase = createClient()
+  await supabase
+    .from("nutrition_food_favorites" as never)
+    .upsert({ user_id: userId, food_id: foodId } as never)
+}
+
+export async function removeFoodFavorite(userId: string, foodId: string): Promise<void> {
+  const supabase = createClient()
+  await supabase
+    .from("nutrition_food_favorites" as never)
+    .delete()
+    .eq("user_id", userId)
+    .eq("food_id", foodId)
 }
 
