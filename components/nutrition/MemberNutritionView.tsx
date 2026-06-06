@@ -5,6 +5,7 @@ import { Apple, CheckCircle2, Circle, Droplets, Plus, Minus, Flame, TrendingDown
 import type { NutritionPlan, Meal } from "@/app/actions/nutrition"
 import { calcMacros, calcPlanMacros } from "@/lib/nutrition"
 import { toggleMealLog, setWaterToday } from "@/app/actions/nutrition-tracking"
+import { showToast } from "nextjs-toast-notify"
 
 interface Props {
   plan: NutritionPlan | null
@@ -15,8 +16,13 @@ interface Props {
 }
 
 const GOAL_LABELS = {
-  volumen: "Volumen", definicion: "Definición",
-  mantenimiento: "Mantenimiento", otro: "Otro",
+  volumen: "Volumen",
+  definicion: "Definición",
+  mantenimiento: "Mantenimiento",
+  recomposicion: "Recomposición",
+  rendimiento: "Rendimiento deportivo",
+  perdida_moderada: "Pérdida moderada",
+  otro: "Otro",
 }
 
 // ── Macro ring (SVG) ──────────────────────────────────────────
@@ -66,8 +72,18 @@ function WaterTracker({ initial }: { initial: number }) {
 
   function update(n: number) {
     const next = Math.max(0, Math.min(12, n))
+    const prev = glasses
     setGlasses(next)
-    startTransition(async () => { await setWaterToday(next) })
+    startTransition(async () => {
+      try {
+        await setWaterToday(next)
+        if (next === TARGET && prev < TARGET)
+          showToast.success("¡Meta de agua alcanzada! 💧", { duration: 3000, position: "top-right", transition: "bounceIn" })
+      } catch {
+        setGlasses(prev)
+        showToast.error("No se pudo guardar el agua", { duration: 3000, position: "top-right" })
+      }
+    })
   }
 
   return (
@@ -107,9 +123,15 @@ function MealCard({ meal, checked, today }: { meal: Meal; checked: boolean; toda
   const macros = calcMacros(meal.nutrition_meal_items)
 
   function handleToggle() {
+    const next = !isChecked
     startTransition(async () => {
-      setIsChecked(!isChecked)
-      await toggleMealLog(meal.id, today)
+      setIsChecked(next)
+      try {
+        await toggleMealLog(meal.id, today)
+        if (next) showToast.success(`${meal.name} completada ✓`, { duration: 2500, position: "top-right", transition: "bounceIn" })
+      } catch {
+        showToast.error("No se pudo guardar", { duration: 3000, position: "top-right" })
+      }
     })
   }
 

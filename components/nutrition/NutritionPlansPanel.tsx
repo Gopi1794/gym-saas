@@ -4,10 +4,12 @@ import { useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Plus, Trash2, User, ChevronRight, Apple, Zap } from "lucide-react"
+import { showToast } from "nextjs-toast-notify"
 import { createNutritionPlan, deleteNutritionPlan, getMemberProfileForPlan } from "@/app/actions/nutrition"
 import type { NutritionPlan } from "@/app/actions/nutrition"
 import { calcNutritionTargets } from "@/lib/nutrition"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { getInitials } from "@/lib/utils"
 
 interface Member { id: string; full_name: string | null; avatar_url?: string | null }
@@ -18,18 +20,34 @@ interface Props {
   members: Member[]
 }
 
-const GOAL_LABELS = {
+const GOAL_LABELS: Record<string, string> = {
   volumen: "Volumen",
   definicion: "Definición",
   mantenimiento: "Mantenimiento",
+  recomposicion: "Recomposición",
+  rendimiento: "Rendimiento deportivo",
+  perdida_moderada: "Pérdida moderada",
   otro: "Otro",
 }
 
-const GOAL_COLORS = {
+const GOAL_COLORS: Record<string, string> = {
   volumen: "bg-blue-500/15 text-blue-400",
   definicion: "bg-brand-500/15 text-brand-400",
   mantenimiento: "bg-emerald-500/15 text-emerald-400",
+  recomposicion: "bg-purple-500/15 text-purple-400",
+  rendimiento: "bg-orange-500/15 text-orange-400",
+  perdida_moderada: "bg-yellow-500/15 text-yellow-400",
   otro: "bg-zinc-500/15 text-zinc-400",
+}
+
+const GOAL_DESCRIPTIONS: Record<string, string> = {
+  volumen: "Para ganar masa muscular con un superávit calórico moderado.",
+  definicion: "Para perder grasa conservando músculo con déficit agresivo y alta proteína.",
+  mantenimiento: "Para mantener el peso y composición corporal actual.",
+  recomposicion: "Para perder grasa y ganar músculo a la vez. Ideal para nivel intermedio.",
+  rendimiento: "Para atletas y deportistas que priorizan performance sobre estética.",
+  perdida_moderada: "Déficit suave, ideal para principiantes o quienes toleran poco déficit.",
+  otro: "",
 }
 
 type Targets = { calories: number; protein: number; carbs: number; fat: number } | null
@@ -42,6 +60,7 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
   const [suggestedTargets, setSuggestedTargets] = useState<Targets>(null)
   const [loadingTargets, setLoadingTargets] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null)
 
   async function handleMemberOrGoalChange(memberId: string, goal: NutritionPlan["goal"]) {
     if (!memberId) { setSuggestedTargets(null); return }
@@ -61,17 +80,34 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
   function handleCreate() {
     if (!form.memberId || !form.name.trim()) return
     startTransition(async () => {
-      const id = await createNutritionPlan(gymId, form.memberId, form.name, form.goal, form.notes || undefined, suggestedTargets)
-      setShowCreate(false)
-      router.push(`/nutricion/${id}`)
+      try {
+        const id = await createNutritionPlan(gymId, form.memberId, form.name, form.goal, form.notes || undefined, suggestedTargets)
+        showToast.success("Plan nutricional creado", { duration: 3000, position: "top-right", transition: "bounceIn" })
+        setShowCreate(false)
+        router.push(`/nutricion/${id}`)
+        router.refresh()
+      } catch {
+        showToast.error("No se pudo crear el plan", { duration: 4000, position: "top-right" })
+      }
     })
   }
 
   function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este plan nutricional?")) return
+    setDeletingPlanId(id)
+  }
+
+  function confirmDelete() {
+    if (!deletingPlanId) return
+    const id = deletingPlanId
+    setDeletingPlanId(null)
     startTransition(async () => {
-      await deleteNutritionPlan(id)
-      setPlans(prev => prev.filter(p => p.id !== id))
+      try {
+        await deleteNutritionPlan(id)
+        setPlans(prev => prev.filter(p => p.id !== id))
+        showToast.success("Plan eliminado", { duration: 3000, position: "top-right", transition: "bounceIn" })
+      } catch {
+        showToast.error("No se pudo eliminar el plan", { duration: 4000, position: "top-right" })
+      }
     })
   }
 
@@ -187,8 +223,14 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                   <option value="mantenimiento">Mantenimiento</option>
                   <option value="volumen">Volumen</option>
                   <option value="definicion">Definición</option>
+                  <option value="recomposicion">Recomposición</option>
+                  <option value="rendimiento">Rendimiento deportivo</option>
+                  <option value="perdida_moderada">Pérdida moderada</option>
                   <option value="otro">Otro</option>
                 </select>
+                {GOAL_DESCRIPTIONS[form.goal] && (
+                  <p className="mt-1.5 text-xs text-zinc-500">{GOAL_DESCRIPTIONS[form.goal]}</p>
+                )}
               </div>
 
               {/* Auto-calculated targets */}
@@ -252,6 +294,31 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
           </div>
         </div>
       )}
+
+      <Dialog open={!!deletingPlanId} onOpenChange={open => { if (!open) setDeletingPlanId(null) }}>
+        <DialogContent className="sm:max-w-sm border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-900 dark:text-zinc-50">¿Eliminar plan nutricional?</DialogTitle>
+            <DialogDescription className="text-zinc-500 dark:text-zinc-400">
+              Se van a eliminar todas las comidas y alimentos del plan. Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => setDeletingPlanId(null)}
+              className="flex-1 rounded-xl border border-zinc-200 py-2.5 text-sm font-medium text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-200 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmDelete}
+              className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-500 transition-colors"
+            >
+              Eliminar
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

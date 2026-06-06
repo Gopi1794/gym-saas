@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { Plus, TrendingDown, TrendingUp, Minus } from "lucide-react"
+import { showToast } from "nextjs-toast-notify"
 import { logWeight } from "@/app/actions/nutrition-tracking"
 import type { WeightLog } from "@/app/actions/nutrition-tracking"
 
@@ -64,15 +65,20 @@ export default function WeightChart({ history, goalWeight }: Props) {
     const kg = parseFloat(input)
     if (!kg || kg < 20 || kg > 300) return
     startTransition(async () => {
-      await logWeight(kg)
-      const today = new Date().toISOString().split("T")[0]
-      setLogs(prev => {
-        const without = prev.filter(l => l.log_date !== today)
-        return [...without, { id: crypto.randomUUID(), member_id: "", log_date: today, weight_kg: kg, notes: null }]
-          .sort((a, b) => a.log_date.localeCompare(b.log_date))
-      })
-      setInput("")
-      setShowAdd(false)
+      try {
+        await logWeight(kg)
+        const today = new Date().toISOString().split("T")[0]
+        setLogs(prev => {
+          const without = prev.filter(l => l.log_date !== today)
+          return [...without, { id: crypto.randomUUID(), member_id: "", log_date: today, weight_kg: kg, notes: null }]
+            .sort((a, b) => a.log_date.localeCompare(b.log_date))
+        })
+        showToast.success(`Peso registrado: ${kg} kg`, { duration: 3000, position: "top-right", transition: "bounceIn" })
+        setInput("")
+        setShowAdd(false)
+      } catch {
+        showToast.error("No se pudo registrar el peso", { duration: 4000, position: "top-right" })
+      }
     })
   }
 
