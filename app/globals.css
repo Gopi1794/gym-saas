@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── nextjs-toast-notify dark mode override ────────────────── */
+.dark {
+  --toast-bg-color: #18181b;
+  --toast-text-color: #f4f4f5;
+  --toast-close-color: #a1a1aa;
+  --toast-box-shadow: 0 0.25rem 1.125rem 0 rgba(0, 0, 0, 0.5);
+}
+
 @layer base {
   body {
     background-color: #0A0A0A;

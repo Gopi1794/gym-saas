@@ -54,16 +54,14 @@ export function calcNutritionTargets(
   goal: NutritionPlan["goal"]
 ): { calories: number; protein: number; carbs: number; fat: number } | null {
   const { weight_kg, height_cm, date_of_birth, gender, training_frequency } = profile
-  if (!weight_kg || !height_cm || !date_of_birth || !gender || gender === "other") return null
+  if (!weight_kg || !height_cm || !date_of_birth) return null
 
   const age = ageFromDob(date_of_birth)
   if (age < 10 || age > 100) return null
 
-  // Mifflin-St Jeor TMB
-  const tmb =
-    gender === "male"
-      ? 10 * weight_kg + 6.25 * height_cm - 5 * age + 5
-      : 10 * weight_kg + 6.25 * height_cm - 5 * age - 161
+  // gender null/other → average of male (+5) and female (-161) intercepts = -78
+  const intercept = gender === "male" ? 5 : gender === "female" ? -161 : -78
+  const tmb = 10 * weight_kg + 6.25 * height_cm - 5 * age + intercept
 
   const factor = ACTIVITY_FACTOR[training_frequency ?? "3-4"] ?? 1.55
   const tdee = Math.round(tmb * factor)
@@ -75,14 +73,29 @@ export function calcNutritionTargets(
 
   switch (goal) {
     case "volumen":
-      targetCalories = Math.round(tdee * 1.12)   // +12% surplus
+      targetCalories = Math.round(tdee * 1.12)
       proteinPerKg   = 1.8
       fatPerKg       = 1.0
       break
     case "definicion":
-      targetCalories = Math.round(tdee * 0.82)   // -18% deficit
-      proteinPerKg   = 2.2                        // high protein preserves muscle
+      targetCalories = Math.round(tdee * 0.82)
+      proteinPerKg   = 2.2
       fatPerKg       = 0.8
+      break
+    case "recomposicion":
+      targetCalories = tdee
+      proteinPerKg   = 2.5
+      fatPerKg       = 0.8
+      break
+    case "rendimiento":
+      targetCalories = Math.round(tdee * 1.08)
+      proteinPerKg   = 1.8
+      fatPerKg       = 1.0
+      break
+    case "perdida_moderada":
+      targetCalories = Math.round(tdee * 0.90)
+      proteinPerKg   = 2.0
+      fatPerKg       = 0.9
       break
     case "mantenimiento":
     default:
