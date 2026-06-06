@@ -137,6 +137,66 @@ export async function logWeight(weightKg: number, notes?: string): Promise<void>
   revalidatePath("/progress")
 }
 
+// ── Adherence report (trainer view) ───────────────────────────
+
+export type AdherenceEntry = {
+  plan_id: string
+  plan_name: string
+  goal: string
+  member_id: string
+  member_name: string
+  avatar_url: string | null
+  days_logged: number
+  last_log: string | null
+  target_calories: number | null
+}
+
+export async function getAdherenceReport(gymId: string): Promise<AdherenceEntry[]> {
+  const supabase = createClient()
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0]
+
+  const { data: plans } = await supabase
+    .from("nutrition_plans" as never)
+    .select("id, name, goal, member_id, target_calories, profiles!nutrition_plans_member_id_fkey(full_name, avatar_url)")
+    .eq("gym_id", gymId)
+    .eq("is_active", true)
+
+  if (!plans || (plans as unknown[]).length === 0) return []
+
+  const memberIds = (plans as { member_id: string }[]).map(p => p.member_id)
+
+  const { data: logs } = await supabase
+    .from("nutrition_logs" as never)
+    .select("member_id, log_date")
+    .in("member_id", memberIds)
+    .gte("log_date", sevenDaysAgo)
+
+  const logsByMember: Record<string, Set<string>> = {}
+  for (const log of (logs ?? []) as { member_id: string; log_date: string }[]) {
+    if (!logsByMember[log.member_id]) logsByMember[log.member_id] = new Set()
+    logsByMember[log.member_id].add(log.log_date)
+  }
+
+  return (plans as unknown as {
+    id: string; name: string; goal: string; member_id: string; target_calories: number | null
+    profiles: { full_name: string | null; avatar_url: string | null } | null
+  }[]).map(p => {
+    const memberLogs = logsByMember[p.member_id] ?? new Set<string>()
+    const dates = [...memberLogs].sort()
+    return {
+      plan_id: p.id,
+      plan_name: p.name,
+      goal: p.goal,
+      member_id: p.member_id,
+      member_name: p.profiles?.full_name ?? "Socio",
+      avatar_url: p.profiles?.avatar_url ?? null,
+      days_logged: memberLogs.size,
+      last_log: dates[dates.length - 1] ?? null,
+      target_calories: p.target_calories,
+    }
+  }).sort((a, b) => a.days_logged - b.days_logged)
+}
+
 export async function getWeightHistory(memberId: string, days = 90): Promise<WeightLog[]> {
   const supabase = createClient()
   const since = new Date(Date.now() - days * 86400000).toISOString().split("T")[0]
