@@ -39,11 +39,11 @@ export default async function NutricionPage({
       getWaterToday(user!.id),
       getNutritionStreak(user!.id),
     ])
-    const checkedMealIds = plan ? await getMealLogsForDate(user!.id, today) : []
+    const mealLogs = plan ? await getMealLogsForDate(user!.id, today) : []
     return (
       <MemberNutritionView
         plan={plan}
-        checkedMealIds={checkedMealIds}
+        mealLogs={mealLogs}
         waterGlasses={waterGlasses}
         streak={streak}
         today={today}

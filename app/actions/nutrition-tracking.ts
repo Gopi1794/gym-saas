@@ -27,43 +27,81 @@ export type WeightLog = {
   notes: string | null
 }
 
-// ── Meal check-off ─────────────────────────────────────────────
+// ── Meal logging ────────────────────────────────────────────────
 
-export async function toggleMealLog(mealId: string, date: string): Promise<boolean> {
+export type MealLog = {
+  meal_id: string
+  log_id: string
+  items: { food_id: string; actual_grams: number }[]
+}
+
+export async function getMealLogsForDate(memberId: string, date: string): Promise<MealLog[]> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from("nutrition_logs" as never)
+    .select("id, meal_id, nutrition_log_items(food_id, actual_grams)")
+    .eq("member_id", memberId)
+    .eq("log_date", date)
+
+  if (!data) return []
+
+  return (data as unknown as {
+    id: string
+    meal_id: string
+    nutrition_log_items: { food_id: string; actual_grams: number }[]
+  }[]).map(row => ({
+    meal_id: row.meal_id,
+    log_id: row.id,
+    items: row.nutrition_log_items ?? [],
+  }))
+}
+
+export async function logMealWithItems(
+  mealId: string,
+  date: string,
+  items: { food_id: string; actual_grams: number }[]
+): Promise<void> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
 
-  const { data: existing } = await supabase
+  const { data: log, error: logError } = await supabase
     .from("nutrition_logs" as never)
+    .upsert(
+      { member_id: user.id, meal_id: mealId, log_date: date } as never,
+      { onConflict: "member_id,meal_id,log_date" }
+    )
     .select("id")
+    .single()
+
+  if (logError || !log) throw new Error("Failed to save log")
+
+  const logId = (log as { id: string }).id
+
+  await supabase.from("nutrition_log_items" as never).delete().eq("log_id", logId)
+
+  if (items.length > 0) {
+    await supabase.from("nutrition_log_items" as never).insert(
+      items.map(item => ({ log_id: logId, food_id: item.food_id, actual_grams: item.actual_grams } as never))
+    )
+  }
+
+  revalidatePath("/nutricion")
+}
+
+export async function removeMealLog(mealId: string, date: string): Promise<void> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Not authenticated")
+
+  await supabase
+    .from("nutrition_logs" as never)
+    .delete()
     .eq("member_id", user.id)
     .eq("meal_id", mealId)
     .eq("log_date", date)
-    .maybeSingle()
 
-  if (existing) {
-    await supabase
-      .from("nutrition_logs" as never)
-      .delete()
-      .eq("id", (existing as { id: string }).id)
-    return false
-  } else {
-    await supabase
-      .from("nutrition_logs" as never)
-      .insert({ member_id: user.id, meal_id: mealId, log_date: date } as never)
-    return true
-  }
-}
-
-export async function getMealLogsForDate(memberId: string, date: string): Promise<string[]> {
-  const supabase = createClient()
-  const { data } = await supabase
-    .from("nutrition_logs" as never)
-    .select("meal_id")
-    .eq("member_id", memberId)
-    .eq("log_date", date)
-  return ((data ?? []) as { meal_id: string }[]).map(r => r.meal_id)
+  revalidatePath("/nutricion")
 }
 
 export async function getNutritionStreak(memberId: string): Promise<number> {
