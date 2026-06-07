@@ -2,20 +2,26 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ClipboardList, FileText, ExternalLink } from "lucide-react"
+import { ClipboardList, FileText, ExternalLink, Apple } from "lucide-react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { AISparkle } from "./AISparkle"
 import ChatPanel, { Message, QuickAction } from "./ChatPanel"
 
-const WELCOME = "Hola. Puedo crear planes de entrenamiento desde una descripción o importar un plan desde texto. ¿Qué necesitás?"
+const WELCOME = "Hola. Puedo crear planes de entrenamiento y planes nutricionales. ¿Qué necesitás?"
 
 const QUICK_ACTIONS: QuickAction[] = [
   {
     icon: ClipboardList,
-    title: "Crear plan desde descripción",
+    title: "Crear plan de entrenamiento",
     subtitle: "Describí el miembro, deporte y objetivo",
     prompt: "Quiero crear un plan de entrenamiento.",
+  },
+  {
+    icon: Apple,
+    title: "Crear plan nutricional",
+    subtitle: "Calculamos los macros automáticamente",
+    prompt: "Quiero crear un plan nutricional.",
   },
   {
     icon: FileText,
@@ -44,7 +50,7 @@ export default function TrainerChat() {
       })
 
       if (!res.ok) throw new Error()
-      const data = await res.json() as { reply: string; planId?: string }
+      const data = await res.json() as { reply: string; planId?: string; nutritionPlanId?: string }
 
       setMessages((prev) =>
         prev.map((m) =>
@@ -59,6 +65,14 @@ export default function TrainerChat() {
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     Ver y editar el plan
+                  </button>
+                ) : data.nutritionPlanId ? (
+                  <button
+                    onClick={() => { setOpen(false); router.push(`/nutricion/${data.nutritionPlanId}`) }}
+                    className="flex items-center gap-2 self-start rounded-xl border border-brand-700/40 bg-brand-700/10 px-3 py-2 text-xs font-semibold text-brand-500 transition-colors hover:bg-brand-700/20"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Ver y cargar comidas
                   </button>
                 ) : undefined,
               }
@@ -78,7 +92,6 @@ export default function TrainerChat() {
 
   return (
     <>
-      {/* Floating bubble */}
       <motion.button
         onClick={() => setOpen(true)}
         whileHover={{ scale: 1.08 }}
@@ -96,7 +109,7 @@ export default function TrainerChat() {
         open={open}
         onClose={() => setOpen(false)}
         title="Asistente Trainer"
-        subtitle="Creación e importación de planes"
+        subtitle="Planes de entrenamiento y nutrición"
         welcomeMessage={WELCOME}
         quickActions={QUICK_ACTIONS}
         endpoint="/api/chat/trainer"
