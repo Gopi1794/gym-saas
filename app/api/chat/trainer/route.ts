@@ -3,6 +3,7 @@ import { NextRequest } from "next/server"
 export const maxDuration = 60
 import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { generatePlan } from "@/app/actions/generate-plan"
 
 const anthropic = new Anthropic()
@@ -170,15 +171,14 @@ export async function POST(req: NextRequest) {
       messages: { role: "user" | "assistant"; content: string }[]
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const adminDb = createAdminClient()
     const logChat = (role: "user" | "assistant", content: string) => {
-      void (supabase as any).from("chat_logs").insert({
-        user_id: user.id,
-        gym_id: profile.gym_id,
-        role,
-        agent: "trainer",
-        content,
-      })
+      adminDb
+        .from("chat_logs" as never)
+        .insert({ user_id: user.id, gym_id: profile.gym_id, role, agent: "trainer", content } as never)
+        .then(({ error }: { error: unknown }) => {
+          if (error) console.error("[trainer-chat] log:", error)
+        })
     }
 
     const respond = (data: { reply: string; planId?: string; nutritionPlanId?: string }) => {

@@ -1,7 +1,10 @@
 import { NextRequest } from "next/server"
 import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { selectAgent, AGENTS } from "@/lib/chat/agents"
+import { getMemberNutritionPlan } from "@/app/actions/nutrition"
+import { getMealLogsForDate } from "@/app/actions/nutrition-tracking"
 
 const anthropic = new Anthropic()
 
@@ -44,8 +47,9 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 3. Rate limiting (vía chat_logs en Supabase — funciona multi-instancia) ─
+  const adminDb = createAdminClient()
   const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString()
-  const { count: recentCount } = await supabase
+  const { count: recentCount } = await adminDb
     .from("chat_logs" as never)
     .select("*", { count: "exact", head: true })
     .eq("user_id", user.id)
@@ -71,6 +75,57 @@ export async function POST(req: NextRequest) {
   const agentId = selectAgent(messages)
   const agent   = AGENTS[agentId]
 
+  // ── 5b. Contexto nutricional (solo si agente = nutrition) ───────────────────
+  let nutritionContext = ""
+  if (agentId === "nutrition") {
+    const today = new Date().toISOString().split("T")[0]
+    const plan = await getMemberNutritionPlan(user.id)
+
+    if (!plan) {
+      nutritionContext = "\n\nESTADO NUTRICIONAL: El miembro no tiene plan nutricional asignado. El trainer puede crearle uno."
+    } else {
+      const mealLogs = await getMealLogsForDate(user.id, today)
+
+      // Valores de foods son por 100g → ratio = actual_grams / 100
+      let totalCal = 0, totalProt = 0, totalCarbs = 0, totalFat = 0
+      for (const log of mealLogs) {
+        const meal = plan.nutrition_meals?.find(m => m.id === log.meal_id)
+        if (!meal) continue
+        for (const logItem of log.items) {
+          const mealItem = meal.nutrition_meal_items?.find(i => i.food_id === logItem.food_id)
+          if (!mealItem?.foods) continue
+          const f = mealItem.foods
+          const r = logItem.actual_grams / 100
+          totalCal   += (f.calories ?? 0) * r
+          totalProt  += (f.protein  ?? 0) * r
+          totalCarbs += (f.carbs    ?? 0) * r
+          totalFat   += (f.fat      ?? 0) * r
+        }
+      }
+
+      const round = (n: number) => Math.round(n)
+      const tc = plan.target_calories ?? 0
+      const tp = plan.target_protein  ?? 0
+      const tch = plan.target_carbs   ?? 0
+      const tf = plan.target_fat      ?? 0
+
+      const mealsLogged = mealLogs.length
+      const totalMeals  = plan.nutrition_meals?.length ?? 0
+      const mealNames   = plan.nutrition_meals
+        ?.map(m => `${m.name}${m.time_label ? ` (${m.time_label})` : ""}`)
+        .join(", ") ?? "—"
+
+      nutritionContext = `
+
+PLAN NUTRICIONAL ACTIVO: "${plan.name}" — objetivo: ${plan.goal}
+TARGETS DEL DÍA: ${tc} kcal | ${tp}g proteína | ${tch}g carbos | ${tf}g grasa
+CONSUMIDO HOY: ${round(totalCal)} kcal | ${round(totalProt)}g proteína | ${round(totalCarbs)}g carbos | ${round(totalFat)}g grasa
+FALTANTE HOY: ${Math.max(0, tc - round(totalCal))} kcal | ${Math.max(0, tp - round(totalProt))}g proteína | ${Math.max(0, tch - round(totalCarbs))}g carbos | ${Math.max(0, tf - round(totalFat))}g grasa
+COMIDAS REGISTRADAS HOY: ${mealsLogged} de ${totalMeals}
+COMIDAS DEL PLAN: ${mealNames}`
+    }
+  }
+
   // ── 6. Construir contexto del miembro (solo desde servidor) ─────────────────
   const age = profile.date_of_birth
     ? Math.floor((Date.now() - new Date(profile.date_of_birth).getTime()) / (365.25 * 24 * 3600 * 1000))
@@ -88,12 +143,12 @@ export async function POST(req: NextRequest) {
   if (profile.membership_type)     ctx.push(`- Membresía: ${profile.membership_type}`)
   ctx.push(`- XP acumulado: ${profile.total_xp ?? 0}`)
 
-  const systemPrompt = agent.buildSystemPrompt(ctx.join("\n"))
+  const systemPrompt = agent.buildSystemPrompt(ctx.join("\n") + nutritionContext)
 
   // ── 7. Log del mensaje del usuario (antes de llamar a la API) ───────────────
   const lastUserMessage = [...messages].reverse().find((m) => m.role === "user")
   if (lastUserMessage) {
-    void supabase
+    adminDb
       .from("chat_logs" as never)
       .insert({
         user_id: user.id,
@@ -102,6 +157,9 @@ export async function POST(req: NextRequest) {
         agent:   agentId,
         content: lastUserMessage.content,
       } as never)
+      .then(({ error }: { error: unknown }) => {
+        if (error) console.error("[member-chat] log user msg:", error)
+      })
   }
 
   // ── 8. Llamada a Claude con streaming ───────────────────────────────────────
@@ -127,7 +185,7 @@ export async function POST(req: NextRequest) {
 
         // Log de respuesta del asistente (fire-and-forget)
         if (assistantContent) {
-          void supabase
+          adminDb
             .from("chat_logs" as never)
             .insert({
               user_id: user.id,
@@ -136,6 +194,9 @@ export async function POST(req: NextRequest) {
               agent:   agentId,
               content: assistantContent,
             } as never)
+            .then(({ error }: { error: unknown }) => {
+              if (error) console.error("[member-chat] log assistant msg:", error)
+            })
         }
       } catch (err) {
         controller.error(err)
