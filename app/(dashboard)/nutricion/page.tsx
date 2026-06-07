@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getNutritionPlans, getMemberNutritionPlan, getFoods } from "@/app/actions/nutrition"
-import { getMealLogsForDate, getWaterToday, getNutritionStreak, getAdherenceReport } from "@/app/actions/nutrition-tracking"
+import { getMealLogsForDate, getWaterToday, getNutritionStreak, getAdherenceReport, getWeightHistory } from "@/app/actions/nutrition-tracking"
 import TabSwitcher from "@/components/ui/TabSwitcher"
 import NutritionPlansPanel from "@/components/nutrition/NutritionPlansPanel"
 import MemberNutritionView from "@/components/nutrition/MemberNutritionView"
@@ -34,10 +34,11 @@ export default async function NutricionPage({
 
   // ── Miembro: vista directa sin tabs ──
   if (role === "member") {
-    const [plan, waterGlasses, streak] = await Promise.all([
+    const [plan, waterGlasses, streak, weightHistory] = await Promise.all([
       getMemberNutritionPlan(user!.id),
       getWaterToday(user!.id),
       getNutritionStreak(user!.id),
+      getWeightHistory(user!.id, 60),
     ])
     const mealLogs = plan ? await getMealLogsForDate(user!.id, today) : []
     return (
@@ -47,6 +48,7 @@ export default async function NutricionPage({
         waterGlasses={waterGlasses}
         streak={streak}
         today={today}
+        weightHistory={weightHistory}
       />
     )
   }
