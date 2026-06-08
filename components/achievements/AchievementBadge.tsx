@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { CheckCircle2, Lock } from "lucide-react";
+import { CheckCircle2, Lock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Achievement } from "@/types";
 
@@ -12,6 +12,7 @@ type Props = {
   earned_at?: string;
   progress?: number;
   total?: number;
+  onClose?: () => void;
 };
 
 function formatDate(iso?: string) {
@@ -33,6 +34,7 @@ export default function AchievementPanel({
   earned_at,
   progress = 19,
   total = 19,
+  onClose,
 }: Props) {
   const isLocked = variant === "locked" || variant === "compact-locked";
   const isJustEarned = variant === "just-earned";
@@ -90,97 +92,75 @@ export default function AchievementPanel({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-      }}
-      transition={{
-        duration: 0.4,
-      }}
-      className="relative mx-auto w-full max-w-[520px]"
+      initial={{ scale: 0.92, opacity: 0, y: 12 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      exit={{ scale: 0.96, opacity: 0, y: 8 }}
+      transition={{ type: "spring", damping: 22, stiffness: 240 }}
+      className="relative w-full max-w-[420px] mx-auto"
     >
       {/* OUTER GLOW */}
-      <motion.div
-        animate={
-          isJustEarned
-            ? {
-                opacity: [0.5, 1, 0.5],
-              }
-            : {}
-        }
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-        }}
-        className="absolute inset-0 rounded-[36px] bg-red-500/10 blur-3xl"
-      />
+      <div className="absolute inset-0 rounded-[40px] bg-red-500/10 blur-3xl" />
 
       {/* MAIN PANEL */}
-      <div className="relative overflow-hidden rounded-[36px] border border-zinc-700 bg-[#111111] shadow-2xl">
-        {/* RED ENERGY OVERLAY */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,80,80,0.25),transparent_45%)]" />
+      <div className="relative overflow-hidden rounded-[38px] border border-white/10 bg-white shadow-[0_0_120px_rgba(255,0,0,0.18)] dark:bg-[#111111]">
+        {/* TOP LIGHT */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/70 to-transparent" />
 
-        {/* METAL TEXTURE */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),transparent)]" />
+        {/* RED RADIAL */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,0,0,0.24),transparent_42%)]" />
 
         {/* INNER SHADOW */}
-        <div className="pointer-events-none absolute inset-0 rounded-[36px] shadow-[inset_0_0_120px_rgba(0,0,0,0.9)]" />
+        <div className="pointer-events-none absolute inset-0 dark:shadow-[inset_0_0_120px_rgba(0,0,0,0.9)]" />
 
         {/* SIDE LIGHTS */}
-        <div className="absolute left-0 top-1/2 h-32 w-[3px] -translate-y-1/2 bg-red-500 shadow-[0_0_20px_rgba(255,0,0,0.9)]" />
+        <div className="absolute left-0 top-1/2 h-32 w-[3px] -translate-y-1/2 bg-red-500 shadow-[0_0_24px_rgba(255,0,0,0.9)]" />
+        <div className="absolute right-0 top-1/2 h-32 w-[3px] -translate-y-1/2 bg-red-500 shadow-[0_0_24px_rgba(255,0,0,0.9)]" />
 
-        <div className="absolute right-0 top-1/2 h-32 w-[3px] -translate-y-1/2 bg-red-500 shadow-[0_0_20px_rgba(255,0,0,0.9)]" />
+        {/* CLOSE */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/60 text-[#a1a1aa] backdrop-blur-md transition-all duration-150 hover:border-red-500/40 hover:text-white active:scale-95"
+            aria-label="Cerrar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
 
         {/* CONTENT */}
-        <div className="relative z-10 flex flex-col items-center px-8 py-10">
-          {/* MEDAL */}
-          <div className="relative mb-6">
-            {/* GLOW RING */}
+        <div className="relative z-10 flex flex-col items-center px-5 pb-6 pt-8 sm:px-8">
+          {/* MEDAL AREA */}
+          <div className="relative mb-5">
             <motion.div
-              animate={
-                isJustEarned
-                  ? {
-                      rotate: 360,
-                    }
-                  : {}
-              }
-              transition={{
-                duration: 8,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-              className="absolute inset-[-14px] rounded-full border border-red-500/30"
+              animate={{ rotate: isJustEarned ? 360 : 0 }}
+              transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-[-12px] rounded-full border border-red-500/20"
             />
+            <div className="absolute inset-[-24px] rounded-full bg-red-500/20 blur-3xl" />
 
-            {/* ENERGY */}
-            <div className="absolute inset-[-24px] rounded-full bg-red-500/20 blur-2xl" />
+            <div className="relative flex h-36 w-36 items-center justify-center rounded-full border border-zinc-200 bg-white dark:border-[#3f3f46] dark:bg-gradient-to-b dark:from-[#27272a] dark:to-black dark:shadow-[inset_0_0_50px_rgba(255,255,255,0.05)]">
+              <div className="absolute inset-3 rounded-full border border-red-500/30 shadow-[0_0_25px_rgba(255,0,0,0.45)]" />
 
-            {/* MEDAL CONTAINER */}
-            <div className="relative flex h-44 w-44 items-center justify-center rounded-full border border-zinc-700 bg-gradient-to-b from-zinc-800 to-black shadow-[inset_0_0_40px_rgba(255,255,255,0.08)]">
-              {/* INNER RED RING */}
-              <div className="absolute inset-3 rounded-full border border-red-500/30 shadow-[0_0_25px_rgba(255,0,0,0.5)]" />
-
-              {/* ICON */}
               {isImagePath(iconValue) ? (
                 <Image
                   src={iconValue}
                   alt={achievement.name}
-                  width={120}
-                  height={120}
-                  className={[
-                    "relative z-10 object-contain drop-shadow-[0_0_20px_rgba(255,0,0,0.4)]",
-                    isLocked ? "grayscale opacity-40" : "",
-                  ].join(" ")}
+                  width={110}
+                  height={110}
+                  className={cn(
+                    "relative z-10 object-contain drop-shadow-[0_0_30px_rgba(255,0,0,0.35)]",
+                    isLocked && "grayscale opacity-40",
+                  )}
                 />
               ) : (
-                <span className="text-7xl">{iconValue}</span>
+                <span className={cn("text-5xl", isLocked && "grayscale opacity-40")}>{iconValue}</span>
               )}
 
-              {/* LOCK */}
               {isLocked && (
-                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm">
-                  <Lock className="h-10 w-10 text-zinc-300" />
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/70 backdrop-blur-sm">
+                  <div className="rounded-full border border-white/10 bg-black/60 p-3">
+                    <Lock className="h-6 w-6 text-[#d4d4d8]" />
+                  </div>
                 </div>
               )}
             </div>
@@ -188,83 +168,61 @@ export default function AchievementPanel({
 
           {/* STATUS */}
           <div
-            className={[
-              "mb-5 rounded-full border px-6 py-2 text-sm font-bold uppercase tracking-[0.25em]",
+            className={cn(
+              "mb-4 rounded-full border px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.25em]",
               isLocked
-                ? "border-zinc-700 bg-zinc-800 text-zinc-400"
-                : "border-red-500/40 bg-red-500/20 text-red-300 shadow-[0_0_20px_rgba(255,0,0,0.25)]",
-            ].join(" ")}
+                ? "border-[#3f3f46] bg-[#27272a] text-[#a1a1aa]"
+                : "border-red-500/40 bg-red-500/15 text-red-300 shadow-[0_0_20px_rgba(255,0,0,0.2)]",
+            )}
           >
-            {isLocked ? "Bloqueada" : "Desbloqueada"}
+            {isLocked ? "BLOQUEADA" : "DESBLOQUEADA"}
           </div>
 
           {/* TITLE */}
-          <h2 className="text-center text-5xl font-black tracking-tight text-white">
+          <h2 className="text-center text-3xl font-black tracking-tight text-[#ffffff]">
             {achievement.name}
           </h2>
 
-          {/* SUBTITLE */}
-          <div className="mt-4 rounded-full border border-red-500/30 bg-red-500/10 px-5 py-2 text-lg text-red-300">
-            {achievement.description}
-          </div>
-
-          {/* DESCRIPTION */}
-          <p className="mt-8 max-w-md text-center text-xl leading-relaxed text-zinc-400">
-            Tu primera marca dentro de GymFlow.
-            <br />
-            Arrancaste el camino, ahora toca sostenerlo.
-          </p>
-
-          {/* DATE */}
-          {!isLocked && earned_at && (
-            <div className="mt-5 text-sm text-zinc-500">
-              Conseguida el {formatDate(earned_at)}
+          {/* CONDITION PILL */}
+          {achievement.description && (
+            <div className="mt-3 rounded-full border border-red-500/20 bg-red-500/10 px-4 py-1.5 text-xs font-medium text-red-300">
+              {achievement.description}
             </div>
           )}
 
+          {/* DATE */}
+          {!isLocked && earned_at && (
+            <p className="mt-3 text-xs text-zinc-500">
+              Conseguida el {formatDate(earned_at)}
+            </p>
+          )}
+
           {/* PROGRESS */}
-          <div className="mt-10 w-full rounded-[24px] border border-zinc-800 bg-black/40 p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-400">
-                Progreso
-              </span>
-
-              <div className="flex items-center gap-2 text-zinc-300">
-                <CheckCircle2 className="h-5 w-5 text-red-400" />
-
-                <span className="text-3xl font-black">
-                  {progress}/{total}
-                </span>
+          <div className="mt-5 w-full rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-black/30">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-[#71717a]">
+                  Progreso
+                </p>
+                <p className="mt-0.5 text-xs text-[#71717a]">Asistencias completadas</p>
               </div>
+              <p className="text-2xl font-black tracking-tight text-[#ffffff]">
+                {Math.min(progress, total)}/{total}
+              </p>
             </div>
 
-            {/* PROGRESS BAR */}
-            <div className="relative h-5 overflow-hidden rounded-full border border-red-500/20 bg-zinc-900">
-              {/* BACKGROUND GLOW */}
+            <div className="relative h-5 overflow-hidden rounded-full border border-red-500/20 bg-[#18181b]">
               <div className="absolute inset-0 bg-red-500/10 blur-md" />
-
-              {/* FILL */}
               <motion.div
                 initial={{ width: 0 }}
-                animate={{
-                  width: `${(progress / total) * 100}%`,
-                }}
-                transition={{
-                  duration: 1.2,
-                }}
-                className="relative h-full rounded-full bg-gradient-to-r from-red-700 via-red-500 to-red-300 shadow-[0_0_30px_rgba(255,0,0,0.8)]"
+                animate={{ width: `${Math.min((progress / total) * 100, 100)}%` }}
+                transition={{ duration: 1 }}
+                className="relative h-full rounded-full bg-gradient-to-r from-red-700 via-red-500 to-red-300 shadow-[0_0_35px_rgba(255,0,0,0.9)]"
               >
-                {/* ELECTRIC EFFECT */}
                 <motion.div
-                  animate={{
-                    x: ["-100%", "100%"],
-                  }}
-                  transition={{
-                    repeat: Infinity,
-                    duration: 1.8,
-                    ease: "linear",
-                  }}
-                  className="absolute inset-0 w-1/3 skew-x-[-20deg] bg-white/20 blur-sm"
+                  animate={{ x: ["-100%", "220%"] }}
+                  transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
+                  className="absolute inset-0 w-1/3 skew-x-[-18deg] bg-white/20 blur-sm"
                 />
               </motion.div>
             </div>

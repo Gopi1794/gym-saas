@@ -293,7 +293,7 @@ export default function BadgeGrid({
       </div>
 
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-w-[420px] border-none bg-transparent p-0 shadow-none">
+        <DialogContent className="max-w-[420px] border-none bg-transparent p-0 shadow-none [&>button]:hidden">
           <DialogTitle className="sr-only">
             {selected?.achievement.name}
           </DialogTitle>
@@ -302,6 +302,7 @@ export default function BadgeGrid({
               variant={selected.earnedAt ? "earned" : "locked"}
               achievement={selected.achievement}
               earned_at={selected.earnedAt}
+              onClose={() => setSelected(null)}
             />
           )}
         </DialogContent>
