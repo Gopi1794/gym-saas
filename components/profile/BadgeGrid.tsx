@@ -293,7 +293,7 @@ export default function BadgeGrid({
       </div>
 
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-w-[560px] border-none bg-transparent p-0 shadow-none">
+        <DialogContent className="max-w-[420px] border-none bg-transparent p-0 shadow-none">
           <DialogTitle className="sr-only">
             {selected?.achievement.name}
           </DialogTitle>
