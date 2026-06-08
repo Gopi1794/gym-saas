@@ -23,6 +23,10 @@ import {
   Calendar,
   X,
   Lock,
+  ShieldCheck,
+  BarChart2,
+  CheckCircle2,
+  ChevronsRight,
 } from "lucide-react";
 import AchievementBadge from "@/components/achievements/AchievementBadge";
 import { AnimatePresence, motion } from "framer-motion";
@@ -54,27 +58,27 @@ const MEMBERSHIP_STYLE: Record<
   { border: string; bg: string; glow: string; labelColor: string; chip: string; tier: string }
 > = {
   basic: {
-    border: "border-zinc-700/50 dark:border-zinc-700/50",
-    bg: "bg-zinc-900/40 dark:bg-zinc-900/40",
+    border: "border-zinc-300 dark:border-zinc-700/50",
+    bg: "bg-zinc-100 dark:bg-zinc-900/40",
     glow: "",
-    labelColor: "text-zinc-100",
-    chip: "border-zinc-700/40 bg-zinc-800/50 text-zinc-400",
+    labelColor: "text-zinc-800 dark:text-zinc-100",
+    chip: "border-zinc-300 bg-zinc-200 text-zinc-600 dark:border-zinc-700/40 dark:bg-zinc-800/50 dark:text-zinc-400",
     tier: "ESTÁNDAR",
   },
   premium: {
-    border: "border-amber-500/20 dark:border-amber-500/20",
-    bg: "bg-amber-950/20 dark:bg-amber-950/20",
+    border: "border-amber-300/60 dark:border-amber-500/20",
+    bg: "bg-amber-50 dark:bg-amber-950/20",
     glow: "shadow-[0_0_32px_rgba(245,158,11,0.10)]",
-    labelColor: "text-amber-200",
-    chip: "border-amber-500/25 bg-amber-500/10 text-amber-300",
+    labelColor: "text-amber-700 dark:text-amber-200",
+    chip: "border-amber-400/50 bg-amber-100 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300",
     tier: "PREMIUM",
   },
   vip: {
-    border: "border-brand-500/25 dark:border-brand-500/25",
-    bg: "bg-brand-950/20 dark:bg-brand-950/20",
-    glow: "shadow-[0_0_40px_rgba(213,0,0,0.14)]",
-    labelColor: "text-brand-300",
-    chip: "border-brand-500/25 bg-brand-500/10 text-brand-300",
+    border: "border-brand-300/50 dark:border-brand-500/25",
+    bg: "bg-brand-50 dark:bg-brand-950/20",
+    glow: "shadow-[0_0_40px_rgba(213,0,0,0.10)]",
+    labelColor: "text-brand-700 dark:text-brand-300",
+    chip: "border-brand-400/50 bg-brand-100/70 text-brand-700 dark:border-brand-500/25 dark:bg-brand-500/10 dark:text-brand-300",
     tier: "VIP",
   },
 };
@@ -406,7 +410,7 @@ export default function ProfileView({
                   {training.map(({ Icon, label, iconColor, pillBg }) => (
                     <span
                       key={label}
-                      className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold text-zinc-200", pillBg)}
+                      className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200", pillBg)}
                     >
                       <Icon className={cn("h-3.5 w-3.5", iconColor)} />
                       {label}
@@ -415,7 +419,7 @@ export default function ProfileView({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-900/45 p-4">
+              <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-900/45 p-4">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <Target className="h-4 w-4 text-brand-400" />
@@ -427,7 +431,7 @@ export default function ProfileView({
                     Desde {memberSince}
                   </span>
                 </div>
-                <p className="text-lg font-black text-white">{nextObjective}</p>
+                <p className="text-lg font-black text-zinc-900 dark:text-white">{nextObjective}</p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   {MEDALS.map((medal) => {
                     const earned = totalCheckIns >= medal.required;
@@ -443,8 +447,8 @@ export default function ProfileView({
                         className={cn(
                           "group flex items-center gap-2 rounded-2xl border px-3 py-2 text-left transition-[transform,background-color,border-color] duration-150 hover:-translate-y-0.5 active:scale-[0.98]",
                           earned
-                            ? "border-white/10 bg-white/[0.04] text-zinc-200"
-                            : "border-white/5 bg-white/[0.02] text-zinc-600 hover:text-zinc-400",
+                            ? "border-zinc-300 bg-zinc-50 text-zinc-800 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200"
+                            : "border-zinc-200 bg-zinc-50/50 text-zinc-500 hover:text-zinc-700 dark:border-white/5 dark:bg-white/[0.02] dark:text-zinc-600 dark:hover:text-zinc-400",
                         )}
                         aria-label={`Ver detalle de medalla ${medal.label}${earned ? "" : `. Faltan ${remaining} asistencias`}`}
                       >
@@ -702,74 +706,55 @@ export default function ProfileView({
                 stiffness: 240,
               }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-[420px]"
+              className="relative w-full max-w-[500px]"
             >
               {/* OUTER RED GLOW */}
               <div className="absolute inset-0 rounded-[40px] bg-red-500/10 blur-3xl" />
 
               {/* MAIN CONTAINER */}
-              <div className="relative overflow-hidden rounded-[38px] border border-white/10 bg-white shadow-[0_0_120px_rgba(255,0,0,0.18)] dark:bg-[#111111]">
+              <div className="relative overflow-hidden rounded-[32px] border border-white/8 bg-[#0d0d10] shadow-[0_0_80px_rgba(213,0,0,0.22)]">
                 {/* TOP LIGHT */}
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/70 to-transparent" />
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/60 to-transparent" />
 
-                {/* RED RADIAL */}
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,0,0,0.24),transparent_42%)]" />
-
-                {/* INNER SHADOW */}
-                <div className="pointer-events-none absolute inset-0 dark:shadow-[inset_0_0_120px_rgba(0,0,0,0.9)]" />
-
-                {/* SIDE LIGHTS */}
-                <div className="absolute left-0 top-1/2 h-32 w-[3px] -translate-y-1/2 bg-red-500 shadow-[0_0_24px_rgba(255,0,0,0.9)]" />
-
-                <div className="absolute right-0 top-1/2 h-32 w-[3px] -translate-y-1/2 bg-red-500 shadow-[0_0_24px_rgba(255,0,0,0.9)]" />
+                {/* RED RADIAL TOP */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(213,0,0,0.18),transparent_55%)]" />
 
                 {/* CLOSE */}
                 <button
                   onClick={() => setSelectedMedal(null)}
-                  className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/60 text-[#a1a1aa] backdrop-blur-md transition-all duration-150 hover:border-red-500/40 hover:text-[#ffffff] active:scale-95"
+                  className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-[#a1a1aa] backdrop-blur-md transition-all duration-150 hover:border-red-500/40 hover:text-white active:scale-95"
                   aria-label="Cerrar detalle de medalla"
                 >
                   <X className="h-4 w-4" />
                 </button>
 
                 {/* CONTENT */}
-                <div className="relative z-10 flex flex-col items-center px-5 pb-6 pt-8 sm:px-8">
+                <div className="relative z-10 flex flex-col items-center px-6 pb-6 pt-10">
                   {/* MEDAL AREA */}
-                  <div className="relative mb-5">
-                    {/* ENERGY RING */}
+                  <div className="relative mb-6">
+                    {/* OUTER AURA */}
+                    <div className="absolute inset-[-32px] rounded-full bg-red-500/20 blur-3xl" />
+                    {/* RED RING (rotating) */}
                     <motion.div
-                      animate={{
-                        rotate: 360,
-                      }}
-                      transition={{
-                        duration: 12,
-                        repeat: Infinity,
-                        ease: "linear",
-                      }}
-                      className="absolute inset-[-12px] rounded-full border border-red-500/20"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
+                      className="absolute inset-[-14px] rounded-full border border-red-500/25"
                     />
-
-                    {/* ENERGY */}
-                    <div className="absolute inset-[-24px] rounded-full bg-red-500/20 blur-3xl" />
-
-                    {/* MEDAL */}
-                    <div className="relative flex h-36 w-36 items-center justify-center rounded-full border border-zinc-200 bg-white dark:border-[#3f3f46] dark:bg-gradient-to-b dark:from-[#27272a] dark:to-black dark:shadow-[inset_0_0_50px_rgba(255,255,255,0.05)]">
+                    {/* MEDAL CIRCLE */}
+                    <div className="relative flex h-40 w-40 items-center justify-center rounded-full border border-[#2a2a2f] bg-gradient-to-b from-[#1e1e24] to-[#0a0a0d] shadow-[inset_0_0_40px_rgba(0,0,0,0.8),0_0_60px_rgba(213,0,0,0.25)]">
                       {/* INNER RED RING */}
-                      <div className="absolute inset-3 rounded-full border border-red-500/30 shadow-[0_0_25px_rgba(255,0,0,0.45)]" />
-
+                      <div className="absolute inset-4 rounded-full border border-red-600/50 shadow-[0_0_30px_rgba(213,0,0,0.5)]" />
                       {/* IMAGE */}
                       <Image
                         src={selectedMedal.image}
                         alt={selectedMedal.label}
-                        width={110}
-                        height={110}
+                        width={116}
+                        height={116}
                         className={cn(
-                          "relative z-10 object-contain drop-shadow-[0_0_30px_rgba(255,0,0,0.35)]",
-                          totalCheckIns < selectedMedal.required &&
-                            "grayscale opacity-40",
+                          "relative z-10 object-contain drop-shadow-[0_0_24px_rgba(213,0,0,0.5)]",
+                          totalCheckIns < selectedMedal.required && "grayscale opacity-40",
                         )}
                       />
-
                       {/* LOCKED OVERLAY */}
                       {totalCheckIns < selectedMedal.required && (
                         <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/70 backdrop-blur-sm">
@@ -781,89 +766,93 @@ export default function ProfileView({
                     </div>
                   </div>
 
-                  {/* STATUS */}
-                  <div
-                    className={cn(
-                      "mb-4 rounded-full border px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.25em]",
-                      totalCheckIns >= selectedMedal.required
-                        ? "border-red-500/40 bg-red-500/15 text-red-300 shadow-[0_0_20px_rgba(255,0,0,0.2)]"
-                        : "border-[#3f3f46] bg-[#27272a] text-[#a1a1aa]",
-                    )}
-                  >
-                    {totalCheckIns >= selectedMedal.required
-                      ? "DESBLOQUEADA"
-                      : "BLOQUEADA"}
+                  {/* STATUS BADGE */}
+                  <div className={cn(
+                    "mb-4 flex items-center gap-2 rounded-full border px-4 py-1.5",
+                    totalCheckIns >= selectedMedal.required
+                      ? "border-red-500/50 bg-red-500/12 text-red-300 shadow-[0_0_16px_rgba(213,0,0,0.18)]"
+                      : "border-[#3f3f46] bg-[#1e1e22] text-[#a1a1aa]",
+                  )}>
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em]">
+                      {totalCheckIns >= selectedMedal.required ? "LOGRO DESBLOQUEADO" : "BLOQUEADO"}
+                    </span>
                   </div>
 
                   {/* TITLE */}
-                  <h2 className="text-center text-3xl font-black tracking-tight text-[#ffffff]">
+                  <h2 className="text-center text-4xl font-black tracking-tight text-white">
                     {selectedMedal.label}
                   </h2>
 
-                  {/* CONDITION */}
-                  <div className="mt-3 rounded-full border border-red-500/20 bg-red-500/10 px-4 py-1.5 text-xs font-medium text-red-300">
+                  {/* CONDITION PILL */}
+                  <div className="mt-3 rounded-full border border-white/10 bg-white/[0.06] px-4 py-1.5 text-sm font-semibold text-white/90">
                     {selectedMedal.condition}
                   </div>
 
                   {/* DESCRIPTION */}
-                  <p className="mt-5 max-w-xs text-center text-sm leading-relaxed text-[#a1a1aa]">
+                  <p className="mt-4 max-w-[280px] text-center text-sm leading-relaxed text-[#71717a]">
                     {selectedMedal.description}
                   </p>
 
-                  {/* PROGRESS */}
-                  <div className="mt-6 w-full rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-black/30">
-                    <div className="mb-3 flex items-center justify-between">
+                  {/* PROGRESS CARD */}
+                  <div className="mt-5 w-full rounded-2xl border border-white/[0.07] bg-[#141418] p-5">
+                    {/* HEADER */}
+                    <div className="mb-4 flex items-start gap-3">
+                      <BarChart2 className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#71717a]">
+                        <p className="text-sm font-black uppercase tracking-[0.15em] text-white">
                           Progreso
                         </p>
-
-                        <p className="mt-0.5 text-xs text-[#71717a]">
-                          Asistencias completadas
-                        </p>
-                      </div>
-
-                      <div className="text-right">
-                        <p className="text-2xl font-black tracking-tight text-[#ffffff]">
-                          {Math.min(totalCheckIns, selectedMedal.required)}/
-                          {selectedMedal.required}
+                        <p className="mt-0.5 text-xs leading-relaxed text-[#71717a]">
+                          Alcanza los siguientes logros para seguir avanzando.
                         </p>
                       </div>
                     </div>
 
-                    {/* BAR */}
-                    <div className="relative h-5 overflow-hidden rounded-full border border-red-500/20 bg-[#18181b]">
-                      {/* BG GLOW */}
-                      <div className="absolute inset-0 bg-red-500/10 blur-md" />
+                    {/* COUNTER + PILL */}
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-[28px] font-black tracking-tight text-white">
+                        {Math.min(totalCheckIns, selectedMedal.required)}/{selectedMedal.required}
+                      </p>
+                      {totalCheckIns >= selectedMedal.required && (
+                        <div className="flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-zinc-300">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                          Completado
+                        </div>
+                      )}
+                    </div>
 
-                      {/* FILL */}
+                    {/* BAR */}
+                    <div className="relative h-2.5 overflow-hidden rounded-full bg-[#2a2a30]">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{
-                          width: `${Math.min(
-                            (totalCheckIns / selectedMedal.required) * 100,
-                            100,
-                          )}%`,
+                          width: `${Math.min((totalCheckIns / Math.max(selectedMedal.required, 1)) * 100, 100)}%`,
                         }}
-                        transition={{
-                          duration: 1,
-                        }}
-                        className="relative h-full rounded-full bg-gradient-to-r from-red-700 via-red-500 to-red-300 shadow-[0_0_35px_rgba(255,0,0,0.9)]"
+                        transition={{ duration: 1 }}
+                        className="relative h-full rounded-full bg-gradient-to-r from-red-700 via-red-500 to-red-400 shadow-[0_0_20px_rgba(213,0,0,0.8)]"
                       >
-                        {/* ELECTRIC SWEEP */}
                         <motion.div
-                          animate={{
-                            x: ["-100%", "220%"],
-                          }}
-                          transition={{
-                            duration: 1.8,
-                            repeat: Infinity,
-                            ease: "linear",
-                          }}
+                          animate={{ x: ["-100%", "220%"] }}
+                          transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
                           className="absolute inset-0 w-1/3 skew-x-[-18deg] bg-white/20 blur-sm"
                         />
                       </motion.div>
                     </div>
+                  </div>
+
+                  {/* MOTIVATIONAL CARD */}
+                  <div className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-[#141418] px-4 py-3.5">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/15">
+                      <Dumbbell className="h-5 w-5 text-red-500" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-white">Esto recién empieza</p>
+                      <p className="text-xs text-[#71717a]">
+                        Cada entrenamiento te acerca a tu mejor versión.
+                      </p>
+                    </div>
+                    <ChevronsRight className="h-5 w-5 shrink-0 text-zinc-600" />
                   </div>
                 </div>
               </div>
