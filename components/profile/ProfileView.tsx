@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { GymFlowLogo } from "@/components/ui/GymFlowLogo";
 import { QRCodeSVG } from "qrcode.react";
@@ -27,6 +28,7 @@ import {
   BarChart2,
   CheckCircle2,
   ChevronsRight,
+  LogOut,
 } from "lucide-react";
 import AchievementBadge from "@/components/achievements/AchievementBadge";
 import { AnimatePresence, motion } from "framer-motion";
@@ -193,6 +195,8 @@ export default function ProfileView({
   const [loading, setLoading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const router = useRouter();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
@@ -212,6 +216,13 @@ export default function ProfileView({
   const nextObjective = nextMedal
     ? `${nextMedal.label} Avanzada`
     : "Leyenda del Gym";
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   async function handleSave() {
     setLoading(true);
@@ -930,6 +941,23 @@ export default function ProfileView({
           </p>
         )}
       </div>
+
+      {/* Logout — solo mobile, solo members */}
+      {profile.role === "member" && (
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={signingOut}
+          className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 text-sm font-semibold text-zinc-600 transition-colors hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 md:hidden"
+        >
+          {signingOut ? (
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
+          Cerrar sesión
+        </button>
+      )}
     </div>
   );
 }

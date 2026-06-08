@@ -29,53 +29,68 @@ function isImagePath(icon: string): boolean {
 }
 
 function HexIcon({ icon, name, earned }: { icon: string; name: string; earned: boolean }) {
+  const hexId = `hex-${name.replace(/\s+/g, "-")}`
   return (
-    <div className="relative flex h-32 w-32 items-center justify-center">
-      {earned && <div className="absolute inset-2 rounded-full bg-brand-500/25 blur-2xl" />}
+    <div className="relative flex h-44 w-44 items-center justify-center">
+      {earned && (
+        <div className="absolute inset-4 rounded-full bg-brand-500/20 blur-2xl" />
+      )}
 
-      <svg viewBox="0 0 100 116" className="absolute inset-0 h-full w-full drop-shadow-lg" aria-hidden>
-        {earned && (
-          <filter id={`glow-${name.replace(/\s/g, "")}`}>
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        )}
+      <svg viewBox="0 0 100 116" className="absolute inset-0 h-full w-full" aria-hidden>
+        <defs>
+          {earned && (
+            <filter id={`${hexId}-glow`} x="-25%" y="-25%" width="150%" height="150%">
+              <feGaussianBlur stdDeviation="2.5" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          )}
+        </defs>
+
+        {/* Outer hex */}
         <polygon
           points="50,3 97,28 97,88 50,113 3,88 3,28"
-          fill={earned ? "rgba(30,4,4,0.90)" : "rgba(28,28,32,0.92)"}
-          stroke={earned ? "rgba(213,0,0,0.55)" : "rgba(80,80,90,0.7)"}
-          strokeWidth={earned ? "2" : "1.5"}
-          filter={earned ? `url(#glow-${name.replace(/\s/g, "")})` : undefined}
+          fill={earned ? "rgba(18,4,4,0.97)" : "rgba(18,18,22,0.97)"}
+          stroke={earned ? "rgba(213,0,0,0.90)" : "rgba(55,55,65,0.85)"}
+          strokeWidth={earned ? "2.5" : "1.5"}
+          filter={earned ? `url(#${hexId}-glow)` : undefined}
         />
+
+        {/* Inner hex ring */}
         <polygon
-          points="50,10 90,32 90,84 50,106 10,84 10,32"
+          points="50,11 89,32 89,84 50,105 11,84 11,32"
           fill="none"
-          stroke={earned ? "rgba(213,0,0,0.18)" : "rgba(255,255,255,0.04)"}
+          stroke={earned ? "rgba(213,0,0,0.20)" : "rgba(255,255,255,0.04)"}
           strokeWidth="1"
         />
       </svg>
 
-      <div className="relative z-10 flex h-14 w-14 items-center justify-center">
+      <div className="relative z-10 flex h-[68px] w-[68px] items-center justify-center">
         {isImagePath(icon) ? (
           <Image
             src={icon}
             alt={name}
-            width={52}
-            height={52}
+            width={62}
+            height={62}
             className={cn(
-              "object-contain drop-shadow-[0_0_12px_rgba(213,0,0,0.4)]",
+              "object-contain drop-shadow-[0_0_16px_rgba(213,0,0,0.55)]",
               !earned && "grayscale opacity-25",
             )}
           />
         ) : (
-          <span className={cn("text-4xl", !earned && "grayscale opacity-25")}>{icon}</span>
+          <span
+            className={cn("text-[46px] leading-none", !earned && "grayscale opacity-25")}
+            style={{ filter: earned ? "drop-shadow(0 0 10px rgba(213,0,0,0.6))" : undefined }}
+          >
+            {icon}
+          </span>
         )}
+
         {!earned && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Lock className="h-6 w-6 text-zinc-500" />
+            <Lock className="h-7 w-7 text-zinc-500" />
           </div>
         )}
       </div>
@@ -106,7 +121,7 @@ function AchievementCard({
     <motion.button
       type="button"
       onClick={onClick}
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06, duration: 0.35, ease: "easeOut" }}
       aria-label={`${achievement.name}${earned ? " — desbloqueado" : " — bloqueado"}`}
@@ -114,14 +129,15 @@ function AchievementCard({
         "group relative flex flex-col items-center rounded-2xl border p-5 text-left outline-none ring-brand-500/40",
         "transition-all duration-150 focus-visible:ring-2",
         earned
-          ? "border-zinc-200 bg-white hover:border-brand-500/40 hover:bg-zinc-50 dark:border-zinc-800/80 dark:bg-zinc-900/70 dark:hover:border-brand-500/25 dark:hover:bg-zinc-900"
-          : "border-zinc-200/80 bg-zinc-100/60 hover:bg-zinc-100 dark:border-zinc-800/50 dark:bg-zinc-900/40 dark:hover:bg-zinc-900/60",
+          ? "border-[#2a2a30] bg-[#18181c] hover:border-brand-500/30 hover:bg-[#1e1a1a] dark:border-[#2a2a30] dark:bg-[#18181c]"
+          : "border-[#222228] bg-[#141418] hover:bg-[#18181c] dark:border-[#222228] dark:bg-[#141418]",
+        "light:border-zinc-200 light:bg-white",
       )}
     >
       {earned && (
-        <div className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-brand-500 shadow-[0_0_12px_rgba(213,0,0,0.7)]">
-          <svg viewBox="0 0 12 12" className="h-3.5 w-3.5" fill="none" aria-hidden>
-            <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <div className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-brand-500 shadow-[0_0_14px_rgba(213,0,0,0.7)]">
+          <svg viewBox="0 0 12 12" className="h-[14px] w-[14px]" fill="none" aria-hidden>
+            <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
       )}
@@ -129,35 +145,35 @@ function AchievementCard({
       <HexIcon icon={icon} name={achievement.name} earned={earned} />
 
       <p className={cn(
-        "mt-4 text-center text-base font-bold leading-tight",
-        earned ? "text-zinc-900 dark:text-zinc-50" : "text-zinc-500",
+        "mt-3 text-center text-[15px] font-bold leading-snug",
+        earned ? "text-white" : "text-zinc-500",
       )}>
         {achievement.name}
       </p>
 
       {achievement.description && (
-        <p className="mt-1.5 line-clamp-2 text-center text-xs leading-relaxed text-zinc-500 dark:text-zinc-600">
+        <p className="mt-2 line-clamp-2 text-center text-[13px] leading-relaxed text-zinc-500">
           {achievement.description}
         </p>
       )}
 
       <div className="mt-4 w-full">
         {earned ? (
-          <div className="flex items-center justify-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1.5">
-            <Calendar className="h-3 w-3 text-brand-600 dark:text-brand-400" />
-            <span className="text-xs font-medium text-brand-700 dark:text-brand-300">
+          <div className="flex items-center justify-center gap-2 rounded-full border border-brand-500/35 bg-brand-500/[0.08] px-4 py-2">
+            <Calendar className="h-3.5 w-3.5 text-brand-400" />
+            <span className="text-[13px] font-semibold text-brand-400">
               {formatDate(earnedAt)}
             </span>
           </div>
         ) : target > 0 ? (
-          <div className="space-y-1.5">
-            <div className="h-1.5 overflow-hidden rounded-full bg-zinc-300 dark:bg-zinc-800">
+          <div className="space-y-2">
+            <div className="h-2 overflow-hidden rounded-full bg-[#2a2a30]">
               <div
                 className="h-full rounded-full bg-brand-500 transition-all duration-700"
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <p className="text-center text-[11px] text-zinc-500">
+            <p className="text-center text-[13px] font-medium text-zinc-500">
               {progress} / {target}
             </p>
           </div>
@@ -179,18 +195,18 @@ export default function BadgeGrid({
 
   return (
     <>
-      <div className="mt-4 space-y-5 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800/60 dark:bg-zinc-900/60">
+      <div className="mt-4 space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 dark:border-[#2a2a30] dark:bg-[#111114]">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 shadow-[0_0_20px_rgba(213,0,0,0.14)] dark:bg-brand-700/20">
-              <Trophy className="h-6 w-6 text-brand-600 dark:text-brand-400" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 shadow-[0_0_20px_rgba(213,0,0,0.15)]">
+              <Trophy className="h-6 w-6 text-brand-500" />
             </div>
             <div>
-              <h3 className="text-lg font-black uppercase tracking-wide text-zinc-900 dark:text-zinc-50">
+              <h3 className="text-xl font-black uppercase tracking-wide text-zinc-900 dark:text-white">
                 Logros
               </h3>
-              <p className="text-xs text-zinc-500">
+              <p className="text-[13px] text-zinc-500">
                 Tus metas, tu progreso, tu transformación.
               </p>
             </div>
@@ -198,10 +214,10 @@ export default function BadgeGrid({
 
           {all.length > 0 && (
             <div className="shrink-0 text-right">
-              <span className="inline-block rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-sm font-black text-brand-700 dark:text-brand-300">
+              <span className="inline-block rounded-full border border-brand-500/50 px-4 py-1.5 text-sm font-black text-zinc-900 dark:text-white">
                 {earnedCount} / {all.length}
               </span>
-              <p className="mt-1 text-[10px] text-zinc-500">Logros obtenidos</p>
+              <p className="mt-1 text-[11px] text-zinc-500">Logros obtenidos</p>
             </div>
           )}
         </div>
@@ -226,33 +242,33 @@ export default function BadgeGrid({
         )}
 
         {all.length > 0 && (
-          <div className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800/60 dark:bg-zinc-950/50">
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-4 dark:border-[#2a2a30] dark:bg-[#0d0d10]">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500/15 dark:bg-brand-700/20">
-                <TrendingUp className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/15">
+                <TrendingUp className="h-5 w-5 text-brand-500" />
               </div>
               <div>
-                <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                <p className="text-[15px] font-bold text-zinc-900 dark:text-white">
                   Sigue así, {userName}
                 </p>
-                <p className="text-[10px] text-zinc-500">
+                <p className="text-[12px] text-zinc-500">
                   La disciplina de hoy construye la fuerza de mañana.
                 </p>
               </div>
             </div>
 
             <div className="shrink-0 text-right">
-              <p className="text-xl font-black text-brand-600 dark:text-brand-400">{progressPct}%</p>
-              <p className="mb-1.5 text-[10px] text-zinc-500">Progreso general</p>
+              <p className="text-[28px] font-black leading-none text-brand-500">{progressPct}%</p>
+              <p className="mb-2 mt-0.5 text-[11px] text-zinc-500">Progreso general</p>
               <div className="flex gap-1">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div
                     key={i}
                     className={cn(
-                      "h-1.5 w-4 rounded-full",
+                      "h-2 w-5 rounded-full",
                       i < Math.round((progressPct / 100) * 8)
                         ? "bg-brand-500"
-                        : "bg-zinc-300 dark:bg-zinc-700",
+                        : "bg-zinc-300 dark:bg-[#2a2a30]",
                     )}
                   />
                 ))}
