@@ -10,7 +10,7 @@ export function PulsatingDots() {
           <motion.div
             key={i}
             className="h-3 w-3 rounded-full bg-brand-500"
-            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
+            animate={{ opacity: [0.5, 1, 0.5] }}
             transition={{ duration: 1, ease: "easeInOut", repeat: Infinity, delay }}
           />
         ))}
@@ -27,8 +27,7 @@ export function RippleWaveLoader() {
           key={i}
           className="h-8 w-2 rounded-full bg-brand-500"
           animate={{
-            scaleY: [0.5, 1.5, 0.5],
-            scaleX: [1, 0.8, 1],
+            opacity: [0.4, 1, 0.4],
             translateY: ["0%", "-15%", "0%"],
           }}
           transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: i * 0.1 }}

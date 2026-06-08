@@ -32,11 +32,14 @@ export default async function DashboardLayout({
       <div className="flex min-w-0 flex-1 overflow-hidden">
         <Sidebar profile={profile} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <MobileDrawer profile={profile} />
-          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 pt-[4.5rem] pb-20 md:p-8 md:pt-8 md:pb-8">
+          {role !== "member" && <MobileDrawer profile={profile} />}
+          <main className={[
+            "min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 md:pt-8 md:pb-8",
+            role === "member" ? "pt-4 pb-24" : "pt-[4.5rem] pb-8",
+          ].join(" ")}>
             {children}
           </main>
-          <MobileNav role={role} />
+          {role === "member" && <MobileNav role={role} />}
         </div>
       </div>
       {role === "member" && <MemberChat />}
