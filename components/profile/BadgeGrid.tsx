@@ -28,28 +28,12 @@ function isImagePath(icon: string): boolean {
   return /\.(png|jpg|jpeg|svg|webp|avif)$/i.test(icon)
 }
 
-function HexIcon({
-  icon,
-  name,
-  earned,
-}: {
-  icon: string
-  name: string
-  earned: boolean
-}) {
+function HexIcon({ icon, name, earned }: { icon: string; name: string; earned: boolean }) {
   return (
     <div className="relative flex h-32 w-32 items-center justify-center">
-      {/* Ambient glow */}
-      {earned && (
-        <div className="absolute inset-2 rounded-full bg-brand-500/25 blur-2xl" />
-      )}
+      {earned && <div className="absolute inset-2 rounded-full bg-brand-500/25 blur-2xl" />}
 
-      {/* SVG hexagon */}
-      <svg
-        viewBox="0 0 100 116"
-        className="absolute inset-0 h-full w-full drop-shadow-lg"
-        aria-hidden
-      >
+      <svg viewBox="0 0 100 116" className="absolute inset-0 h-full w-full drop-shadow-lg" aria-hidden>
         {earned && (
           <filter id={`glow-${name.replace(/\s/g, "")}`}>
             <feGaussianBlur stdDeviation="3" result="blur" />
@@ -61,21 +45,19 @@ function HexIcon({
         )}
         <polygon
           points="50,3 97,28 97,88 50,113 3,88 3,28"
-          fill={earned ? "rgba(30,4,4,0.85)" : "rgba(18,18,20,0.9)"}
-          stroke={earned ? "rgba(213,0,0,0.55)" : "rgba(63,63,70,0.6)"}
+          fill={earned ? "rgba(30,4,4,0.90)" : "rgba(28,28,32,0.92)"}
+          stroke={earned ? "rgba(213,0,0,0.55)" : "rgba(80,80,90,0.7)"}
           strokeWidth={earned ? "2" : "1.5"}
           filter={earned ? `url(#glow-${name.replace(/\s/g, "")})` : undefined}
         />
-        {/* Inner highlight ring */}
         <polygon
           points="50,10 90,32 90,84 50,106 10,84 10,32"
           fill="none"
-          stroke={earned ? "rgba(213,0,0,0.18)" : "rgba(255,255,255,0.03)"}
+          stroke={earned ? "rgba(213,0,0,0.18)" : "rgba(255,255,255,0.04)"}
           strokeWidth="1"
         />
       </svg>
 
-      {/* Icon */}
       <div className="relative z-10 flex h-14 w-14 items-center justify-center">
         {isImagePath(icon) ? (
           <Image
@@ -89,14 +71,11 @@ function HexIcon({
             )}
           />
         ) : (
-          <span className={cn("text-4xl", !earned && "grayscale opacity-25")}>
-            {icon}
-          </span>
+          <span className={cn("text-4xl", !earned && "grayscale opacity-25")}>{icon}</span>
         )}
-
         {!earned && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Lock className="h-6 w-6 text-zinc-600" />
+            <Lock className="h-6 w-6 text-zinc-500" />
           </div>
         )}
       </div>
@@ -135,11 +114,10 @@ function AchievementCard({
         "group relative flex flex-col items-center rounded-2xl border p-5 text-left outline-none ring-brand-500/40",
         "transition-all duration-150 focus-visible:ring-2",
         earned
-          ? "border-zinc-800/80 bg-zinc-900/70 hover:border-brand-500/25 hover:bg-zinc-900"
-          : "border-zinc-800/50 bg-zinc-900/40 hover:bg-zinc-900/60",
+          ? "border-zinc-200 bg-white hover:border-brand-500/40 hover:bg-zinc-50 dark:border-zinc-800/80 dark:bg-zinc-900/70 dark:hover:border-brand-500/25 dark:hover:bg-zinc-900"
+          : "border-zinc-200/80 bg-zinc-100/60 hover:bg-zinc-100 dark:border-zinc-800/50 dark:bg-zinc-900/40 dark:hover:bg-zinc-900/60",
       )}
     >
-      {/* Earned check badge */}
       {earned && (
         <div className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-brand-500 shadow-[0_0_12px_rgba(213,0,0,0.7)]">
           <svg viewBox="0 0 12 12" className="h-3.5 w-3.5" fill="none" aria-hidden>
@@ -148,44 +126,38 @@ function AchievementCard({
         </div>
       )}
 
-      {/* Hex icon */}
       <HexIcon icon={icon} name={achievement.name} earned={earned} />
 
-      {/* Name */}
-      <p
-        className={cn(
-          "mt-4 text-center text-base font-bold leading-tight",
-          earned ? "text-zinc-50" : "text-zinc-500",
-        )}
-      >
+      <p className={cn(
+        "mt-4 text-center text-base font-bold leading-tight",
+        earned ? "text-zinc-900 dark:text-zinc-50" : "text-zinc-500",
+      )}>
         {achievement.name}
       </p>
 
-      {/* Description */}
       {achievement.description && (
-        <p className="mt-1.5 line-clamp-2 text-center text-xs leading-relaxed text-zinc-600">
+        <p className="mt-1.5 line-clamp-2 text-center text-xs leading-relaxed text-zinc-500 dark:text-zinc-600">
           {achievement.description}
         </p>
       )}
 
-      {/* Bottom section */}
       <div className="mt-4 w-full">
         {earned ? (
-          <div className="flex items-center justify-center gap-1.5 rounded-full border border-brand-500/20 bg-brand-500/10 px-3 py-1.5">
-            <Calendar className="h-3 w-3 text-brand-400" />
-            <span className="text-xs font-medium text-brand-300">
+          <div className="flex items-center justify-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1.5">
+            <Calendar className="h-3 w-3 text-brand-600 dark:text-brand-400" />
+            <span className="text-xs font-medium text-brand-700 dark:text-brand-300">
               {formatDate(earnedAt)}
             </span>
           </div>
         ) : target > 0 ? (
           <div className="space-y-1.5">
-            <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+            <div className="h-1.5 overflow-hidden rounded-full bg-zinc-300 dark:bg-zinc-800">
               <div
-                className="h-full rounded-full bg-zinc-600 transition-all duration-700"
+                className="h-full rounded-full bg-zinc-500 dark:bg-zinc-600 transition-all duration-700"
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <p className="text-center text-[11px] text-zinc-600">
+            <p className="text-center text-[11px] text-zinc-500">
               {progress} / {target}
             </p>
           </div>
@@ -207,15 +179,15 @@ export default function BadgeGrid({
 
   return (
     <>
-      <div className="mt-4 space-y-5 rounded-2xl border border-zinc-800/60 bg-zinc-900/60 p-5">
+      <div className="mt-4 space-y-5 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800/60 dark:bg-zinc-900/60">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-700/20 shadow-[0_0_20px_rgba(213,0,0,0.18)]">
-              <Trophy className="h-6 w-6 text-brand-400" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 shadow-[0_0_20px_rgba(213,0,0,0.14)] dark:bg-brand-700/20">
+              <Trophy className="h-6 w-6 text-brand-600 dark:text-brand-400" />
             </div>
             <div>
-              <h3 className="text-lg font-black uppercase tracking-wide text-zinc-50">
+              <h3 className="text-lg font-black uppercase tracking-wide text-zinc-900 dark:text-zinc-50">
                 Logros
               </h3>
               <p className="text-xs text-zinc-500">
@@ -226,15 +198,14 @@ export default function BadgeGrid({
 
           {all.length > 0 && (
             <div className="shrink-0 text-right">
-              <span className="inline-block rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-sm font-black text-brand-300">
+              <span className="inline-block rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-sm font-black text-brand-700 dark:text-brand-300">
                 {earnedCount} / {all.length}
               </span>
-              <p className="mt-1 text-[10px] text-zinc-600">Logros obtenidos</p>
+              <p className="mt-1 text-[10px] text-zinc-500">Logros obtenidos</p>
             </div>
           )}
         </div>
 
-        {/* Grid */}
         {all.length === 0 ? (
           <p className="py-4 text-center text-sm text-zinc-500">
             Este gimnasio aún no configuró logros
@@ -254,15 +225,14 @@ export default function BadgeGrid({
           </div>
         )}
 
-        {/* Footer motivational strip */}
         {all.length > 0 && (
-          <div className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800/60 bg-zinc-950/50 px-4 py-3">
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800/60 dark:bg-zinc-950/50">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-700/20">
-                <TrendingUp className="h-4 w-4 text-brand-400" />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500/15 dark:bg-brand-700/20">
+                <TrendingUp className="h-4 w-4 text-brand-600 dark:text-brand-400" />
               </div>
               <div>
-                <p className="text-xs font-bold text-zinc-200">
+                <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
                   Sigue así, {userName}
                 </p>
                 <p className="text-[10px] text-zinc-500">
@@ -272,7 +242,7 @@ export default function BadgeGrid({
             </div>
 
             <div className="shrink-0 text-right">
-              <p className="text-xl font-black text-brand-400">{progressPct}%</p>
+              <p className="text-xl font-black text-brand-600 dark:text-brand-400">{progressPct}%</p>
               <p className="mb-1.5 text-[10px] text-zinc-500">Progreso general</p>
               <div className="flex gap-1">
                 {Array.from({ length: 8 }).map((_, i) => (
@@ -282,7 +252,7 @@ export default function BadgeGrid({
                       "h-1.5 w-4 rounded-full",
                       i < Math.round((progressPct / 100) * 8)
                         ? "bg-brand-500"
-                        : "bg-zinc-700",
+                        : "bg-zinc-300 dark:bg-zinc-700",
                     )}
                   />
                 ))}
