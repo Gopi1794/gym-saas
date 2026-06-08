@@ -49,23 +49,53 @@ const MEMBERSHIP_LABEL: Record<string, string> = {
   vip: "VIP FLOW",
 };
 
+const MEMBERSHIP_STYLE: Record<
+  string,
+  { border: string; bg: string; glow: string; labelColor: string; chip: string; tier: string }
+> = {
+  basic: {
+    border: "border-zinc-700/50 dark:border-zinc-700/50",
+    bg: "bg-zinc-900/40 dark:bg-zinc-900/40",
+    glow: "",
+    labelColor: "text-zinc-100",
+    chip: "border-zinc-700/40 bg-zinc-800/50 text-zinc-400",
+    tier: "ESTÁNDAR",
+  },
+  premium: {
+    border: "border-amber-500/20 dark:border-amber-500/20",
+    bg: "bg-amber-950/20 dark:bg-amber-950/20",
+    glow: "shadow-[0_0_32px_rgba(245,158,11,0.10)]",
+    labelColor: "text-amber-200",
+    chip: "border-amber-500/25 bg-amber-500/10 text-amber-300",
+    tier: "PREMIUM",
+  },
+  vip: {
+    border: "border-brand-500/25 dark:border-brand-500/25",
+    bg: "bg-brand-950/20 dark:bg-brand-950/20",
+    glow: "shadow-[0_0_40px_rgba(213,0,0,0.14)]",
+    labelColor: "text-brand-300",
+    chip: "border-brand-500/25 bg-brand-500/10 text-brand-300",
+    tier: "VIP",
+  },
+};
+
 const TRAINING_TYPES: Record<
   string,
-  { Icon: React.ElementType; label: string }[]
+  { Icon: React.ElementType; label: string; iconColor: string; pillBg: string }[]
 > = {
   basic: [
-    { Icon: Dumbbell, label: "Fuerza" },
-    { Icon: Activity, label: "Cardio" },
+    { Icon: Dumbbell, label: "Fuerza", iconColor: "text-brand-400", pillBg: "border-brand-500/20 bg-brand-500/[0.07]" },
+    { Icon: Activity, label: "Cardio", iconColor: "text-sky-400", pillBg: "border-sky-500/20 bg-sky-500/[0.07]" },
   ],
   premium: [
-    { Icon: Dumbbell, label: "Fuerza" },
-    { Icon: Zap, label: "HIIT" },
-    { Icon: Activity, label: "Cardio" },
+    { Icon: Dumbbell, label: "Fuerza", iconColor: "text-brand-400", pillBg: "border-brand-500/20 bg-brand-500/[0.07]" },
+    { Icon: Zap, label: "HIIT", iconColor: "text-amber-400", pillBg: "border-amber-500/20 bg-amber-500/[0.07]" },
+    { Icon: Activity, label: "Cardio", iconColor: "text-sky-400", pillBg: "border-sky-500/20 bg-sky-500/[0.07]" },
   ],
   vip: [
-    { Icon: Dumbbell, label: "Fuerza" },
-    { Icon: Zap, label: "HIIT" },
-    { Icon: Heart, label: "Resistencia" },
+    { Icon: Dumbbell, label: "Fuerza", iconColor: "text-brand-400", pillBg: "border-brand-500/20 bg-brand-500/[0.07]" },
+    { Icon: Zap, label: "HIIT", iconColor: "text-amber-400", pillBg: "border-amber-500/20 bg-amber-500/[0.07]" },
+    { Icon: Heart, label: "Resistencia", iconColor: "text-rose-400", pillBg: "border-rose-500/20 bg-rose-500/[0.07]" },
   ],
 };
 
@@ -171,6 +201,7 @@ export default function ProfileView({
     month: "2-digit",
     year: "numeric",
   });
+  const tierStyle = MEMBERSHIP_STYLE[membership] ?? MEMBERSHIP_STYLE.basic;
   const nextMedal = MEDALS.find(
     (m) => m.required > 0 && totalCheckIns < m.required,
   );
@@ -356,23 +387,28 @@ export default function ProfileView({
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.15fr]">
-              <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-900/45 p-4">
-                <div className="mb-4 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-brand-400" />
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-400">
-                    Membresía
-                  </p>
+              <div className={cn("rounded-2xl border p-4", tierStyle.border, tierStyle.bg, tierStyle.glow)}>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-brand-400" />
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-400">
+                      Membresía
+                    </p>
+                  </div>
+                  <span className={cn("rounded-full border px-2.5 py-0.5 text-[9px] font-black tracking-[0.15em]", tierStyle.chip)}>
+                    {tierStyle.tier}
+                  </span>
                 </div>
-                <p className="text-lg font-black text-white">
+                <p className={cn("text-xl font-black tracking-tight", tierStyle.labelColor)}>
                   {MEMBERSHIP_LABEL[membership]}
                 </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {training.map(({ Icon, label }) => (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {training.map(({ Icon, label, iconColor, pillBg }) => (
                     <span
                       key={label}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-zinc-300"
+                      className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold text-zinc-200", pillBg)}
                     >
-                      <Icon className="h-3.5 w-3.5 text-brand-400" />
+                      <Icon className={cn("h-3.5 w-3.5", iconColor)} />
                       {label}
                     </span>
                   ))}

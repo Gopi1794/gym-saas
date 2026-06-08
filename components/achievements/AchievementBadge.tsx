@@ -3,11 +3,12 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { CheckCircle2, Lock } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Achievement } from "@/types";
 
 type Props = {
   achievement: Pick<Achievement, "id" | "name" | "description" | "icon">;
-  variant: "earned" | "locked" | "just-earned";
+  variant: "earned" | "locked" | "just-earned" | "compact-earned" | "compact-locked";
   earned_at?: string;
   progress?: number;
   total?: number;
@@ -33,10 +34,59 @@ export default function AchievementPanel({
   progress = 19,
   total = 19,
 }: Props) {
-  const isLocked = variant === "locked";
+  const isLocked = variant === "locked" || variant === "compact-locked";
   const isJustEarned = variant === "just-earned";
+  const isCompact = variant === "compact-earned" || variant === "compact-locked";
 
   const iconValue = achievement.icon ?? "/badges/default.webp";
+
+  if (isCompact) {
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <div
+          className={cn(
+            "relative flex h-[72px] w-[72px] items-center justify-center rounded-2xl border transition-all duration-150",
+            isLocked
+              ? "border-zinc-800 bg-zinc-900/60"
+              : "border-brand-500/30 bg-brand-950/50 shadow-[0_0_20px_rgba(213,0,0,0.18)]",
+          )}
+        >
+          {isImagePath(iconValue) ? (
+            <Image
+              src={iconValue}
+              alt={achievement.name}
+              width={46}
+              height={46}
+              className={cn(
+                "object-contain",
+                isLocked && "grayscale opacity-30",
+              )}
+            />
+          ) : (
+            <span className={cn("text-2xl", isLocked && "opacity-30 grayscale")}>{iconValue}</span>
+          )}
+
+          {isLocked ? (
+            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/40 backdrop-blur-[2px]">
+              <Lock className="h-5 w-5 text-zinc-500" />
+            </div>
+          ) : (
+            <div className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 shadow-[0_0_8px_rgba(213,0,0,0.6)]">
+              <CheckCircle2 className="h-3 w-3 text-white" />
+            </div>
+          )}
+        </div>
+        <span
+          className={cn(
+            "max-w-[80px] text-center text-[10px] font-semibold leading-tight",
+            isLocked ? "text-zinc-600" : "text-zinc-300",
+          )}
+        >
+          {achievement.name}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <motion.div

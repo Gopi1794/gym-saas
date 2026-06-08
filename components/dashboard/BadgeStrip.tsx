@@ -31,11 +31,11 @@ export default function BadgeStrip({ badges }: Props) {
         </div>
 
         {badges.length > 0 ? (
-          <div className="flex items-start gap-3">
-            {badges.slice(0, 3).map((b) => (
+          <div className="flex items-start gap-4">
+            {badges.slice(0, 4).map((b) => (
               <AchievementBadge
                 key={b.id}
-                variant="earned"
+                variant="compact-earned"
                 achievement={{
                   id: b.id,
                   name: b.achievements?.name ?? "",
