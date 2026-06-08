@@ -179,7 +179,7 @@ export default function AchievementPanel({
           </div>
 
           {/* TITLE */}
-          <h2 className="text-center text-3xl font-black tracking-tight text-[#ffffff]">
+          <h2 className="text-center text-3xl font-black tracking-tight text-zinc-900 dark:text-white">
             {achievement.name}
           </h2>
 
@@ -206,7 +206,7 @@ export default function AchievementPanel({
                 </p>
                 <p className="mt-0.5 text-xs text-[#71717a]">Asistencias completadas</p>
               </div>
-              <p className="text-2xl font-black tracking-tight text-[#ffffff]">
+              <p className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
                 {Math.min(progress, total)}/{total}
               </p>
             </div>
