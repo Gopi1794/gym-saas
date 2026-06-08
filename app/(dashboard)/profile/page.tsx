@@ -101,7 +101,12 @@ export default async function ProfilePage() {
         totalPlans={totalPlans ?? 0}
       />
 
-      <BadgeGrid all={gymAchievements ?? []} earned={earnedMap} />
+      <BadgeGrid
+        all={gymAchievements ?? []}
+        earned={earnedMap}
+        totalCheckIns={totalCheckIns ?? 0}
+        userName={p.full_name?.split(" ")[0] ?? undefined}
+      />
 
       <NotificationPreferences currentHour={(profile as { notification_hour?: number }).notification_hour ?? 7} />
     </div>
