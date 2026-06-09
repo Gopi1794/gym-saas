@@ -136,6 +136,39 @@ export async function getNutritionStreak(memberId: string): Promise<number> {
 
 // ── Water log ──────────────────────────────────────────────────
 
+export async function getTodayConsumedMacros(
+  memberId: string,
+  date: string
+): Promise<{ calories: number; protein: number; carbs: number; fat: number }> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from("nutrition_logs" as never)
+    .select("nutrition_log_items(actual_grams, foods(calories, protein, carbs, fat))")
+    .eq("member_id", memberId)
+    .eq("log_date", date)
+
+  if (!data) return { calories: 0, protein: 0, carbs: 0, fat: 0 }
+
+  let calories = 0, protein = 0, carbs = 0, fat = 0
+  for (const log of data as unknown as {
+    nutrition_log_items: { actual_grams: number; foods: { calories: number; protein: number; carbs: number; fat: number } }[]
+  }[]) {
+    for (const item of log.nutrition_log_items ?? []) {
+      const ratio = item.actual_grams / 100
+      calories += item.foods.calories * ratio
+      protein  += item.foods.protein  * ratio
+      carbs    += item.foods.carbs    * ratio
+      fat      += item.foods.fat      * ratio
+    }
+  }
+  return {
+    calories: Math.round(calories),
+    protein:  Math.round(protein),
+    carbs:    Math.round(carbs),
+    fat:      Math.round(fat),
+  }
+}
+
 export async function getWaterToday(memberId: string): Promise<number> {
   const supabase = createClient()
   const today = new Date().toISOString().split("T")[0]

@@ -16,7 +16,7 @@ import OnboardingTour from "@/components/onboarding/OnboardingTour"
 import RenewMembershipCard from "@/components/dashboard/RenewMembershipCard"
 import NutritionSummaryCard from "@/components/dashboard/NutritionSummaryCard"
 import { getMemberNutritionPlan } from "@/app/actions/nutrition"
-import { getNutritionStreak } from "@/app/actions/nutrition-tracking"
+import { getNutritionStreak, getTodayConsumedMacros, getWaterToday } from "@/app/actions/nutrition-tracking"
 import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, startOfTodayAR } from "@/lib/date-ar"
 
 export const dynamic = "force-dynamic"
@@ -134,6 +134,8 @@ export default async function DashboardPage() {
   let membershipPlans: { type: "basic" | "premium" | "vip"; label: string; price: number; duration_days: number; features: string[] }[] = []
   let memberNutritionPlan: Awaited<ReturnType<typeof getMemberNutritionPlan>> = null
   let nutritionStreak = 0
+  let memberConsumed = { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  let memberWaterGlasses = 0
 
   if (p?.role === "member") {
     type PlanRow = { id: string; name: string }
@@ -251,13 +253,17 @@ export default async function DashboardPage() {
       .limit(3) as unknown as Promise<{ data: RecentBadge[] | null }>)
     recentBadges = recentBadgesData
 
-    // Nutrition plan + streak for dashboard card
-    const [nutritionPlan, streak] = await Promise.all([
+    // Nutrition plan + streak + today's consumed + water for dashboard card
+    const [nutritionPlan, streak, consumed, waterGlasses] = await Promise.all([
       getMemberNutritionPlan(user!.id),
       getNutritionStreak(user!.id),
+      getTodayConsumedMacros(user!.id, todayStr),
+      getWaterToday(user!.id),
     ])
     memberNutritionPlan = nutritionPlan
     nutritionStreak = streak
+    memberConsumed = consumed
+    memberWaterGlasses = waterGlasses
 
     // Fetch gym's configured membership plans (only when member may need renewal)
     const exp = p?.membership_expires_at
@@ -359,7 +365,7 @@ export default async function DashboardPage() {
 
       {/* Nutrition summary — members only */}
       {p?.role === "member" && (
-        <NutritionSummaryCard plan={memberNutritionPlan} streak={nutritionStreak} />
+        <NutritionSummaryCard plan={memberNutritionPlan} streak={nutritionStreak} consumed={memberConsumed} waterGlasses={memberWaterGlasses} />
       )}
 
       {/* KPI cards — admin only */}
