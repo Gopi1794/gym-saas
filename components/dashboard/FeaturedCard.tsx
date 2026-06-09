@@ -27,7 +27,7 @@ export default function FeaturedCard({ value, label, sublabel, href = "/check-in
 
       <Link
         href={href}
-        className="absolute bottom-5 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-brand-600/15 text-brand-500 transition-colors hover:bg-brand-600/30 dark:bg-brand-700/20 dark:hover:bg-brand-700/40"
+        className="absolute top-5 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-brand-600/15 text-white transition-colors hover:bg-brand-600/30 dark:bg-brand-700/20 dark:hover:bg-brand-700/40"
       >
         <ArrowUpRight className="h-5 w-5" />
       </Link>

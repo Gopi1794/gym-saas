@@ -1,8 +1,14 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowUpRight, ChevronRight, Dumbbell } from "lucide-react";
+import { ChevronRight, Dumbbell, Moon } from "lucide-react";
 
-type Exercise = { name: string; sets: number; reps: number; reps_max?: number | null; duration_seconds?: number | null };
+type Exercise = {
+  name: string;
+  sets: number;
+  reps: number;
+  reps_max?: number | null;
+  duration_seconds?: number | null;
+};
 
 interface Props {
   planName: string;
@@ -42,12 +48,9 @@ export default function TodayWorkoutCard({
           {restTitle}
         </p>
         <p className="mt-1.5 text-sm text-zinc-500">{restSubtitle}</p>
-        <Link
-          href={restHref}
-          className="absolute bottom-5 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-brand-600/15 text-brand-500 transition-colors hover:bg-brand-600/30 dark:bg-brand-700/20 dark:hover:bg-brand-700/40"
-        >
-          <ArrowUpRight className="h-5 w-5" />
-        </Link>
+        <div className="absolute top-5 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-brand-600/15 dark:bg-brand-700/20">
+          <Moon className="h-5 w-5 text-white" />
+        </div>
       </div>
     );
   }
