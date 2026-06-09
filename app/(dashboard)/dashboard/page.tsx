@@ -318,7 +318,7 @@ export default async function DashboardPage() {
             <h1 className="font-display text-2xl text-white leading-tight">
               {greeting}{firstName ? `, ${firstName}` : ""} 👋
             </h1>
-            <p className="font-heading text-xs tracking-widest text-white/80 uppercase">{dateLabel}</p>
+            <p className="font-heading text-xs tracking-widest text-zinc-900 dark:text-white/80 uppercase">{dateLabel}</p>
           </div>
         </div>
       </div>
