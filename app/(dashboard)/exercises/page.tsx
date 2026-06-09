@@ -45,12 +45,13 @@ export default async function ExercisesPage() {
 
   const profileRes = await supabase
     .from("profiles")
-    .select("role, gender")
+    .select("role, gender, gym_id")
     .eq("id", user!.id)
     .single()
 
   const profile = profileRes.data as Profile | null
   const role = profile?.role ?? ""
+  const gymId: string = (profile as any)?.gym_id ?? ""
 
   // ── Member: show assigned workout plan ──
   if (role === "member") {
@@ -108,6 +109,7 @@ export default async function ExercisesPage() {
         plan={plan}
         days={daysRes.data ?? []}
         userId={user!.id}
+        gymId={gymId}
         recentSessions={sessionsRes.data ?? []}
         gender={profile?.gender ?? null}
       />

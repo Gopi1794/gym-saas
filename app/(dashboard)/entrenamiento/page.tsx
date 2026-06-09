@@ -7,6 +7,8 @@ import MemberWorkoutView from "@/components/planes/MemberWorkoutView"
 import { getExerciseMaxes } from "@/app/actions/exercise-maxes"
 import TrainerPlanesView from "@/components/planes/TrainerPlanesView"
 import ImportExercisesPanel from "@/components/exercises/ImportExercisesPanel"
+import MachinesPanel from "@/components/machines/MachinesPanel"
+import { getMachines } from "@/app/actions/machines"
 import { Dumbbell } from "lucide-react"
 
 export const metadata: Metadata = { title: "Entrenamiento" }
@@ -100,6 +102,7 @@ export default async function EntrenamientoPage({
         plan={plan}
         days={daysRes.data ?? []}
         userId={user!.id}
+        gymId={gymId}
         recentSessions={sessionsRes.data ?? []}
         gender={profile?.gender ?? null}
         weightKg={profile?.weight_kg ?? null}
@@ -113,6 +116,7 @@ export default async function EntrenamientoPage({
   const tabs = [
     { key: "ejercicios", label: "Ejercicios" },
     { key: "planes", label: "Planes" },
+    { key: "maquinas", label: "Máquinas" },
     ...(isAdmin ? [{ key: "importar", label: "Importar" }] : []),
   ]
 
@@ -133,6 +137,18 @@ export default async function EntrenamientoPage({
         memberPlans={(rawMemberPlans ?? []) as unknown as PlanRow[]}
         templates={(rawTemplates ?? []) as unknown as PlanRow[]}
         members={(rawMembers ?? []) as MemberRow[]}
+      />
+    )
+  } else if (tab === "maquinas") {
+    const [machines, exercisesRes] = await Promise.all([
+      getMachines(gymId),
+      supabase.from("exercises").select("id, name, category").order("name"),
+    ])
+    content = (
+      <MachinesPanel
+        gymId={gymId}
+        initialMachines={machines}
+        allExercises={(exercisesRes.data ?? []) as { id: string; name: string; category: string }[]}
       />
     )
   } else if (tab === "importar" && isAdmin) {

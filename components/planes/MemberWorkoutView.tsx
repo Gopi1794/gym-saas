@@ -11,7 +11,9 @@ import {
   ChevronRight,
   Play,
   BarChart3,
+  ScanLine,
 } from "lucide-react";
+import MachineScanner from "@/components/machines/MachineScanner";
 import { cn } from "@/lib/utils";
 import WorkoutSession from "./WorkoutSession";
 
@@ -82,6 +84,7 @@ interface Props {
   plan: Plan;
   days: DayData[];
   userId: string;
+  gymId: string;
   recentSessions: WorkoutSessionRecord[];
   gender?: string | null;
   weightKg?: number | null;
@@ -340,6 +343,7 @@ export default function MemberWorkoutView({
   plan,
   days,
   userId,
+  gymId,
   recentSessions,
   gender,
   weightKg,
@@ -347,9 +351,8 @@ export default function MemberWorkoutView({
 }: Props) {
   const router = useRouter();
   const [selectedDow, setSelectedDow] = useState<number | null>(null);
-  const [activeWorkout, setActiveWorkout] = useState<ActiveWorkout | null>(
-    null,
-  );
+  const [activeWorkout, setActiveWorkout] = useState<ActiveWorkout | null>(null);
+  const [showMachineScanner, setShowMachineScanner] = useState(false);
 
   const todayDow = (new Date().getDay() + 6) % 7;
 
@@ -410,13 +413,39 @@ export default function MemberWorkoutView({
     ? Math.min(100, Math.round((completedCount / activeDays.length) * 100))
     : 0;
 
+  const todayDay = days.find((d) => d.day_of_week === todayDow);
+
   return (
     <div className="space-y-6 pb-6">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-50">Plan semanal</h1>
-        {plan.description && (
-          <p className="mt-1 text-sm text-zinc-400">{plan.description}</p>
-        )}
+      {showMachineScanner && (
+        <MachineScanner
+          userId={userId}
+          planId={plan.id}
+          hasWorkoutToday={todayIsActive}
+          onStartExercise={(exerciseId) => {
+            if (todayDay) {
+              const sorted = [...todayDay.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
+              setActiveWorkout({ exercises: sorted, dayName: DAY_NAMES[todayDow], dayOfWeek: todayDow })
+            }
+          }}
+          onClose={() => { setShowMachineScanner(false); router.refresh() }}
+        />
+      )}
+
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-50">Plan semanal</h1>
+          {plan.description && (
+            <p className="mt-1 text-sm text-zinc-400">{plan.description}</p>
+          )}
+        </div>
+        <button
+          onClick={() => setShowMachineScanner(true)}
+          className="flex items-center gap-2 rounded-xl border border-brand-600/40 bg-brand-950/20 px-3 py-2 text-sm font-medium text-brand-400 transition-colors hover:bg-brand-950/40"
+        >
+          <ScanLine className="h-4 w-4" />
+          Escanear máquina
+        </button>
       </div>
 
       {featuredDay && (
