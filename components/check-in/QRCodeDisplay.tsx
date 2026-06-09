@@ -19,17 +19,12 @@ export default function QRCodeDisplay({ qrCode, memberName }: QRCodeDisplayProps
   // Acquire wake lock so the screen stays bright while QR is visible
   useEffect(() => {
     if (!("wakeLock" in navigator)) return
-
     navigator.wakeLock.request("screen").then((lock) => {
       wakeLockRef.current = lock
-    }).catch(() => { /* permission denied or not supported */ })
-
-    return () => {
-      wakeLockRef.current?.release()
-    }
+    }).catch(() => {})
+    return () => { wakeLockRef.current?.release() }
   }, [])
 
-  // Re-acquire wake lock if page becomes visible again (e.g. tab switch)
   useEffect(() => {
     function onVisibilityChange() {
       if (document.visibilityState === "visible" && !wakeLockRef.current) {
@@ -42,21 +37,14 @@ export default function QRCodeDisplay({ qrCode, memberName }: QRCodeDisplayProps
     return () => document.removeEventListener("visibilitychange", onVisibilityChange)
   }, [])
 
-  // Sync fullscreen state with browser events
+  // Lock body scroll when our CSS overlay is active
   useEffect(() => {
-    function onFsChange() {
-      setIsFullscreen(!!document.fullscreenElement)
-    }
-    document.addEventListener("fullscreenchange", onFsChange)
-    return () => document.removeEventListener("fullscreenchange", onFsChange)
-  }, [])
+    document.body.style.overflow = isFullscreen ? "hidden" : ""
+    return () => { document.body.style.overflow = "" }
+  }, [isFullscreen])
 
-  async function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      await containerRef.current?.requestFullscreen()
-    } else {
-      await document.exitFullscreen()
-    }
+  function toggleFullscreen() {
+    setIsFullscreen((prev) => !prev)
   }
 
   function downloadQR() {
@@ -74,64 +62,75 @@ export default function QRCodeDisplay({ qrCode, memberName }: QRCodeDisplayProps
   }
 
   return (
-    <Card className="mx-auto max-w-sm border-border bg-card">
-      <CardContent className="flex flex-col items-center gap-5 p-8">
-        <div>
-          <p className="text-center text-sm text-muted-foreground">
-            Show this QR code at the gym entrance
-          </p>
-          <p className="text-center font-heading text-2xl font-normal tracking-wide text-card-foreground">
+    <>
+      {/* CSS fullscreen overlay — works on iOS Safari too */}
+      {isFullscreen && (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 bg-white"
+          onClick={toggleFullscreen}
+        >
+          <p className="font-heading text-2xl font-normal tracking-wide text-zinc-900">
             {memberName ?? "Member"}
           </p>
+          <div ref={containerRef} className="rounded-2xl bg-white p-4 shadow-xl">
+            {qrCode && (
+              <QRCodeSVG value={qrCode} size={280} level="H" includeMargin={false} />
+            )}
+          </div>
+          <p className="text-sm text-zinc-400">Tocá para cerrar</p>
         </div>
+      )}
 
-        {/* QR Code — also the fullscreen target */}
-        <div
-          ref={containerRef}
-          className="flex items-center justify-center rounded-2xl bg-white p-4 shadow-lg shadow-brand-950/30"
-          style={isFullscreen ? { width: "100vw", height: "100vh", borderRadius: 0 } : undefined}
-        >
-          {qrCode ? (
-            <QRCodeSVG
-              value={qrCode}
-              size={isFullscreen ? 320 : 220}
-              level="H"
-              includeMargin={false}
-            />
-          ) : (
-            <div className="flex h-[220px] w-[220px] items-center justify-center text-center text-sm text-muted-foreground">
-              QR code unavailable
-            </div>
-          )}
-        </div>
+      <Card className="mx-auto max-w-sm border-border bg-card">
+        <CardContent className="flex flex-col items-center gap-5 p-8">
+          <div>
+            <p className="text-center text-sm text-muted-foreground">
+              Mostrá este QR en la entrada del gimnasio
+            </p>
+            <p className="text-center font-heading text-2xl font-normal tracking-wide text-card-foreground">
+              {memberName ?? "Miembro"}
+            </p>
+          </div>
 
-        <p className="font-mono text-xs text-muted-foreground">{qrCode ?? "No QR code assigned"}</p>
-
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={downloadQR}
-            disabled={!qrCode}
+          <div
+            ref={containerRef}
+            className="flex items-center justify-center rounded-2xl bg-white p-4 shadow-lg shadow-brand-950/30"
           >
-            <Download className="mr-2 h-4 w-4" />
-            Download QR
-          </Button>
+            {qrCode ? (
+              <QRCodeSVG value={qrCode} size={220} level="H" includeMargin={false} />
+            ) : (
+              <div className="flex h-[220px] w-[220px] items-center justify-center text-center text-sm text-muted-foreground">
+                QR no disponible
+              </div>
+            )}
+          </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={toggleFullscreen}
-          >
-            {isFullscreen
-              ? <Minimize2 className="mr-2 h-4 w-4" />
-              : <Maximize2 className="mr-2 h-4 w-4" />}
-            {isFullscreen ? "Exit" : "Fullscreen"}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          <p className="font-mono text-xs text-muted-foreground">{qrCode ?? "Sin QR asignado"}</p>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={downloadQR}
+              disabled={!qrCode}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Descargar
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={toggleFullscreen}
+            >
+              <Maximize2 className="mr-2 h-4 w-4" />
+              Pantalla completa
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 }
