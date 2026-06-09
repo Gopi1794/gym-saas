@@ -140,17 +140,28 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
         return
       }
 
-      // Verificar si ya se registró hoy
-      const { count: todayCount } = await (supabase.from("check_ins") as any)
-        .select("*", { count: "exact", head: true })
+      // Buscar cualquier check-in abierto (sin checkout) para este socio y gym
+      const { data: openCheckin } = await (supabase.from("check_ins") as any)
+        .select("id, checked_in_at")
         .eq("user_id", profile.id)
-        .gte("checked_in_at", todayStr)
+        .eq("gym_id", gymId)
+        .is("checked_out_at", null)
+        .order("checked_in_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-      if ((todayCount ?? 0) > 0) {
-        setStatus("error")
-        setMessage(`${profile.full_name ?? "Este socio"} ya registró su ingreso hoy`)
-        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
-        return
+      if (openCheckin) {
+        const isToday = openCheckin.checked_in_at >= todayStr
+        if (isToday) {
+          setStatus("error")
+          setMessage(`${profile.full_name ?? "Este socio"} ya registró su ingreso hoy`)
+          setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+          return
+        }
+        // Check-in abierto de un día anterior — cerrarlo antes de crear uno nuevo
+        await (supabase.from("check_ins") as any)
+          .update({ checked_out_at: new Date().toISOString() })
+          .eq("id", openCheckin.id)
       }
 
       const { error: insertError } = await (supabase.from("check_ins") as any).insert({
