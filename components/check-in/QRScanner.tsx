@@ -41,6 +41,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
 
       const supabase = supabaseRef.current
       const todayStr = startOfTodayAR()
+      console.log("[QRScanner] todayStr (AR midnight UTC):", todayStr)
 
       // Trainer/admin escaneando el QR del establecimiento → ficha entrada o salida
       if (qrCode === `GYM_CHECKIN:${gymId}`) {
@@ -143,7 +144,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
       }
 
       // Buscar cualquier check-in abierto (sin checkout) para este socio y gym
-      const { data: openCheckin } = await (supabase.from("check_ins") as any)
+      const { data: openCheckin, error: openErr } = await (supabase.from("check_ins") as any)
         .select("id, checked_in_at")
         .eq("user_id", profile.id)
         .eq("gym_id", gymId)
@@ -152,8 +153,12 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
         .limit(1)
         .maybeSingle()
 
+      console.log("[QRScanner] profile.id:", profile.id, "gymId:", gymId)
+      console.log("[QRScanner] openCheckin:", openCheckin, "error:", openErr)
+
       if (openCheckin) {
         const isToday = openCheckin.checked_in_at >= todayStr
+        console.log("[QRScanner] openCheckin.checked_in_at:", openCheckin.checked_in_at, "isToday:", isToday)
         if (isToday) {
           stopCamera()
           setStatus("error")
@@ -175,6 +180,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
       })
 
       if (insertError) {
+        console.log("[QRScanner] insertError:", insertError.code, insertError.message)
         stopCamera()
         setStatus("error")
         const isDuplicate = insertError.code === "23505" || insertError.message?.includes("duplicate")
