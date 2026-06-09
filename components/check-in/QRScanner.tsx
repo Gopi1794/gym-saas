@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { startOfTodayAR } from "@/lib/date-ar"
+import { registerMemberCheckIn } from "@/app/actions/check-in"
 import { CheckCircle2, XCircle, Camera } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -109,92 +110,28 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
         return
       }
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, membership_expires_at, role")
-        .eq("qr_code", qrCode)
-        .single()
-      const profile = data as {
-        id: string
-        full_name: string | null
-        membership_expires_at: string | null
-        role: string | null
-      } | null
-
-      if (error || !profile) {
-        stopCamera()
-        setStatus("error")
-        setMessage("Código QR desconocido — usuario no encontrado")
-        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
-        return
-      }
-
-      const isStaff = profile.role === "admin" || profile.role === "trainer"
-      const isActive =
-        isStaff ||
-        (profile.membership_expires_at &&
-          new Date(profile.membership_expires_at) > new Date())
-
-      if (!isActive) {
-        stopCamera()
-        setStatus("error")
-        setMessage(`La membresía de ${profile.full_name ?? "el socio"} está vencida`)
-        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
-        return
-      }
-
-      // Buscar cualquier check-in abierto (sin checkout) para este socio y gym
-      const { data: openCheckin, error: openErr } = await (supabase.from("check_ins") as any)
-        .select("id, checked_in_at")
-        .eq("user_id", profile.id)
-        .eq("gym_id", gymId)
-        .is("checked_out_at", null)
-        .order("checked_in_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      console.log("[QRScanner] profile.id:", profile.id, "gymId:", gymId)
-      console.log("[QRScanner] openCheckin:", openCheckin, "error:", openErr)
-
-      if (openCheckin) {
-        const isToday = openCheckin.checked_in_at >= todayStr
-        console.log("[QRScanner] openCheckin.checked_in_at:", openCheckin.checked_in_at, "isToday:", isToday)
-        if (isToday) {
-          stopCamera()
-          setStatus("error")
-          setMessage(`${profile.full_name ?? "Este socio"} ya registró su ingreso hoy`)
-          setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
-          return
-        }
-        // Check-in abierto de un día anterior — cerrarlo antes de crear uno nuevo
-        await (supabase.from("check_ins") as any)
-          .update({ checked_out_at: new Date().toISOString() })
-          .eq("id", openCheckin.id)
-      }
-
-      const { error: insertError } = await (supabase.from("check_ins") as any).insert({
-        user_id: profile.id,
-        gym_id: gymId,
-        method: "qr",
-        checked_in_at: new Date().toISOString(),
-      })
-
-      if (insertError) {
-        console.log("[QRScanner] insertError:", insertError.code, insertError.message)
-        stopCamera()
-        setStatus("error")
-        const isDuplicate = insertError.code === "23505" || insertError.message?.includes("duplicate")
-        setMessage(isDuplicate
-          ? `${profile.full_name ?? "Este socio"} ya registró su ingreso hoy`
-          : `Error al registrar: ${insertError.message}`
-        )
-        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
-        return
-      }
+      const result = await registerMemberCheckIn(qrCode, gymId)
 
       stopCamera()
+
+      if (!result.success) {
+        setStatus("error")
+        const name = result.memberName ?? "Este socio"
+        if (result.reason === "not_found") {
+          setMessage("Código QR desconocido — usuario no encontrado")
+        } else if (result.reason === "membership_expired") {
+          setMessage(`La membresía de ${name} está vencida`)
+        } else if (result.reason === "already_today") {
+          setMessage(`${name} ya registró su ingreso hoy`)
+        } else {
+          setMessage(`Error al registrar: ${result.message ?? "error desconocido"}`)
+        }
+        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+        return
+      }
+
       setStatus("success")
-      setMessage(`✓ ${profile.full_name ?? "Socio"} registró su ingreso`)
+      setMessage(`✓ ${result.memberName} registró su ingreso`)
       router.refresh()
 
       setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
