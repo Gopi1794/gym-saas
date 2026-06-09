@@ -58,6 +58,8 @@ export default function RetentionChart({ active, expiring, expired }: Props) {
           <Tooltip
             formatter={(v) => [`${v} socios (${Math.round(Number(v) / total * 100)}%)`, ""]}
             contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }}
+            labelStyle={{ color: "hsl(var(--foreground))" }}
+            itemStyle={{ color: "hsl(var(--foreground))" }}
           />
           <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
         </PieChart>
