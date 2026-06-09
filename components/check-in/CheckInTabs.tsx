@@ -31,12 +31,12 @@ export default function CheckInTabs({ profile, todayCheckIns, gymId }: CheckInTa
 
   return (
     <Tabs defaultValue={isStaff ? "scan" : "qr"} className="space-y-4">
-      <TabsList className="border border-border bg-card text-muted-foreground">
-        {isAdmin && <TabsTrigger value="gym-qr">QR del Gym</TabsTrigger>}
-        {!isAdmin && <TabsTrigger value="qr">Mi QR</TabsTrigger>}
-        {isStaff && <TabsTrigger value="scan">Escanear</TabsTrigger>}
+      <TabsList className="w-full border border-border bg-card text-muted-foreground">
+        {isAdmin && <TabsTrigger value="gym-qr" className="flex-1">QR del Gym</TabsTrigger>}
+        {!isAdmin && <TabsTrigger value="qr" className="flex-1">Mi QR</TabsTrigger>}
+        {isStaff && <TabsTrigger value="scan" className="flex-1">Escanear</TabsTrigger>}
 
-        <TabsTrigger value="log">
+        <TabsTrigger value="log" className="flex-1">
           Registro de hoy
           {todayCheckIns.length > 0 && (
             <span className="ml-1.5 rounded-full bg-brand px-1.5 py-0.5 text-xs text-primary-foreground">
