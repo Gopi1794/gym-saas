@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getNutritionPlans, getMemberNutritionPlan, getFoods } from "@/app/actions/nutrition"
+import { todayAR } from "@/lib/date-ar"
 import { getMealLogsForDate, getWaterToday, getNutritionStreak, getAdherenceReport, getWeightHistory } from "@/app/actions/nutrition-tracking"
 import TabSwitcher from "@/components/ui/TabSwitcher"
 import NutritionPlansPanel from "@/components/nutrition/NutritionPlansPanel"
@@ -30,7 +31,7 @@ export default async function NutricionPage({
 
   const gymId = profile.gym_id ?? ""
   const role = profile.role
-  const today = new Date().toISOString().split("T")[0]
+  const today = todayAR()
 
   // ── Miembro: vista directa sin tabs ──
   if (role === "member") {

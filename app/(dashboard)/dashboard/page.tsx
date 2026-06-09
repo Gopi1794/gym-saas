@@ -17,6 +17,7 @@ import RenewMembershipCard from "@/components/dashboard/RenewMembershipCard"
 import NutritionSummaryCard from "@/components/dashboard/NutritionSummaryCard"
 import { getMemberNutritionPlan } from "@/app/actions/nutrition"
 import { getNutritionStreak } from "@/app/actions/nutrition-tracking"
+import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR } from "@/lib/date-ar"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Dashboard" }
@@ -49,12 +50,10 @@ export default async function DashboardPage() {
   // Fire-and-forget: crea notificaciones de membresía por vencer (idempotente)
   supabase.rpc("notify_expiring_memberships" as never).then(() => {})
 
-  const today = new Date()
-  const todayStr = today.toISOString().split("T")[0]
-
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString()
-  const twelveMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 11, 1).toISOString()
-  const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(today.getDate() - 6); sevenDaysAgo.setHours(0, 0, 0, 0)
+  const todayStr = todayAR()
+  const firstOfMonth = firstOfMonthAR()
+  const twelveMonthsAgo = firstOfMonthsAgoAR(11)
+  const sevenDaysAgo = daysAgoAR(6)
 
   const [
     { count: totalMembers },
@@ -81,7 +80,7 @@ export default async function DashboardPage() {
       .from("profiles")
       .select("*", { count: "exact", head: true })
       .eq("gym_id", p?.gym_id ?? "")
-      .gte("membership_expires_at", today.toISOString()),
+      .gte("membership_expires_at", new Date().toISOString()),
     supabase
       .from("check_ins")
       .select("*", { count: "exact", head: true })
@@ -121,12 +120,13 @@ export default async function DashboardPage() {
       .from("check_ins")
       .select("checked_in_at")
       .eq("gym_id", p?.gym_id ?? "")
-      .gte("checked_in_at", sevenDaysAgo.toISOString()),
+      .gte("checked_in_at", sevenDaysAgo),
   ])
 
   // ── Member: fetch today's workout + weekly summary ──
   // JS getDay: 0=Sun → app dow: 0=Mon…6=Sun → (jsDay + 6) % 7
-  const todayDow = (today.getDay() + 6) % 7
+  const todayDate = todayDateAR()
+  const todayDow = (dayOfWeekAR() + 6) % 7
   let todayWorkout: { planName: string; dayName: string; exercises: { name: string; sets: number; reps: number }[] } | null = null
   let weeklySummary: { trainingDows: number[]; completedDows: number[] } | null = null
   let memberActivity: { completedThisWeek: number; trainingDaysThisWeek: number; totalSessions: number; streak: number; sessionsByWeek: number[]; recentDays: number[] } | null = null
@@ -153,12 +153,8 @@ export default async function DashboardPage() {
 
 
     if (plan) {
-      // Monday of current week
-      const jsDay = today.getDay()
-      const mondayOffset = jsDay === 0 ? -6 : 1 - jsDay
-      const monday = new Date(today)
-      monday.setDate(today.getDate() + mondayOffset)
-      monday.setHours(0, 0, 0, 0)
+      const jsDay = dayOfWeekAR()
+      const monday = mondayOfWeekAR()
 
       type RecentSessionRow = { completed_at: string }
 
@@ -176,7 +172,7 @@ export default async function DashboardPage() {
           .from("workout_sessions" as never)
           .select("day_of_week")
           .eq("user_id", user!.id)
-          .gte("completed_at", monday.toISOString()) as unknown as Promise<{ data: SessionRow[] | null }>,
+          .gte("completed_at", monday) as unknown as Promise<{ data: SessionRow[] | null }>,
         supabase
           .from("workout_sessions" as never)
           .select("*", { count: "exact", head: true })
@@ -195,7 +191,7 @@ export default async function DashboardPage() {
         .sort((a, b) => a.order_index - b.order_index)
         .map((pe) => ({ name: pe.exercises.name, sets: pe.sets, reps: pe.reps, reps_max: pe.reps_max, duration_seconds: pe.duration_seconds }))
 
-      todayWorkout = { planName: plan.name, dayName: DAYS[today.getDay()], exercises }
+      todayWorkout = { planName: plan.name, dayName: DAYS[dayOfWeekAR()], exercises }
 
       const trainingDows = (allPlanDays ?? [])
         .filter((d) => d.workout_plan_exercises.length > 0)
@@ -208,31 +204,30 @@ export default async function DashboardPage() {
       // Consecutive day streak
       const sessionDays = new Set((recentSessions ?? []).map((s) => s.completed_at.split("T")[0]))
       let streak = 0
-      const cursor = new Date(today)
-      cursor.setHours(0, 0, 0, 0)
+      const cursor = new Date(`${todayAR()}T00:00:00Z`)
       while (sessionDays.has(cursor.toISOString().split("T")[0])) {
         streak++
-        cursor.setDate(cursor.getDate() - 1)
+        cursor.setUTCDate(cursor.getUTCDate() - 1)
       }
 
       // Sessions per week for the last 7 weeks (bar chart)
       const daysToMonday = jsDay === 0 ? 6 : jsDay - 1
       const sessionsByWeek = Array.from({ length: 7 }, (_, wi) => {
-        const monday = new Date(today)
-        monday.setDate(today.getDate() - daysToMonday - (6 - wi) * 7)
-        monday.setHours(0, 0, 0, 0)
-        const sunday = new Date(monday)
-        sunday.setDate(monday.getDate() + 7)
+        const wMonday = new Date(todayDate)
+        wMonday.setDate(todayDate.getDate() - daysToMonday - (6 - wi) * 7)
+        wMonday.setHours(0, 0, 0, 0)
+        const wSunday = new Date(wMonday)
+        wSunday.setDate(wMonday.getDate() + 7)
         return (recentSessions ?? []).filter(s => {
           const d = new Date(s.completed_at)
-          return d >= monday && d < sunday
+          return d >= wMonday && d < wSunday
         }).length
       })
 
       // Last 7 days: 1 = trained, 0 = not (line/sparkline chart)
       const recentDays = Array.from({ length: 7 }, (_, i) => {
-        const day = new Date(today)
-        day.setDate(today.getDate() - (6 - i))
+        const day = new Date(todayDate)
+        day.setDate(todayDate.getDate() - (6 - i))
         const dayStr = day.toISOString().split("T")[0]
         return (recentSessions ?? []).some(s => s.completed_at.startsWith(dayStr)) ? 1 : 0
       })
@@ -288,22 +283,22 @@ export default async function DashboardPage() {
   // Admin chart data
   const adminMembersProgress = totalMembers ? (activeMembers ?? 0) / totalMembers : 0
   const checkInWeekData = Array.from({ length: 7 }, (_, i) => {
-    const day = new Date(today)
-    day.setDate(today.getDate() - (6 - i))
+    const day = new Date(todayDate)
+    day.setDate(todayDate.getDate() - (6 - i))
     const dayStr = day.toISOString().split("T")[0]
     return (checkInsLast7Days ?? []).filter(ci => ci.checked_in_at.startsWith(dayStr)).length
   })
   const revenueTrend = Array.from({ length: 7 }, (_, i) => {
-    const m = new Date(today.getFullYear(), today.getMonth() - (6 - i), 1)
+    const m = new Date(todayDate.getFullYear(), todayDate.getMonth() - (6 - i), 1)
     return (paymentsLast12Months ?? [])
       .filter(pay => { const d = new Date(pay.created_at); return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear() })
       .reduce((sum, pay) => sum + (pay.amount ?? 0), 0)
   })
 
-  const hour = today.getHours()
+  const hour = hourAR()
   const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches"
   const firstName = p?.full_name?.split(" ")[0] ?? ""
-  const dateLabel = `${DAYS[today.getDay()]}, ${today.getDate()} ${MONTHS[today.getMonth()]}`
+  const dateLabel = `${DAYS[dayOfWeekAR()]}, ${todayDate.getDate()} ${MONTHS[todayDate.getMonth()]}`
 
   return (
     <div className="space-y-5 pb-2">

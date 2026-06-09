@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+import { todayAR } from "@/lib/date-ar"
 import { CheckCircle2, XCircle, Camera } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -39,9 +40,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
       setStatus("scanning")
 
       const supabase = supabaseRef.current
-      // Use local date to avoid UTC vs. local timezone mismatch (e.g. Buenos Aires UTC-3)
-      const now = new Date()
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+      const todayStr = todayAR()
 
       // Trainer/admin escaneando el QR del establecimiento → ficha entrada o salida
       if (qrCode === `GYM_CHECKIN:${gymId}`) {
