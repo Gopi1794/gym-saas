@@ -40,19 +40,21 @@ export default async function StaffPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">
-          Staff
-        </h1>
-        <p className="text-muted-foreground">
-          Asistencia y socios a cargo de cada trainer
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">
+            Staff
+          </h1>
+          <p className="text-muted-foreground">
+            Asistencia y socios a cargo de cada trainer
+          </p>
+        </div>
+        <PageTour tourKey="staff" steps={STAFF_STEPS} />
       </div>
 
       <div data-tour="staff-content">
         <StaffLog gymId={profile.gym_id ?? ""} />
       </div>
-      <PageTour tourKey="staff" steps={STAFF_STEPS} />
     </div>
   )
 }

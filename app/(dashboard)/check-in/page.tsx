@@ -70,13 +70,19 @@ export default async function CheckInPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">
-          Check-in
-        </h1>
-        <p className="text-muted-foreground">
-          {isMember ? "Mostrá tu QR en la entrada del gym" : "Escaneá QR de socios o registrá ingreso manual"}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">
+            Check-in
+          </h1>
+          <p className="text-muted-foreground">
+            {isMember ? "Mostrá tu QR en la entrada del gym" : "Escaneá QR de socios o registrá ingreso manual"}
+          </p>
+        </div>
+        <PageTour
+          tourKey={isMember ? "checkin-member" : "checkin-admin"}
+          steps={isMember ? MEMBER_CHECKIN_STEPS : ADMIN_CHECKIN_STEPS}
+        />
       </div>
 
       <div data-tour="checkin-main">
@@ -86,11 +92,6 @@ export default async function CheckInPage() {
           gymId={gymId}
         />
       </div>
-
-      <PageTour
-        tourKey={isMember ? "checkin-member" : "checkin-admin"}
-        steps={isMember ? MEMBER_CHECKIN_STEPS : ADMIN_CHECKIN_STEPS}
-      />
     </div>
   )
 }

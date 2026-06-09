@@ -42,16 +42,17 @@ export default async function PaymentsPage() {
 
   return (
     <div className="space-y-5 pb-2">
-      <div>
-        <h1 className="font-display text-2xl text-white leading-tight">Pagos</h1>
-        <p className="text-xs text-zinc-500 mt-0.5">Historial de pagos del gimnasio</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl text-white leading-tight">Pagos</h1>
+          <p className="text-xs text-zinc-500 mt-0.5">Historial de pagos del gimnasio</p>
+        </div>
+        <PageTour tourKey="payments" steps={PAYMENTS_TOUR_STEPS} />
       </div>
 
       <div data-tour="payments-table">
         <PaymentsTable payments={payments ?? []} />
       </div>
-
-      <PageTour tourKey="payments" steps={PAYMENTS_TOUR_STEPS} />
     </div>
   )
 }

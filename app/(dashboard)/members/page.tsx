@@ -94,9 +94,12 @@ export default async function MembersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-50">Miembros</h1>
-        <p className="text-sm text-zinc-500 mt-0.5">Gestioná los socios de tu gimnasio</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-50">Miembros</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">Gestioná los socios de tu gimnasio</p>
+        </div>
+        <PageTour tourKey="members" steps={MEMBERS_TOUR_STEPS} />
       </div>
 
       {/* Stats */}
@@ -145,7 +148,6 @@ export default async function MembersPage() {
         <MemberTable members={allMembers} plans={plans ?? []} churnStatuses={churnStatuses} />
       </div>
 
-      <PageTour tourKey="members" steps={MEMBERS_TOUR_STEPS} />
     </div>
   )
 }

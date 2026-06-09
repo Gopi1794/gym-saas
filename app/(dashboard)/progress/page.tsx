@@ -69,9 +69,12 @@ export default async function ProgressPage() {
 
   return (
     <div className="space-y-5 pb-8">
-      <div>
-        <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">Mi progreso</h1>
-        <p className="text-sm text-muted-foreground">Tu historial de entrenamientos</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">Mi progreso</h1>
+          <p className="text-sm text-muted-foreground">Tu historial de entrenamientos</p>
+        </div>
+        <PageTour tourKey="progress" steps={PROGRESS_STEPS} />
       </div>
       <WeightChart history={weightHistory} goalWeight={profile?.weight_kg ?? null} />
 
@@ -81,7 +84,6 @@ export default async function ProgressPage() {
           trainingDays={trainingDays}
         />
       </div>
-      <PageTour tourKey="progress" steps={PROGRESS_STEPS} />
     </div>
   )
 }

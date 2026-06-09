@@ -52,17 +52,19 @@ export default async function AchievementsPage() {
 
   return (
     <div className="space-y-5 pb-2">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-50">Logros del gimnasio</h1>
-        <p className="text-sm text-zinc-400">
-          Configurá los logros que pueden ganar tus miembros
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-50">Logros del gimnasio</h1>
+          <p className="text-sm text-zinc-400">
+            Configurá los logros que pueden ganar tus miembros
+          </p>
+        </div>
+        <PageTour tourKey="achievements" steps={ACHIEVEMENTS_STEPS} />
       </div>
 
       <div data-tour="achievements-list">
         <AchievementList items={achievements ?? []} />
       </div>
-      <PageTour tourKey="achievements" steps={ACHIEVEMENTS_STEPS} />
     </div>
   )
 }

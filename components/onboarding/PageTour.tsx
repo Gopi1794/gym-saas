@@ -54,12 +54,11 @@ export default function PageTour({ tourKey, steps }: PageTourProps) {
         }}
       />
 
-      {/* Replay button — visible solo si ya vio el tour */}
       {seen && (
         <button
           onClick={replay}
           title="Ver tour de esta pantalla"
-          className="fixed left-4 top-4 z-40 flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-xs font-medium text-[#a1a1aa] shadow-lg backdrop-blur-sm transition-all hover:border-zinc-600 hover:text-white md:left-[272px]"
+          className="flex shrink-0 items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-xs font-medium text-[#a1a1aa] shadow-sm backdrop-blur-sm transition-all hover:border-zinc-600 hover:text-white"
         >
           <HelpCircle className="h-3.5 w-3.5" />
           Ayuda

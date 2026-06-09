@@ -149,15 +149,17 @@ export default async function PersonasPage({
 
   return (
     <div className="space-y-5 pb-8">
-      <div>
-        <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">Personas</h1>
-        <p className="text-muted-foreground">Gestioná miembros y staff de tu gimnasio</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">Personas</h1>
+          <p className="text-muted-foreground">Gestioná miembros y staff de tu gimnasio</p>
+        </div>
+        <PageTour tourKey="personas" steps={PERSONAS_TOUR_STEPS} />
       </div>
       <div data-tour="personas-tabs">
         <TabSwitcher tabs={tabs} activeTab={tab} />
       </div>
       {content}
-      <PageTour tourKey="personas" steps={PERSONAS_TOUR_STEPS} />
     </div>
   )
 }
