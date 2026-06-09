@@ -97,7 +97,7 @@ export default function TrainerChat() {
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.92 }}
         className={cn(
-          "fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-[0_0_28px_rgba(213,0,0,0.55)] md:bottom-6 md:right-6",
+          "fixed bottom-[72px] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-[0_0_28px_rgba(213,0,0,0.55)] md:bottom-6 md:right-6",
           open && "pointer-events-none opacity-0"
         )}
         aria-label="Abrir asistente trainer"
