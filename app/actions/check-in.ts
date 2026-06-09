@@ -4,8 +4,8 @@ import { createClient } from "@/lib/supabase/server"
 import { startOfTodayAR } from "@/lib/date-ar"
 
 type CheckInResult =
-  | { success: true; memberName: string }
-  | { success: false; reason: "already_today" | "membership_expired" | "not_found" | "error"; memberName?: string; message?: string }
+  | { success: true; action: "checkin" | "checkout"; memberName: string }
+  | { success: false; reason: "membership_expired" | "not_found" | "error"; memberName?: string; message?: string }
 
 export async function registerMemberCheckIn(
   qrCode: string,
@@ -33,8 +33,9 @@ export async function registerMemberCheckIn(
   }
 
   const todayStr = startOfTodayAR()
+  const name = profile.full_name ?? "Socio"
 
-  // Buscar cualquier check-in abierto para este socio en este gym
+  // Buscar check-in abierto (sin checkout)
   const { data: openCheckin } = await (supabase.from("check_ins") as any)
     .select("id, checked_in_at")
     .eq("user_id", profile.id)
@@ -46,15 +47,27 @@ export async function registerMemberCheckIn(
 
   if (openCheckin) {
     const isToday = openCheckin.checked_in_at >= todayStr
+
     if (isToday) {
-      return { success: false, reason: "already_today", memberName: profile.full_name ?? undefined }
+      // 2do scan del día → checkout
+      const { error } = await (supabase.from("check_ins") as any)
+        .update({ checked_out_at: new Date().toISOString() })
+        .eq("id", openCheckin.id)
+
+      if (error) return { success: false, reason: "error", message: error.message }
+      return { success: true, action: "checkout", memberName: name }
     }
-    // Check-in abierto de día anterior — cerrarlo
+
+    // Registro abierto de un día anterior (no escaneó salida)
+    // Lo cerramos al final de ese día para no falsificar datos
+    const endOfThatDay = new Date(openCheckin.checked_in_at)
+    endOfThatDay.setHours(23, 59, 59, 999)
     await (supabase.from("check_ins") as any)
-      .update({ checked_out_at: new Date().toISOString() })
+      .update({ checked_out_at: endOfThatDay.toISOString() })
       .eq("id", openCheckin.id)
   }
 
+  // Sin check-in abierto hoy → nuevo check-in
   const { error: insertError } = await (supabase.from("check_ins") as any)
     .insert({
       user_id: profile.id,
@@ -67,5 +80,5 @@ export async function registerMemberCheckIn(
     return { success: false, reason: "error", message: insertError.message }
   }
 
-  return { success: true, memberName: profile.full_name ?? "Socio" }
+  return { success: true, action: "checkin", memberName: name }
 }

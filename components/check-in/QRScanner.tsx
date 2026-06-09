@@ -121,8 +121,6 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
           setMessage("Código QR desconocido — usuario no encontrado")
         } else if (result.reason === "membership_expired") {
           setMessage(`La membresía de ${name} está vencida`)
-        } else if (result.reason === "already_today") {
-          setMessage(`${name} ya registró su ingreso hoy`)
         } else {
           setMessage(`Error al registrar: ${result.message ?? "error desconocido"}`)
         }
@@ -131,7 +129,10 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
       }
 
       setStatus("success")
-      setMessage(`✓ ${result.memberName} registró su ingreso`)
+      setMessage(result.action === "checkout"
+        ? `✓ ${result.memberName} registró su salida`
+        : `✓ ${result.memberName} registró su ingreso`
+      )
       router.refresh()
 
       setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
