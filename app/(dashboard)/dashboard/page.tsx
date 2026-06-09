@@ -17,7 +17,7 @@ import RenewMembershipCard from "@/components/dashboard/RenewMembershipCard"
 import NutritionSummaryCard from "@/components/dashboard/NutritionSummaryCard"
 import { getMemberNutritionPlan } from "@/app/actions/nutrition"
 import { getNutritionStreak } from "@/app/actions/nutrition-tracking"
-import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR } from "@/lib/date-ar"
+import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, startOfTodayAR } from "@/lib/date-ar"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Dashboard" }
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
       .from("check_ins")
       .select("*", { count: "exact", head: true })
       .eq("gym_id", p?.gym_id ?? "")
-      .gte("checked_in_at", todayStr),
+      .gte("checked_in_at", startOfTodayAR()),
     supabase
       .from("profiles")
       .select("*", { count: "exact", head: true })

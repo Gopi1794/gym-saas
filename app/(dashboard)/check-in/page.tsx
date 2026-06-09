@@ -1,6 +1,6 @@
 ﻿import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
-import { todayAR } from "@/lib/date-ar"
+import { startOfTodayAR } from "@/lib/date-ar"
 import CheckInTabs from "@/components/check-in/CheckInTabs"
 import PageTour from "@/components/onboarding/PageTour"
 import type { Step } from "react-joyride"
@@ -52,7 +52,7 @@ export default async function CheckInPage() {
     .single()
   const profile = profileData as any
 
-  const today = todayAR()
+  const today = startOfTodayAR()
   const isMember = profile?.role === "member"
   const gymId: string = profile?.gym_id ?? ""
 

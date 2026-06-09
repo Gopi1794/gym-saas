@@ -27,6 +27,11 @@ export function dayOfWeekAR(): number {
   return todayDateAR().getDay()
 }
 
+/** Start of today at 00:00 AR time, returned as UTC ISO string for Supabase .gte() on timestamp columns. */
+export function startOfTodayAR(): string {
+  return new Date(`${todayAR()}T00:00:00-03:00`).toISOString()
+}
+
 /** Monday of the current AR week at 00:00 AR time, returned as UTC ISO string for Supabase .gte(). */
 export function mondayOfWeekAR(): string {
   const jsDay = dayOfWeekAR()
