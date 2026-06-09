@@ -1,5 +1,6 @@
 import React from "react"
 import Link from "next/link"
+import { ForceDark } from "@/components/landing/ForceDark"
 import { GymFlowLogo } from "@/components/ui/GymFlowLogo"
 import { Badge } from "@/components/ui/badge"
 import { NeonButton } from "@/components/ui/neon-button"
@@ -24,6 +25,7 @@ import {
 
 export default function LandingPage() {
   return (
+    <ForceDark>
     <div className="dark min-h-screen bg-zinc-950 text-zinc-50">
       {/* ── Skip link ── */}
       <a href="#main" className="skip-link">Ir al contenido principal</a>
@@ -277,6 +279,7 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
+    </ForceDark>
   )
 }
 
