@@ -121,6 +121,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
       } | null
 
       if (error || !profile) {
+        stopCamera()
         setStatus("error")
         setMessage("Código QR desconocido — usuario no encontrado")
         setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
@@ -134,6 +135,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
           new Date(profile.membership_expires_at) > new Date())
 
       if (!isActive) {
+        stopCamera()
         setStatus("error")
         setMessage(`La membresía de ${profile.full_name ?? "el socio"} está vencida`)
         setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
@@ -153,6 +155,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
       if (openCheckin) {
         const isToday = openCheckin.checked_in_at >= todayStr
         if (isToday) {
+          stopCamera()
           setStatus("error")
           setMessage(`${profile.full_name ?? "Este socio"} ya registró su ingreso hoy`)
           setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
@@ -172,6 +175,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
       })
 
       if (insertError) {
+        stopCamera()
         setStatus("error")
         const isDuplicate = insertError.code === "23505" || insertError.message?.includes("duplicate")
         setMessage(isDuplicate
