@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, Dumbbell, Moon } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Dumbbell } from "lucide-react";
 
 type Exercise = { name: string; sets: number; reps: number; reps_max?: number | null; duration_seconds?: number | null };
 
@@ -34,37 +34,21 @@ export default function TodayWorkoutCard({
       : "Recuperate, mañana volvemos 💪";
 
     return (
-      <Link href={restHref} className="block">
-        <div
-          className="relative overflow-hidden rounded-2xl bg-brand-950"
-          style={{ minHeight: 140 }}
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-brand-600/40 bg-white dark:bg-brand-900 p-6">
+        <p className="text-sm font-medium text-brand-600 dark:text-brand-400">
+          Hoy · {dayName}
+        </p>
+        <p className="mt-2 text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
+          {restTitle}
+        </p>
+        <p className="mt-1.5 text-sm text-zinc-500">{restSubtitle}</p>
+        <Link
+          href={restHref}
+          className="absolute bottom-5 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-brand-600/15 text-brand-500 transition-colors hover:bg-brand-600/30 dark:bg-brand-700/20 dark:hover:bg-brand-700/40"
         >
-          <Image
-            src="/dia-de-descanso.jpg"
-            alt=""
-            fill
-            className="object-cover object-[38%_38%]"
-            priority
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-brand-950 via-brand-950/70 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-
-          <div className="relative z-10 flex h-full min-h-[140px] sm:min-h-[180px] items-center p-5">
-            <div className="max-w-[60%]">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-white/50">
-                Hoy · {dayName}
-              </span>
-              <h2 className="mt-1 text-xl font-bold text-white drop-shadow">
-                {restTitle}
-              </h2>
-              <p className="mt-1 text-sm text-white/60">{restSubtitle}</p>
-            </div>
-            <div className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm sm:hidden">
-              <Moon className="h-5 w-5 text-brand-500" />
-            </div>
-          </div>
-        </div>
-      </Link>
+          <ArrowUpRight className="h-5 w-5" />
+        </Link>
+      </div>
     );
   }
 
