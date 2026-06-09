@@ -39,7 +39,9 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
       setStatus("scanning")
 
       const supabase = supabaseRef.current
-      const todayStr = new Date().toISOString().split("T")[0]
+      // Use local date to avoid UTC vs. local timezone mismatch (e.g. Buenos Aires UTC-3)
+      const now = new Date()
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
 
       // Trainer/admin escaneando el QR del establecimiento → ficha entrada o salida
       if (qrCode === `GYM_CHECKIN:${gymId}`) {
@@ -161,7 +163,11 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
 
       if (insertError) {
         setStatus("error")
-        setMessage(`Error al registrar: ${insertError.message}`)
+        const isDuplicate = insertError.code === "23505" || insertError.message?.includes("duplicate")
+        setMessage(isDuplicate
+          ? `${profile.full_name ?? "Este socio"} ya registró su ingreso hoy`
+          : `Error al registrar: ${insertError.message}`
+        )
         setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
         return
       }
