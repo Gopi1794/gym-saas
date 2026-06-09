@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
@@ -7,10 +7,8 @@ import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { startOfTodayAR } from "@/lib/date-ar"
 import { registerMemberCheckIn } from "@/app/actions/check-in"
-import { CheckCircle2, XCircle, Camera } from "lucide-react"
-import { cn } from "@/lib/utils"
-
-type ScanStatus = "idle" | "scanning" | "success" | "error"
+import { showToast } from "nextjs-toast-notify"
+import { Camera } from "lucide-react"
 
 interface QRScannerProps {
   gymId: string
@@ -20,11 +18,8 @@ interface QRScannerProps {
 
 export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
   const router = useRouter()
-  const [status, setStatus] = useState<ScanStatus>("idle")
-  const [message, setMessage] = useState("")
   const [isStarted, setIsStarted] = useState(false)
   const scannerRef = useRef<unknown>(null)
-  // Ref en lugar de state para evitar stale closure dentro del callback del scanner
   const processingRef = useRef(false)
   const supabaseRef = useRef(createClient())
 
@@ -38,22 +33,21 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
     async (qrCode: string) => {
       if (processingRef.current) return
       processingRef.current = true
-      setStatus("scanning")
 
       const supabase = supabaseRef.current
       const todayStr = startOfTodayAR()
-      console.log("[QRScanner] todayStr (AR midnight UTC):", todayStr)
 
-      // Trainer/admin escaneando el QR del establecimiento → ficha entrada o salida
+      // Staff escaneando el QR del establecimiento → ficha entrada o salida propia
       if (qrCode === `GYM_CHECKIN:${gymId}`) {
         if (userRole !== "trainer" && userRole !== "admin") {
-          setStatus("error")
-          setMessage("Solo el staff puede fichar con el QR del establecimiento")
-          setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+          stopCamera()
+          showToast.error("Solo el staff puede fichar con el QR del establecimiento", {
+            duration: 3000, position: "top-right",
+          })
+          processingRef.current = false
           return
         }
 
-        // Buscar si ya tiene un check-in hoy
         const { data: existing } = await (supabase.from("check_ins") as any)
           .select("id, checked_out_at")
           .eq("user_id", userId)
@@ -62,82 +56,69 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
           .limit(1)
           .single()
 
-        // Ya fichó entrada y aún no tiene salida → registrar salida
         if (existing && !existing.checked_out_at) {
           const { error: outErr } = await (supabase.from("check_ins") as any)
             .update({ checked_out_at: new Date().toISOString() })
             .eq("id", existing.id)
-          if (outErr) {
-            setStatus("error")
-            setMessage(`Error al registrar salida: ${outErr.message}`)
-            setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
-            return
-          }
           stopCamera()
-          setStatus("success")
-          setMessage("✓ Salida fichada correctamente")
-          router.refresh()
-          setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+          if (outErr) {
+            showToast.error(`Error al registrar salida: ${outErr.message}`, { duration: 3000, position: "top-right" })
+          } else {
+            showToast.success("Salida fichada correctamente", { duration: 3000, position: "top-right", transition: "bounceIn" })
+            router.refresh()
+          }
+          processingRef.current = false
           return
         }
 
-        // Ya fichó entrada y salida → jornada completa
         if (existing && existing.checked_out_at) {
-          setStatus("error")
-          setMessage("Ya registraste entrada y salida hoy")
-          setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+          stopCamera()
+          showToast.error("Ya registraste entrada y salida hoy", { duration: 3000, position: "top-right" })
+          processingRef.current = false
           return
         }
 
-        // Sin check-in previo → registrar entrada
         const { error: insertErr } = await (supabase.from("check_ins") as any).insert({
           user_id: userId,
           gym_id: gymId,
           method: "qr",
           checked_in_at: new Date().toISOString(),
         })
-        if (insertErr) {
-          setStatus("error")
-          setMessage(`Error al fichar: ${insertErr.message}`)
-          setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
-          return
-        }
         stopCamera()
-        setStatus("success")
-        setMessage("✓ Entrada fichada correctamente")
-        router.refresh()
-        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+        if (insertErr) {
+          showToast.error(`Error al fichar: ${insertErr.message}`, { duration: 3000, position: "top-right" })
+        } else {
+          showToast.success("Entrada fichada correctamente", { duration: 3000, position: "top-right", transition: "bounceIn" })
+          router.refresh()
+        }
+        processingRef.current = false
         return
       }
 
+      // QR de socio → toggle ingreso/salida via server action
       const result = await registerMemberCheckIn(qrCode, gymId)
-
       stopCamera()
 
       if (!result.success) {
-        setStatus("error")
         const name = result.memberName ?? "Este socio"
-        if (result.reason === "not_found") {
-          setMessage("Código QR desconocido — usuario no encontrado")
-        } else if (result.reason === "membership_expired") {
-          setMessage(`La membresía de ${name} está vencida`)
-        } else {
-          setMessage(`Error al registrar: ${result.message ?? "error desconocido"}`)
-        }
-        setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
-        return
+        const msg =
+          result.reason === "not_found"
+            ? "Código QR desconocido — usuario no encontrado"
+            : result.reason === "membership_expired"
+              ? `La membresía de ${name} está vencida`
+              : `Error al registrar: ${result.message ?? "error desconocido"}`
+        showToast.error(msg, { duration: 3500, position: "top-right" })
+      } else {
+        const msg = result.action === "checkout"
+          ? `${result.memberName} registró su salida`
+          : `${result.memberName} registró su ingreso`
+        showToast.success(msg, { duration: 3000, position: "top-right", transition: "bounceIn" })
+        router.refresh()
       }
 
-      setStatus("success")
-      setMessage(result.action === "checkout"
-        ? `✓ ${result.memberName} registró su salida`
-        : `✓ ${result.memberName} registró su ingreso`
-      )
-      router.refresh()
-
-      setTimeout(() => { setStatus("idle"); processingRef.current = false }, 3000)
+      processingRef.current = false
     },
-    [gymId, stopCamera]
+    [gymId, userId, userRole, stopCamera]
   )
 
   useEffect(() => {
@@ -160,7 +141,6 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
         await html5QrCode.start({ facingMode: "environment" }, config, onScan, () => {})
       } catch (firstErr) {
         const name = (firstErr as { name?: string })?.name ?? ""
-        // Cámara trasera no disponible — reintentar sin restricción de facingMode
         if (name === "OverconstrainedError" || name === "NotFoundError" || String(firstErr).includes("facingMode")) {
           try {
             await html5QrCode.start({ facingMode: "user" }, config, onScan, () => {})
@@ -172,8 +152,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
                 : !window.isSecureContext
                   ? "Se requiere HTTPS para acceder a la cámara."
                   : `Error de cámara: ${n2 || String(secondErr)}`
-            setStatus("error")
-            setMessage(msg)
+            showToast.error(msg, { duration: 4000, position: "top-right" })
             setIsStarted(false)
           }
           return
@@ -188,8 +167,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
                 : !window.isSecureContext
                   ? "Se requiere HTTPS para acceder a la cámara."
                   : `Error de cámara: ${name || String(firstErr)}`
-        setStatus("error")
-        setMessage(msg)
+        showToast.error(msg, { duration: 4000, position: "top-right" })
         setIsStarted(false)
       }
     }
@@ -197,9 +175,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
     startScanner()
 
     return () => {
-      if (scanner?.isScanning) {
-        scanner.stop().catch(() => {})
-      }
+      if (scanner?.isScanning) scanner.stop().catch(() => {})
     }
   }, [isStarted, handleScan])
 
@@ -211,24 +187,12 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
             QR Scanner
           </p>
           <p className="text-sm text-muted-foreground">
-            Point the camera at a member&apos;s QR code
+            Apuntá la cámara al QR del socio
           </p>
         </div>
 
-        {/* Scanner viewport */}
-        <div
-          className={cn(
-            "relative w-full overflow-hidden rounded-2xl border-2",
-            status === "success"
-              ? "border-emerald-500"
-              : status === "error"
-                ? "border-destructive"
-                : "border-border"
-          )}
-          style={{ minHeight: 280 }}
-        >
+        <div className="relative w-full overflow-hidden rounded-2xl border-2 border-border" style={{ minHeight: 280 }}>
           <div id="qr-scanner-element" className="w-full" />
-
           {!isStarted && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-background/90">
               <Camera className="h-12 w-12 text-muted-foreground" />
@@ -236,45 +200,20 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
                 onClick={() => setIsStarted(true)}
                 className="bg-brand text-primary-foreground hover:bg-brand-600"
               >
-                Start Camera
+                Iniciar cámara
               </Button>
             </div>
           )}
         </div>
-
-        {/* Status feedback */}
-        {status !== "idle" && message && (
-          <div
-            className={cn(
-              "flex w-full items-center gap-3 rounded-xl px-4 py-3",
-              status === "success"
-                ? "bg-emerald-950/50 text-emerald-400"
-                : status === "error"
-                  ? "bg-destructive/20 text-destructive-foreground"
-                  : "bg-muted text-muted-foreground"
-            )}
-          >
-            {status === "success" ? (
-              <CheckCircle2 className="h-5 w-5 shrink-0" />
-            ) : (
-              <XCircle className="h-5 w-5 shrink-0" />
-            )}
-            <p className="text-sm font-medium">{message}</p>
-          </div>
-        )}
 
         {isStarted && (
           <Button
             variant="outline"
             size="sm"
             className="border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              setIsStarted(false)
-              setStatus("idle")
-              setMessage("")
-            }}
+            onClick={stopCamera}
           >
-            Stop Camera
+            Detener cámara
           </Button>
         )}
       </CardContent>
