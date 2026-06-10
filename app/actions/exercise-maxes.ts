@@ -71,6 +71,7 @@ export async function getExerciseHistory(userId: string): Promise<ExerciseHistor
     .from("workout_session_sets")
     .select("session_id, exercise_id, exercise_name, category, weight_kg, reps, workout_sessions!inner(completed_at)")
     .not("exercise_id", "is", null)
+    .neq("category", "cardio")
 
   if (!data) return []
 
