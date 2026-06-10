@@ -67,7 +67,7 @@ export async function getExerciseHistory(userId: string): Promise<ExerciseHistor
   const supabaseAny = supabase as any
   const { data } = await supabaseAny
     .from("workout_session_sets")
-    .select("session_id, exercise_id, weight_kg, reps, workout_sessions!inner(completed_at), exercises(name, category)")
+    .select("session_id, exercise_id, exercise_name, category, weight_kg, reps, workout_sessions!inner(completed_at)")
     .not("exercise_id", "is", null)
     .not("weight_kg", "is", null)
 
@@ -93,8 +93,8 @@ export async function getExerciseHistory(userId: string): Promise<ExerciseHistor
 
     for (const [sessionId, { sets }] of sessionMap) {
       const firstSet = sets[0]
-      exerciseName = firstSet.exercises?.name ?? exerciseId
-      category = firstSet.exercises?.category ?? ""
+      exerciseName = firstSet.exercise_name ?? exerciseId
+      category = firstSet.category ?? ""
       const date = firstSet.workout_sessions?.completed_at ?? ""
       const maxWeightKg = Math.max(...sets.map((s: any) => s.weight_kg as number))
       const totalVolume = sets.reduce((acc: number, s: any) => acc + (s.weight_kg as number) * (s.reps ?? 0), 0)
