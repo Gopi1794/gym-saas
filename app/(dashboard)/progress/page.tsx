@@ -5,6 +5,8 @@ import ProgressView, { type SessionRecord } from "@/components/progress/Progress
 import PageTour from "@/components/onboarding/PageTour"
 import WeightChart from "@/components/nutrition/WeightChart"
 import { getWeightHistory } from "@/app/actions/nutrition-tracking"
+import { getExerciseHistory } from "@/app/actions/exercise-maxes"
+import { ExerciseProgressionSection } from "@/components/progress/ExerciseProgressionSection"
 import type { Step } from "react-joyride"
 
 const PROGRESS_STEPS: Step[] = [
@@ -56,6 +58,7 @@ export default async function ProgressPage() {
     .maybeSingle() as unknown as Promise<{ data: { id: string } | null }>)
 
   const weightHistory = await getWeightHistory(user!.id)
+  const exerciseHistory = await getExerciseHistory(user!.id)
 
   let trainingDays = 0
   if (plan) {
@@ -84,6 +87,7 @@ export default async function ProgressPage() {
           trainingDays={trainingDays}
         />
       </div>
+      <ExerciseProgressionSection history={exerciseHistory} />
     </div>
   )
 }
