@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -111,7 +112,7 @@ export async function scanMachineQR(qrIdentifier: string, userId: string): Promi
 }
 
 export async function addExerciseToTodayPlan(userId: string, exerciseId: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient()
+  const supabase = createAdminClient()
 
   const { data: plan } = await (supabase
     .from("workout_plans" as never)
