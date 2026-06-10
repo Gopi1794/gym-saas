@@ -267,6 +267,15 @@ export default function WorkoutSession({
         ? calcCalories(durationSecs, userWeightKg, speedKmh, resistance)
         : undefined;
 
+    // Auto-save new 1RM if weight entered and exceeds current max
+    if (isStrengthLike && !isDuration && currentWeight !== "") {
+      const enteredWeight = parseFloat(currentWeight)
+      const currentMax = exerciseMaxes[current.exercises.id]
+      if (!isNaN(enteredWeight) && (currentMax == null || enteredWeight > currentMax)) {
+        insertExerciseMax(current.exercises.id, enteredWeight)
+      }
+    }
+
     const setData: SessionSet = {
       exercise_id: current.exercises.id,
       exercise_name: current.exercises.name,
@@ -596,14 +605,9 @@ export default function WorkoutSession({
                 />
               </div>
               {isNewMax && (
-                <button
-                  onClick={async () => {
-                    await insertExerciseMax(current.exercises.id, enteredWeight!);
-                  }}
-                  className="text-xs font-semibold text-brand-500 border border-brand-700/40 rounded-full px-3 py-1 hover:bg-brand-700/10 transition-colors"
-                >
-                  {currentMax == null ? `Guardar como 1RM: ${enteredWeight}kg` : `¡Nuevo máximo! Guardar ${enteredWeight}kg`}
-                </button>
+                <span className="text-xs font-semibold text-brand-500">
+                  {currentMax == null ? `Se guardará como 1RM: ${enteredWeight}kg` : `¡Nuevo máximo! ${enteredWeight}kg`}
+                </span>
               )}
             </div>
           );
