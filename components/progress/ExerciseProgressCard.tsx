@@ -12,11 +12,14 @@ export function ExerciseProgressCard({ exercise }: { exercise: ExerciseHistory }
   const prevSession = exercise.sessions[exercise.sessions.length - 2]
   const isKg = exercise.metric === "kg"
 
-  const currentValue = isKg ? (lastSession.maxWeightKg ?? 0) : lastSession.totalReps
-  const prevValue = prevSession ? (isKg ? (prevSession.maxWeightKg ?? 0) : prevSession.totalReps) : null
+  const isDuration = exercise.metric === "duration"
+  const getValue = (s: typeof lastSession) =>
+    isKg ? (s.maxWeightKg ?? 0) : isDuration ? Math.round(s.totalDurationSec / 60) : s.totalReps
+  const currentValue = getValue(lastSession)
+  const prevValue = prevSession ? getValue(prevSession) : null
   const delta = prevValue !== null ? currentValue - prevValue : null
-  const sparkPoints = exercise.sessions.map(s => ({ value: isKg ? (s.maxWeightKg ?? 0) : s.totalReps }))
-  const unit = isKg ? "kg" : "reps"
+  const sparkPoints = exercise.sessions.map(s => ({ value: getValue(s) }))
+  const unit = isKg ? "kg" : isDuration ? "min" : "reps"
   const sessionCount = exercise.sessions.length
 
   const DeltaIcon = delta === null || delta === 0 ? null : delta > 0 ? TrendingUp : TrendingDown

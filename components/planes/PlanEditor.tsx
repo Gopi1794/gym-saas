@@ -190,7 +190,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
 
       const { data, error } = await supabase
         .from("workout_plan_exercises")
-        .insert({ day_id: dayId, exercise_id: exercise.id, sets: 3, reps: 10, reps_max: null, rest_seconds: 60, order_index: order, duration_seconds: exercise.is_timed ? 30 : null, phase })
+        .insert({ day_id: dayId, exercise_id: exercise.id, sets: 3, reps: (exercise.is_timed || exercise.category === "cardio") ? undefined : 10, reps_max: null, rest_seconds: 60, order_index: order, duration_seconds: (exercise.is_timed || exercise.category === "cardio") ? 30 : null, phase })
         .select("id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds, phase")
         .single() as unknown as { data: Omit<PlanExercise, "exercises"> | null; error: unknown }
 
@@ -200,8 +200,8 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
         const defaultConfigs = Array.from({ length: 3 }, (_, i) => ({
           exercise_id: data.id,
           set_number: i + 1,
-          reps: exercise.is_timed ? null : 10,
-          duration_seconds: exercise.is_timed ? 30 : null,
+          reps: (exercise.is_timed || exercise.category === "cardio") ? null : 10,
+          duration_seconds: (exercise.is_timed || exercise.category === "cardio") ? 30 : null,
         }))
         const { data: configs } = await (supabase as never as { from: (t: string) => { insert: (v: object[]) => { select: (s: string) => Promise<{ data: SetConfig[] | null }> } } })
           .from("workout_plan_set_configs")

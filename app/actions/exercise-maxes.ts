@@ -50,6 +50,7 @@ type ExerciseSessionPoint = {
   maxWeightKg: number | null
   totalVolume: number
   totalReps: number
+  totalDurationSec: number
   setCount: number
 }
 
@@ -57,7 +58,7 @@ export type ExerciseHistory = {
   exerciseId: string
   exerciseName: string
   category: string
-  metric: "kg" | "reps"
+  metric: "kg" | "reps" | "duration"
   sessions: ExerciseSessionPoint[]
   lastDate: string
 }
@@ -69,9 +70,8 @@ export async function getExerciseHistory(userId: string): Promise<ExerciseHistor
   const supabaseAny = supabase as any
   const { data } = await supabaseAny
     .from("workout_session_sets")
-    .select("session_id, exercise_id, exercise_name, category, weight_kg, reps, workout_sessions!inner(completed_at)")
+    .select("session_id, exercise_id, exercise_name, category, weight_kg, reps, duration_seconds, workout_sessions!inner(completed_at)")
     .not("exercise_id", "is", null)
-    .neq("category", "cardio")
 
   if (!data) return []
 
@@ -107,12 +107,16 @@ export async function getExerciseHistory(userId: string): Promise<ExerciseHistor
       const totalVolume = weightSets.reduce((acc: number, s: any) => acc + (s.weight_kg as number) * (s.reps ?? 0), 0)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const totalReps = sets.reduce((acc: number, s: any) => acc + (s.reps ?? 0), 0)
-      sessions.push({ sessionId, date, maxWeightKg, totalVolume, totalReps, setCount: sets.length })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const totalDurationSec = sets.reduce((acc: number, s: any) => acc + (s.duration_seconds ?? 0), 0)
+      sessions.push({ sessionId, date, maxWeightKg, totalVolume, totalReps, totalDurationSec, setCount: sets.length })
     }
 
     sessions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     const lastDate = sessions[sessions.length - 1]?.date ?? ""
-    result.push({ exerciseId, exerciseName, category, metric: hasWeight ? "kg" : "reps", sessions, lastDate })
+    const isDurationBased = category === "cardio" || category === "movilidad" || category === "flexibility"
+    const metric = hasWeight ? "kg" : isDurationBased ? "duration" : "reps"
+    result.push({ exerciseId, exerciseName, category, metric, sessions, lastDate })
   }
 
   return result.sort((a, b) => new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime())
