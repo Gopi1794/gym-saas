@@ -18,6 +18,7 @@ export type MachineWithExercises = {
   id: string
   name: string
   description: string | null
+  image_url: string | null
   qr_identifier: string
   exercises: MachineExercise[]
 }
@@ -37,7 +38,7 @@ export async function getMachines(gymId: string): Promise<MachineWithExercises[]
   const supabase = createClient()
   const { data } = await supabase
     .from("machines" as any)
-    .select("id, name, description, qr_identifier, machine_exercises(exercise_id, exercises(id, name, category, image_url, muscle_groups, is_timed))")
+    .select("id, name, description, image_url, qr_identifier, machine_exercises(exercise_id, exercises(id, name, category, image_url, muscle_groups, is_timed))")
     .eq("gym_id", gymId)
     .order("name") as any
 
@@ -45,6 +46,7 @@ export async function getMachines(gymId: string): Promise<MachineWithExercises[]
     id: m.id,
     name: m.name,
     description: m.description,
+    image_url: m.image_url ?? null,
     qr_identifier: m.qr_identifier,
     exercises: (m.machine_exercises ?? []).map((me: any) => me.exercises).filter(Boolean),
   }))
@@ -178,6 +180,12 @@ export async function createMachine(gymId: string, name: string, description: st
 export async function deleteMachine(machineId: string): Promise<void> {
   const supabase = createClient()
   await (supabase.from("machines" as any).delete().eq("id", machineId) as any)
+  revalidatePath("/entrenamiento")
+}
+
+export async function updateMachineImageUrl(machineId: string, imageUrl: string): Promise<void> {
+  const supabase = createClient()
+  await (supabase.from("machines" as any).update({ image_url: imageUrl }).eq("id", machineId) as any)
   revalidatePath("/entrenamiento")
 }
 

@@ -1,15 +1,17 @@
 "use client"
 
-import { useState, useTransition } from "react"
-import { QrCode, Plus, Trash2, Pencil, Dumbbell, X, Check } from "lucide-react"
+import { useState, useTransition, useRef } from "react"
+import { QrCode, Plus, Trash2, Pencil, Dumbbell, X, Check, Camera, ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { showToast } from "nextjs-toast-notify"
 import { QRCodeSVG } from "qrcode.react"
+import { createClient } from "@/lib/supabase/client"
 import {
   createMachine,
   deleteMachine,
   setMachineExercises,
+  updateMachineImageUrl,
   type MachineWithExercises,
   type MachineExercise,
 } from "@/app/actions/machines"
@@ -36,11 +38,40 @@ export default function MachinesPanel({ gymId, initialMachines, allExercises }: 
   const [machines, setMachines] = useState(initialMachines)
   const [modal, setModal] = useState<Modal>(null)
   const [isPending, startTransition] = useTransition()
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadTargetRef = useRef<string | null>(null)
+
+  async function handleImageUpload(file: File, machineId: string) {
+    const supabase = createClient()
+    const ext = file.name.split(".").pop()
+    const path = `${machineId}.${ext}`
+    setUploadingId(machineId)
+    const { error } = await supabase.storage.from("machine-images").upload(path, file, { upsert: true })
+    if (error) {
+      showToast.error("Error al subir imagen", { duration: 3000, position: "top-right" })
+      setUploadingId(null)
+      return
+    }
+    const { data } = supabase.storage.from("machine-images").getPublicUrl(path)
+    await updateMachineImageUrl(machineId, data.publicUrl)
+    setMachines((prev) => prev.map((m) => m.id === machineId ? { ...m, image_url: data.publicUrl } : m))
+    setUploadingId(null)
+    showToast.success("Imagen actualizada", { duration: 2500, position: "top-right", transition: "bounceIn" })
+  }
 
   // ── Create ────────────────────────────────────────────────────────────────
   function CreateModal() {
     const [name, setName] = useState("")
     const [desc, setDesc] = useState("")
+    const [imageFile, setImageFile] = useState<File | null>(null)
+    const [imagePreview, setImagePreview] = useState<string | null>(null)
+    const createFileRef = useRef<HTMLInputElement>(null)
+
+    function handlePickImage(file: File) {
+      setImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
+    }
 
     function handleCreate() {
       if (!name.trim()) return
@@ -50,7 +81,21 @@ export default function MachinesPanel({ gymId, initialMachines, allExercises }: 
           showToast.error("Error al crear la máquina", { duration: 3000, position: "top-right" })
           return
         }
-        setMachines((prev) => [...prev, { id: result.id, name: name.trim(), description: desc.trim() || null, qr_identifier: result.id, exercises: [] }])
+
+        let imageUrl: string | null = null
+        if (imageFile) {
+          const supabase = createClient()
+          const ext = imageFile.name.split(".").pop()
+          const path = `${result.id}.${ext}`
+          const { error } = await supabase.storage.from("machine-images").upload(path, imageFile, { upsert: true })
+          if (!error) {
+            const { data } = supabase.storage.from("machine-images").getPublicUrl(path)
+            imageUrl = data.publicUrl
+            await updateMachineImageUrl(result.id, imageUrl)
+          }
+        }
+
+        setMachines((prev) => [...prev, { id: result.id, name: name.trim(), description: desc.trim() || null, image_url: imageUrl, qr_identifier: result.id, exercises: [] }])
         showToast.success("Máquina creada", { duration: 2500, position: "top-right", transition: "bounceIn" })
         setModal(null)
       })
@@ -59,6 +104,29 @@ export default function MachinesPanel({ gymId, initialMachines, allExercises }: 
     return (
       <ModalShell title="Nueva máquina" onClose={() => setModal(null)}>
         <div className="space-y-3">
+          {/* Image picker */}
+          <button
+            type="button"
+            onClick={() => createFileRef.current?.click()}
+            className="relative w-full h-32 rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 overflow-hidden transition-colors hover:border-brand-500"
+          >
+            {imagePreview ? (
+              <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-1 h-full text-muted-foreground">
+                <Camera className="h-6 w-6" />
+                <span className="text-xs">Agregar imagen (opcional)</span>
+              </div>
+            )}
+          </button>
+          <input
+            ref={createFileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePickImage(f) }}
+          />
+
           <Input placeholder="Nombre *" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           <Input placeholder="Descripción (opcional)" value={desc} onChange={(e) => setDesc(e.target.value)} />
           <Button className="w-full bg-brand hover:bg-brand-600" onClick={handleCreate} disabled={!name.trim() || isPending}>
@@ -180,63 +248,98 @@ export default function MachinesPanel({ gymId, initialMachines, allExercises }: 
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Hidden file input shared by all cards */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              const id = uploadTargetRef.current
+              if (file && id) handleImageUpload(file, id)
+              e.target.value = ""
+            }}
+          />
+
           {machines.map((machine) => (
-            <div
-              key={machine.id}
-              className="relative rounded-2xl border border-border bg-card p-5 space-y-3"
-            >
-              {/* Actions */}
-              <div className="absolute top-4 right-4 flex gap-1">
+            <div key={machine.id} className="rounded-2xl border border-border bg-card overflow-hidden">
+              {/* Image area */}
+              <div className="relative h-36 bg-zinc-100 dark:bg-zinc-900">
+                {machine.image_url ? (
+                  <img src={machine.image_url} alt={machine.name} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <ImageIcon className="h-8 w-8 text-zinc-400" />
+                  </div>
+                )}
                 <button
-                  onClick={() => setModal({ type: "qr", machine })}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-zinc-100 hover:text-foreground dark:hover:bg-zinc-800"
-                  title="Ver QR"
+                  aria-label="Cambiar imagen"
+                  disabled={uploadingId === machine.id}
+                  onClick={() => { uploadTargetRef.current = machine.id; fileInputRef.current?.click() }}
+                  className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-opacity hover:bg-black/80 disabled:opacity-50"
                 >
-                  <QrCode className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setModal({ type: "edit", machine })}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-zinc-100 hover:text-foreground dark:hover:bg-zinc-800"
-                  title="Editar ejercicios"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(machine.id)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950"
-                  title="Eliminar"
-                >
-                  <Trash2 className="h-4 w-4" />
+                  {uploadingId === machine.id
+                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    : <Camera className="h-3.5 w-3.5" />
+                  }
                 </button>
               </div>
 
               {/* Content */}
-              <div>
-                <p className="font-semibold text-foreground pr-24">{machine.name}</p>
-                {machine.description && (
-                  <p className="text-sm text-muted-foreground mt-0.5">{machine.description}</p>
+              <div className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-foreground leading-tight">{machine.name}</p>
+                    {machine.description && (
+                      <p className="text-sm text-muted-foreground mt-0.5">{machine.description}</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      onClick={() => setModal({ type: "qr", machine })}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-zinc-100 hover:text-foreground dark:hover:bg-zinc-800"
+                      title="Ver QR"
+                    >
+                      <QrCode className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setModal({ type: "edit", machine })}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-zinc-100 hover:text-foreground dark:hover:bg-zinc-800"
+                      title="Editar ejercicios"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(machine.id)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Dumbbell className="h-3.5 w-3.5" />
+                  <span>{machine.exercises.length} ejercicio{machine.exercises.length !== 1 ? "s" : ""}</span>
+                </div>
+
+                {machine.exercises.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {machine.exercises.slice(0, 4).map((ex) => (
+                      <span key={ex.id} className="rounded-full bg-brand/10 px-2 py-0.5 text-xs text-brand-600 dark:text-brand-400">
+                        {ex.name}
+                      </span>
+                    ))}
+                    {machine.exercises.length > 4 && (
+                      <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs text-muted-foreground">
+                        +{machine.exercises.length - 4}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
-
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Dumbbell className="h-3.5 w-3.5" />
-                <span>{machine.exercises.length} ejercicio{machine.exercises.length !== 1 ? "s" : ""}</span>
-              </div>
-
-              {machine.exercises.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {machine.exercises.slice(0, 4).map((ex) => (
-                    <span key={ex.id} className="rounded-full bg-brand/10 px-2 py-0.5 text-xs text-brand-600 dark:text-brand-400">
-                      {ex.name}
-                    </span>
-                  ))}
-                  {machine.exercises.length > 4 && (
-                    <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs text-muted-foreground">
-                      +{machine.exercises.length - 4}
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
           ))}
         </div>
