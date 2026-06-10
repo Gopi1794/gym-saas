@@ -79,6 +79,7 @@ export default async function ProgressPage() {
         </div>
         <PageTour tourKey="progress" steps={PROGRESS_STEPS} />
       </div>
+      <ExerciseProgressionSection history={exerciseHistory} />
       <WeightChart history={weightHistory} goalWeight={profile?.weight_kg ?? null} />
 
       <div data-tour="progress-content">
@@ -87,7 +88,6 @@ export default async function ProgressPage() {
           trainingDays={trainingDays}
         />
       </div>
-      <ExerciseProgressionSection history={exerciseHistory} />
     </div>
   )
 }
