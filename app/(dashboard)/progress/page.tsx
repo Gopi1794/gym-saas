@@ -6,7 +6,6 @@ import PageTour from "@/components/onboarding/PageTour"
 import WeightChart from "@/components/nutrition/WeightChart"
 import { getWeightHistory } from "@/app/actions/nutrition-tracking"
 import { getExerciseHistory } from "@/app/actions/exercise-maxes"
-import { ExerciseProgressionSection } from "@/components/progress/ExerciseProgressionSection"
 import type { Step } from "react-joyride"
 
 const PROGRESS_STEPS: Step[] = [
@@ -79,13 +78,13 @@ export default async function ProgressPage() {
         </div>
         <PageTour tourKey="progress" steps={PROGRESS_STEPS} />
       </div>
-      <ExerciseProgressionSection history={exerciseHistory} />
       <WeightChart history={weightHistory} goalWeight={profile?.weight_kg ?? null} />
 
       <div data-tour="progress-content">
         <ProgressView
           sessions={sessions ?? []}
           trainingDays={trainingDays}
+          exerciseHistory={exerciseHistory}
         />
       </div>
     </div>

@@ -8,6 +8,8 @@ import { GridComponent, TooltipComponent } from "echarts/components"
 import { CanvasRenderer } from "echarts/renderers"
 import { Flame, TrendingUp, Dumbbell, CalendarDays } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ExerciseProgressionSection } from "./ExerciseProgressionSection"
+import type { ExerciseHistory } from "@/app/actions/exercise-maxes"
 
 // Register ECharts modules once at module level
 echarts.use([BarChart, LineChart, PieChart, GridComponent, TooltipComponent, CanvasRenderer])
@@ -23,6 +25,7 @@ export type SessionRecord = {
 interface Props {
   sessions: SessionRecord[]
   trainingDays: number
+  exerciseHistory: ExerciseHistory[]
 }
 
 function getMondayOf(date: Date): Date {
@@ -373,7 +376,7 @@ function WeekdayDonutChart({ weekdayMap, isDark = true }: WeekdayDonutChartProps
   return <div ref={containerRef} className="min-w-0 max-w-full overflow-hidden" style={{ width: "100%", height: 190 }} />
 }
 
-export default function ProgressView({ sessions, trainingDays }: Props) {
+export default function ProgressView({ sessions, trainingDays, exerciseHistory }: Props) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme !== "light"
 
@@ -452,6 +455,8 @@ export default function ProgressView({ sessions, trainingDays }: Props) {
           <WeeklyLoadChart weeks={weeks} exerciseMap={exerciseMap} sessionMap={weekMap} isDark={isDark} />
         </div>
       </div>
+
+      <ExerciseProgressionSection history={exerciseHistory} />
 
       <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900/60 p-5">
         <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-brand-500">
