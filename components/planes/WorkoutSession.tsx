@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { completeWorkoutSession } from "@/app/actions/workout-sessions";
-import { upsertExerciseMax } from "@/app/actions/exercise-maxes";
+import { insertExerciseMax } from "@/app/actions/exercise-maxes";
 import type { CompleteSessionResult, SessionSet } from "@/lib/achievements/types";
 import WorkoutResults from "@/components/planes/WorkoutResults";
 import RestTimerKnob from "@/components/ui/rest-timer-knob";
@@ -598,7 +598,7 @@ export default function WorkoutSession({
               {isNewMax && (
                 <button
                   onClick={async () => {
-                    await upsertExerciseMax(current.exercises.id, enteredWeight!);
+                    await insertExerciseMax(current.exercises.id, enteredWeight!);
                   }}
                   className="text-xs font-semibold text-brand-500 border border-brand-700/40 rounded-full px-3 py-1 hover:bg-brand-700/10 transition-colors"
                 >
