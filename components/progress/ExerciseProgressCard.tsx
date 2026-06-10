@@ -9,8 +9,13 @@ function formatDate(iso: string) {
 export function ExerciseProgressCard({ exercise }: { exercise: ExerciseHistory }) {
   const lastSession = exercise.sessions[exercise.sessions.length - 1]
   const prevSession = exercise.sessions[exercise.sessions.length - 2]
-  const delta = prevSession ? lastSession.maxWeightKg - prevSession.maxWeightKg : null
-  const sparkPoints = exercise.sessions.map(s => ({ value: s.maxWeightKg }))
+  const isKg = exercise.metric === "kg"
+
+  const currentValue = isKg ? (lastSession.maxWeightKg ?? 0) : lastSession.totalReps
+  const prevValue = prevSession ? (isKg ? (prevSession.maxWeightKg ?? 0) : prevSession.totalReps) : null
+  const delta = prevValue !== null ? currentValue - prevValue : null
+  const sparkPoints = exercise.sessions.map(s => ({ value: isKg ? (s.maxWeightKg ?? 0) : s.totalReps }))
+  const unit = isKg ? "kg" : "reps"
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -20,10 +25,10 @@ export function ExerciseProgressCard({ exercise }: { exercise: ExerciseHistory }
           <span className="shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-500 capitalize">{exercise.category}</span>
         </div>
         <div className="flex items-baseline gap-3">
-          <span className="text-xl font-bold text-brand-500">{lastSession.maxWeightKg} kg</span>
+          <span className="text-xl font-bold text-brand-500">{currentValue} {unit}</span>
           {delta !== null && (
             <span className={`text-xs font-medium ${delta >= 0 ? "text-green-500" : "text-red-400"}`}>
-              {delta >= 0 ? "+" : ""}{delta} kg
+              {delta >= 0 ? "+" : ""}{delta} {unit}
             </span>
           )}
         </div>

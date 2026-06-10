@@ -47,8 +47,9 @@ export async function getExerciseMaxes(userId: string): Promise<Record<string, n
 type ExerciseSessionPoint = {
   sessionId: string
   date: string
-  maxWeightKg: number
+  maxWeightKg: number | null
   totalVolume: number
+  totalReps: number
   setCount: number
 }
 
@@ -56,6 +57,7 @@ export type ExerciseHistory = {
   exerciseId: string
   exerciseName: string
   category: string
+  metric: "kg" | "reps"
   sessions: ExerciseSessionPoint[]
   lastDate: string
 }
@@ -69,15 +71,13 @@ export async function getExerciseHistory(userId: string): Promise<ExerciseHistor
     .from("workout_session_sets")
     .select("session_id, exercise_id, exercise_name, category, weight_kg, reps, workout_sessions!inner(completed_at)")
     .not("exercise_id", "is", null)
-    .not("weight_kg", "is", null)
 
   if (!data) return []
 
-  // Agrupar por exercise_id → session_id
   const exerciseMap = new Map<string, Map<string, { sets: typeof data }>>()
 
   for (const row of data) {
-    if (!row.exercise_id || row.weight_kg == null) continue
+    if (!row.exercise_id) continue
     if (!exerciseMap.has(row.exercise_id)) exerciseMap.set(row.exercise_id, new Map())
     const sessionMap = exerciseMap.get(row.exercise_id)!
     if (!sessionMap.has(row.session_id)) sessionMap.set(row.session_id, { sets: [] })
@@ -90,20 +90,28 @@ export async function getExerciseHistory(userId: string): Promise<ExerciseHistor
     const sessions: ExerciseSessionPoint[] = []
     let exerciseName = ""
     let category = ""
+    let hasWeight = false
 
     for (const [sessionId, { sets }] of sessionMap) {
       const firstSet = sets[0]
       exerciseName = firstSet.exercise_name ?? exerciseId
       category = firstSet.category ?? ""
       const date = firstSet.workout_sessions?.completed_at ?? ""
-      const maxWeightKg = Math.max(...sets.map((s: any) => s.weight_kg as number))
-      const totalVolume = sets.reduce((acc: number, s: any) => acc + (s.weight_kg as number) * (s.reps ?? 0), 0)
-      sessions.push({ sessionId, date, maxWeightKg, totalVolume, setCount: sets.length })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const weightSets = sets.filter((s: any) => s.weight_kg != null)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const maxWeightKg = weightSets.length > 0 ? Math.max(...weightSets.map((s: any) => s.weight_kg as number)) : null
+      if (maxWeightKg != null) hasWeight = true
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const totalVolume = weightSets.reduce((acc: number, s: any) => acc + (s.weight_kg as number) * (s.reps ?? 0), 0)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const totalReps = sets.reduce((acc: number, s: any) => acc + (s.reps ?? 0), 0)
+      sessions.push({ sessionId, date, maxWeightKg, totalVolume, totalReps, setCount: sets.length })
     }
 
     sessions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     const lastDate = sessions[sessions.length - 1]?.date ?? ""
-    result.push({ exerciseId, exerciseName, category, sessions, lastDate })
+    result.push({ exerciseId, exerciseName, category, metric: hasWeight ? "kg" : "reps", sessions, lastDate })
   }
 
   return result.sort((a, b) => new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime())
