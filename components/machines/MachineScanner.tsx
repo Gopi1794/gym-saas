@@ -16,6 +16,7 @@ interface Props {
 
 type Phase =
   | { step: "scanner" }
+  | { step: "machine_info"; name: string; description: string | null; image_url: string | null }
   | { step: "exercise_in_plan"; machine: string; exercise: MachineExercise; sets: number; reps: number; reps_max: number | null; isFirst: boolean }
   | { step: "exercise_not_in_plan"; machine: string; exercise: MachineExercise }
   | { step: "multi_choice"; machine: string; exercises: MachineExercise[]; todayIds: Set<string> }
@@ -54,9 +55,8 @@ export default function MachineScanner({ userId, planId, hasWorkoutToday, onStar
     const todayIds = new Set(todayExercises.map((e) => e.exerciseId))
 
     if (exercises.length === 0) {
-      showToast.error(`${machine.name} no tiene ejercicios asignados`, { duration: 3000, position: "top-right" })
+      setPhase({ step: "machine_info", name: machine.name, description: machine.description, image_url: machine.image_url })
       processingRef.current = false
-      onClose()
       return
     }
 
@@ -156,6 +156,31 @@ export default function MachineScanner({ userId, planId, hasWorkoutToday, onStar
                 Detener cámara
               </Button>
             )}
+          </div>
+        )}
+
+        {/* ── Info de máquina sin ejercicios ── */}
+        {phase.step === "machine_info" && (
+          <div className="pb-5 space-y-4">
+            {phase.image_url && (
+              <div className="h-40 w-full overflow-hidden">
+                <img src={phase.image_url} alt={phase.name} className="h-full w-full object-cover" />
+              </div>
+            )}
+            <div className="px-5 space-y-2">
+              <p className="font-semibold text-foreground text-base">{phase.name}</p>
+              {phase.description && (
+                <p className="text-sm text-muted-foreground">{phase.description}</p>
+              )}
+              <p className="text-xs text-muted-foreground pt-1">
+                Esta máquina todavía no tiene ejercicios asignados en la biblioteca.
+              </p>
+            </div>
+            <div className="px-5">
+              <Button variant="outline" className="w-full" onClick={onClose}>
+                Cerrar
+              </Button>
+            </div>
           </div>
         )}
 

@@ -27,7 +27,7 @@ export type ScanResult =
   | { found: false }
   | {
       found: true
-      machine: { id: string; name: string }
+      machine: { id: string; name: string; description: string | null; image_url: string | null }
       exercises: MachineExercise[]
       todayExercises: { wpeId: string; exerciseId: string; sets: number; reps: number; reps_max: number | null }[]
     }
@@ -58,7 +58,7 @@ export async function scanMachineQR(qrIdentifier: string, userId: string): Promi
   // Buscar la máquina
   const { data: machine } = await (supabase
     .from("machines" as any)
-    .select("id, name, machine_exercises(exercises(id, name, category, image_url, muscle_groups, is_timed))")
+    .select("id, name, description, image_url, machine_exercises(exercises(id, name, category, image_url, muscle_groups, is_timed))")
     .eq("qr_identifier", qrIdentifier)
     .single() as any)
 
@@ -107,7 +107,7 @@ export async function scanMachineQR(qrIdentifier: string, userId: string): Promi
     }
   }
 
-  return { found: true, machine: { id: machine.id, name: machine.name }, exercises, todayExercises }
+  return { found: true, machine: { id: machine.id, name: machine.name, description: machine.description ?? null, image_url: machine.image_url ?? null }, exercises, todayExercises }
 }
 
 export async function addExerciseToTodayPlan(userId: string, exerciseId: string): Promise<{ success: boolean; error?: string }> {
