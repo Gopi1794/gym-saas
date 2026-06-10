@@ -6,6 +6,7 @@ import { Loader2, Dumbbell, ChevronLeft } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { variants } from "./shared"
+import { Alert } from "@/components/ui/alert"
 
 interface Step {
   icon: LucideIcon
@@ -110,8 +111,8 @@ export default function RegisterShell({
       </div>
 
       {serverError && (
-        <div className="mt-4 rounded-xl border border-red-900/50 bg-red-950/50 px-4 py-3 text-sm text-red-400">
-          {serverError}
+        <div className="mt-4">
+          <Alert variant="error">{serverError}</Alert>
         </div>
       )}
 

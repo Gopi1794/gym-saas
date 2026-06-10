@@ -6,6 +6,7 @@ import {
   Zap, CreditCard, Star, Gem, ChevronDown,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Alert } from "@/components/ui/alert"
 
 type MembershipType = "basic" | "premium" | "vip"
 
@@ -243,7 +244,7 @@ export default function MembershipStatusCard({ membershipType, expiresAt, plans 
               </div>
 
               {error && (
-                <p role="alert" className="text-xs text-red-500 dark:text-red-400">{error}</p>
+                <Alert variant="error">{error}</Alert>
               )}
 
               {selectedPlan && selectedPlan.price > 0 ? (

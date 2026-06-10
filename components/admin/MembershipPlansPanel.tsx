@@ -2,11 +2,12 @@
 
 import { useState } from "react"
 import {
-  CheckCircle2, AlertCircle, Plus, X, Pencil,
+  Plus, X, Pencil,
   Clock, DollarSign, CreditCard, Star, Gem,
 } from "lucide-react"
 import { saveMembershipPlan, type MembershipPlanInput } from "@/app/actions/membership-plans"
 import { cn } from "@/lib/utils"
+import { Alert } from "@/components/ui/alert"
 
 type PlanType = "basic" | "premium" | "vip"
 
@@ -353,15 +354,9 @@ function PlanCard({
         )}
 
         {feedback && (
-          <div className={cn(
-            "flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm",
-            feedback.kind === "success" ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400",
-          )}>
-            {feedback.kind === "success"
-              ? <CheckCircle2 className="h-4 w-4 shrink-0" />
-              : <AlertCircle className="h-4 w-4 shrink-0" />}
+          <Alert variant={feedback.kind === "success" ? "success" : "error"}>
             {feedback.msg}
-          </div>
+          </Alert>
         )}
       </div>
     </div>

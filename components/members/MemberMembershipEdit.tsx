@@ -2,9 +2,10 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { CreditCard, Calendar, CheckCircle2, AlertCircle, Pencil } from "lucide-react"
+import { CreditCard, Calendar, Pencil } from "lucide-react"
 import { updateMemberMembership } from "@/app/actions/members"
 import { isMembershipActive } from "@/lib/utils"
+import { Alert } from "@/components/ui/alert"
 
 type MembershipType = "basic" | "premium" | "vip"
 
@@ -216,18 +217,10 @@ export default function MemberMembershipEdit({ memberId, initialType, initialExp
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm ${
-              feedback.kind === "success"
-                ? "bg-emerald-500/10 text-emerald-400"
-                : "bg-red-500/10 text-red-400"
-            }`}
           >
-            {feedback.kind === "success" ? (
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-            ) : (
-              <AlertCircle className="h-4 w-4 shrink-0" />
-            )}
-            {feedback.msg}
+            <Alert variant={feedback.kind === "success" ? "success" : "error"}>
+              {feedback.msg}
+            </Alert>
           </motion.div>
         )}
       </AnimatePresence>

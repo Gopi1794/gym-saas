@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Weight, Ruler, CheckCircle2, AlertCircle, Pencil } from "lucide-react"
+import { Weight, Ruler, Pencil } from "lucide-react"
 import { updateMemberPhysical } from "@/app/actions/members"
+import { Alert } from "@/components/ui/alert"
 
 interface Props {
   memberId: string
@@ -153,18 +154,10 @@ export default function MemberPhysicalEdit({ memberId, initialWeight, initialHei
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm ${
-              feedback.type === "success"
-                ? "bg-emerald-500/10 text-emerald-400"
-                : "bg-red-500/10 text-red-400"
-            }`}
           >
-            {feedback.type === "success" ? (
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-            ) : (
-              <AlertCircle className="h-4 w-4 shrink-0" />
-            )}
-            {feedback.msg}
+            <Alert variant={feedback.type === "success" ? "success" : "error"}>
+              {feedback.msg}
+            </Alert>
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { UserCheck, Pencil, CheckCircle2, AlertCircle, X } from "lucide-react"
+import { UserCheck, Pencil, X } from "lucide-react"
 import { assignTrainer } from "@/app/actions/members"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Alert } from "@/components/ui/alert"
 
 interface TrainerOption {
   id: string
@@ -119,16 +120,9 @@ export default function MemberTrainerEdit({ memberId, initialTrainerId, trainers
       )}
 
       {feedback && (
-        <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm ${
-          feedback.kind === "success"
-            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-            : "bg-red-500/10 text-red-600 dark:text-red-400"
-        }`}>
-          {feedback.kind === "success"
-            ? <CheckCircle2 className="h-4 w-4 shrink-0" />
-            : <AlertCircle className="h-4 w-4 shrink-0" />}
+        <Alert variant={feedback.kind === "success" ? "success" : "error"}>
           {feedback.msg}
-        </div>
+        </Alert>
       )}
     </div>
   )
