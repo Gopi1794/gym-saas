@@ -48,20 +48,20 @@ export function ExerciseDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
+      className="fixed inset-0 z-50 flex items-end justify-center md:items-center"
       onClick={onClose}
     >
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-      {/* Sheet */}
+      {/* Sheet / Modal */}
       <div
-        className="relative z-10 w-full max-w-lg rounded-t-3xl border-t border-white/[0.08] bg-zinc-950 pb-10"
+        className="relative z-10 w-full max-w-lg rounded-t-3xl border-t border-white/[0.08] bg-zinc-950 pb-10 md:rounded-2xl md:border md:border-white/[0.10] md:pb-6 md:mx-4"
         onClick={e => e.stopPropagation()}
         style={{ maxHeight: "85dvh", overflowY: "auto" }}
       >
-        {/* Drag indicator */}
-        <div className="flex justify-center pt-3 pb-1">
+        {/* Drag indicator — mobile only */}
+        <div className="flex justify-center pt-3 pb-1 md:hidden">
           <div className="h-1 w-10 rounded-full bg-zinc-700" />
         </div>
 
