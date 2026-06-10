@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { ChevronDown, TrendingDown, TrendingUp } from "lucide-react"
 import { ProgressSparkline } from "./ProgressSparkline"
 import type { ExerciseHistory } from "@/app/actions/exercise-maxes"
 
@@ -19,40 +19,86 @@ export function ExerciseProgressCard({ exercise }: { exercise: ExerciseHistory }
   const unit = isKg ? "kg" : "reps"
   const sessionCount = exercise.sessions.length
 
-  const DeltaIcon = delta === null || delta === 0 ? Minus : delta > 0 ? TrendingUp : TrendingDown
-  const deltaColor = delta === null || delta === 0 ? "text-zinc-500" : delta > 0 ? "text-green-400" : "text-red-400"
+  const DeltaIcon = delta === null || delta === 0 ? null : delta > 0 ? TrendingUp : TrendingDown
+  const deltaColor = delta === null || delta === 0 ? "text-zinc-400" : delta > 0 ? "text-emerald-500" : "text-red-400"
+  const chartValues = exercise.sessions.map(s => isKg ? (s.maxWeightKg ?? 0) : s.totalReps)
+  const maxChartValue = Math.max(...chartValues, 1)
+  const previousSessions = exercise.sessions.slice(-5, -1)
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900/60">
-      <div className="px-5 pt-4 pb-3 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <p className="font-semibold text-foreground text-sm leading-tight">{exercise.exerciseName}</p>
-          <span className="shrink-0 rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-500 capitalize">
-            {exercise.category}
-          </span>
+    <div className="group min-w-0 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-transform duration-200 ease-out active:scale-[0.99]">
+      <div className="grid min-h-[132px] grid-cols-[1fr_1.45fr] gap-4 px-5 pb-3 pt-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold leading-tight text-zinc-100">{exercise.exerciseName}</p>
+          <div className="mt-5 h-12 overflow-hidden">
+            <ProgressSparkline
+              exerciseId={`mini-${exercise.exerciseId}`}
+              points={sparkPoints}
+              height={48}
+              className="h-12 w-full opacity-80"
+            />
+          </div>
         </div>
 
-        <div className="flex items-end justify-between gap-2">
-          <div>
-            <p className="text-2xl font-bold text-brand-400 leading-none">
-              {currentValue}
-              <span className="text-sm font-medium text-zinc-500 ml-1">{unit}</span>
-            </p>
-            <p className="text-[11px] text-zinc-600 mt-1">{formatDate(exercise.lastDate)} · {sessionCount} sesión{sessionCount !== 1 ? "es" : ""}</p>
+        <div className="min-w-0">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xl font-bold leading-none text-zinc-100">
+                {currentValue} <span className="text-base font-semibold text-zinc-100">{unit}</span>
+              </p>
+              <p className="mt-1 text-[11px] leading-none text-zinc-500">{formatDate(exercise.lastDate)} · {sessionCount} sesión{sessionCount !== 1 ? "es" : ""}</p>
+            </div>
+
+            <div className="text-right">
+              <p className="text-xl font-semibold leading-none text-zinc-500">
+                {prevValue ?? "—"} {prevValue !== null ? unit : ""}
+              </p>
+              {delta !== null && delta !== 0 && DeltaIcon ? (
+                <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold ${deltaColor}`}>
+                  <DeltaIcon className="h-3 w-3" />
+                  <span>{delta > 0 ? "+" : ""}{delta} {unit} vs prev</span>
+                </div>
+              ) : (
+                <p className="mt-1 text-[10px] font-semibold text-zinc-500">—</p>
+              )}
+            </div>
           </div>
 
-          {delta !== null && (
-            <div className={`flex items-center gap-1 ${deltaColor}`}>
-              <DeltaIcon className="h-3.5 w-3.5" />
-              <span className="text-xs font-semibold">
-                {delta > 0 ? "+" : ""}{delta} {unit}
-              </span>
+          <div className="mt-5 flex h-12 items-end gap-4 border-t border-white/5 pt-1">
+            {previousSessions.map((session) => {
+              const value = isKg ? (session.maxWeightKg ?? 0) : session.totalReps
+              const height = Math.max(18, (value / maxChartValue) * 44)
+
+              return (
+                <div key={session.sessionId} className="flex flex-1 flex-col items-center gap-1">
+                  <div className="relative flex h-9 w-full items-end justify-center">
+                    <span className="absolute bottom-0 h-px w-full bg-zinc-500/25" />
+                    <span
+                      className="w-5 rounded-sm bg-gradient-to-t from-zinc-600 to-zinc-300 shadow-[0_0_14px_rgba(255,255,255,0.08)]"
+                      style={{ height }}
+                    />
+                  </div>
+                  <span className="text-[8px] font-medium text-zinc-600">
+                    {formatDate(session.date)}
+                  </span>
+                </div>
+              )
+            })}
+            <div className="flex flex-1 flex-col items-center gap-1">
+              <div className="relative flex h-9 w-full items-end justify-center">
+                <span className="absolute bottom-0 h-px w-full bg-zinc-500/25" />
+                <span className="w-5 rounded-sm bg-gradient-to-t from-red-500 to-red-400 shadow-[0_0_18px_rgba(239,68,68,0.35)]" style={{ height: 44 }} />
+              </div>
+              <span className="text-[8px] font-bold text-zinc-500">set</span>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
-      <ProgressSparkline exerciseId={exercise.exerciseId} points={sparkPoints} />
+      <button className="flex w-full items-center justify-end gap-1 bg-white/[0.035] px-5 py-2 text-[11px] font-medium text-brand-300/80 transition-colors duration-150 ease-out hover:text-brand-200 active:scale-[0.99]">
+        Ver historial detallado
+        <ChevronDown className="h-3 w-3" />
+      </button>
     </div>
   )
 }
