@@ -68,7 +68,6 @@ export async function getExerciseHistory(userId: string): Promise<ExerciseHistor
   const { data } = await supabaseAny
     .from("workout_session_sets")
     .select("session_id, exercise_id, weight_kg, reps, workout_sessions!inner(completed_at), exercises(name, category)")
-    .eq("workout_sessions.user_id", userId)
     .not("exercise_id", "is", null)
     .not("weight_kg", "is", null)
 
