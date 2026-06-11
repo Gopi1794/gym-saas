@@ -191,7 +191,7 @@ async function findOrImportFood(supabase: any, gymId: string, foodNameEn: string
 // ── Helpers ───────────────────────────────────────────────────
 
 const norm = (s: string) =>
-  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+  (s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
 
 async function resolveMemberPlan(
   db: ReturnType<typeof createAdminClient>,
@@ -228,12 +228,7 @@ async function resolveMemberPlan(
 }
 
 const findMember = (members: { id: string; full_name: string }[] | null, name: string) => {
-  console.log("[trainer-chat] findMember:", {
-    searchName: name,
-    normalized: norm(name),
-    memberCount: members?.length ?? 0,
-    firstNames: members?.slice(0, 5).map(m => m.full_name)
-  })
+  if (!name) return null
   return members?.find(m => norm(m.full_name ?? "").includes(norm(name))) ?? null
 }
 
@@ -264,9 +259,6 @@ export async function POST(req: NextRequest) {
       .eq("gym_id", profile.gym_id)
       .eq("role", "member")
       .order("full_name") as { data: { id: string; full_name: string }[] | null }
-
-    console.log("[trainer-chat] members loaded:", members?.length ?? "null",
-      members?.map(m => m.full_name).slice(0, 10))
 
     const body = await req.json() as {
       messages: { role: "user" | "assistant"; content: string }[]
@@ -465,6 +457,7 @@ export async function POST(req: NextRequest) {
       // create_nutrition_plan
       if (name === "create_nutrition_plan") {
         const i = input as { member_name: string; goal: "volumen" | "definicion" | "mantenimiento" | "recomposicion" | "rendimiento" | "perdida_moderada"; plan_name?: string; target_calories?: number; notes?: string }
+        if (!i.member_name) return { text: "Falta el nombre del miembro." }
         const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}" en el gym.` }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -502,6 +495,7 @@ export async function POST(req: NextRequest) {
       // get_member_plans
       if (name === "get_member_plans") {
         const i = input as { member_name: string }
+        if (!i.member_name) return { text: "Falta el nombre del miembro." }
         const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -532,6 +526,7 @@ export async function POST(req: NextRequest) {
       // get_member_training_plan
       if (name === "get_member_training_plan") {
         const i = input as { member_name: string }
+        if (!i.member_name) return { text: "Falta el nombre del miembro." }
         const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
         const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
@@ -551,6 +546,7 @@ export async function POST(req: NextRequest) {
       // add_exercises_to_plan_day
       if (name === "add_exercises_to_plan_day") {
         const i = input as { member_name: string; day_of_week: number; exercises: { name: string; category: string; phase?: string; muscle_groups?: string[]; sets?: number; reps?: number; reps_max?: number; rest_seconds?: number; duration_seconds?: number; notes?: string }[] }
+        if (!i.member_name) return { text: "Falta el nombre del miembro." }
         const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
 
