@@ -587,7 +587,7 @@ export async function POST(req: NextRequest) {
             console.warn("[trainer-chat] missing sets/reps for non-timed exercise:", ex.name)
             failed.push(ex.name); continue
           }
-          const { error: insertError } = await adminDb.from("workout_plan_exercises" as never).insert({ day_id: planDay.id, exercise_id: exercise.id, sets: ex.sets!, reps: isTimed ? null : ex.reps!, reps_max: ex.reps_max ?? null, rest_seconds: ex.rest_seconds ?? 90, duration_seconds: ex.duration_seconds ?? null, phase: ex.phase ?? "main", notes: ex.notes ?? null, order_index: orderIndex++ } as never)
+          const { error: insertError } = await adminDb.from("workout_plan_exercises" as never).insert({ day_id: planDay.id, exercise_id: exercise.id, sets: ex.sets!, reps: isTimed ? 0 : (ex.reps ?? 0), reps_max: ex.reps_max ?? null, rest_seconds: ex.rest_seconds ?? 90, duration_seconds: ex.duration_seconds ?? null, phase: ex.phase ?? "main", notes: ex.notes ?? null, order_index: orderIndex++ } as never)
           if (!insertError) added.push(ex.name)
           else { console.error("[trainer-chat] plan_exercise insert:", insertError); failed.push(ex.name) }
         }
