@@ -536,10 +536,13 @@ export async function POST(req: NextRequest) {
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
         const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
         if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
-        const { data: days } = await adminDb.from("workout_plan_days" as never).select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, phase, exercises(name))").eq("plan_id", plan.id).order("day_of_week") as { data: { id: string; day_of_week: number; workout_plan_exercises: { order_index: number; sets: number; reps: number | null; phase: string; exercises: { name: string } }[] }[] | null }
+        const { data: days } = await adminDb.from("workout_plan_days" as never).select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, duration_seconds, phase, exercises(name))").eq("plan_id", plan.id).order("day_of_week") as { data: { id: string; day_of_week: number; workout_plan_exercises: { order_index: number; sets: number; reps: number | null; duration_seconds: number | null; phase: string; exercises: { name: string } }[] }[] | null }
         const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
         const summary = (days ?? []).map(d => {
-          const exList = d.workout_plan_exercises.sort((a, b) => a.order_index - b.order_index).map(e => `  - [${e.phase}] ${e.exercises.name}${e.reps ? ` ${e.sets}x${e.reps}` : ` ${e.sets} series`}`).join("\n")
+          const exList = d.workout_plan_exercises.sort((a, b) => a.order_index - b.order_index).map(e => {
+            const vol = e.duration_seconds ? `${e.sets}x${e.duration_seconds}s` : e.reps ? `${e.sets}x${e.reps}` : `${e.sets} series`
+            return `  - [${e.phase}] ${e.exercises.name} (${vol})`
+          }).join("\n")
           return `${DAY_NAMES[d.day_of_week]} [day_id: ${d.id}]:\n${exList || "  (sin ejercicios)"}`
         }).join("\n\n")
         return { text: `Plan "${plan.name}" de ${match.full_name} [plan_id: ${plan.id}] [member_id: ${match.id}]:\n\n${summary}` }
