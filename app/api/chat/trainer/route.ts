@@ -193,6 +193,40 @@ async function findOrImportFood(supabase: any, gymId: string, foodNameEn: string
 const norm = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
 
+async function resolveMemberPlan(
+  db: ReturnType<typeof createAdminClient>,
+  memberId: string,
+  gymId: string,
+): Promise<{ id: string; name?: string } | null> {
+  // 1. Direct assignment
+  const { data: direct } = await db.from("workout_plans" as never)
+    .select("id, name")
+    .eq("assigned_to", memberId)
+    .eq("gym_id", gymId)
+    .eq("is_template", false)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle() as { data: { id: string; name: string } | null }
+  if (direct) return direct
+
+  // 2. Via client_plans relation
+  const { data: cp } = await db.from("client_plans" as never)
+    .select("plan_id")
+    .eq("client_id", memberId)
+    .eq("active", true)
+    .order("assigned_at", { ascending: false })
+    .limit(1)
+    .maybeSingle() as { data: { plan_id: string } | null }
+  if (!cp) return null
+
+  const { data: linked } = await db.from("workout_plans" as never)
+    .select("id, name")
+    .eq("id", cp.plan_id)
+    .eq("gym_id", gymId)
+    .maybeSingle() as { data: { id: string; name: string } | null }
+  return linked ?? null
+}
+
 const findMember = (members: { id: string; full_name: string }[] | null, name: string) =>
   members?.find(m => norm(m.full_name ?? "").includes(norm(name))) ?? null
 
@@ -490,7 +524,7 @@ export async function POST(req: NextRequest) {
         const i = input as { member_name: string }
         const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
-        const { data: plan } = await adminDb.from("workout_plans" as never).select("id, name").eq("assigned_to", match.id).eq("gym_id", profile.gym_id).eq("is_template", false).order("created_at", { ascending: false }).limit(1).maybeSingle() as { data: { id: string; name: string } | null }
+        const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
         if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
         const { data: days } = await adminDb.from("workout_plan_days" as never).select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, phase, exercises(name))").eq("plan_id", plan.id).order("day_of_week") as { data: { id: string; day_of_week: number; workout_plan_exercises: { order_index: number; sets: number; reps: number | null; phase: string; exercises: { name: string } }[] }[] | null }
         const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
@@ -508,7 +542,7 @@ export async function POST(req: NextRequest) {
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
 
         // Use adminDb throughout to avoid RLS blocking plan/day/exercise operations
-        const { data: plan } = await adminDb.from("workout_plans" as never).select("id").eq("assigned_to", match.id).eq("gym_id", profile.gym_id).eq("is_template", false).order("created_at", { ascending: false }).limit(1).maybeSingle() as { data: { id: string } | null }
+        const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
         if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
 
         let { data: planDay } = await adminDb.from("workout_plan_days" as never).select("id").eq("plan_id", plan.id).eq("day_of_week", i.day_of_week).maybeSingle() as { data: { id: string } | null }
