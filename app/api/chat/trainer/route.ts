@@ -587,9 +587,18 @@ export async function POST(req: NextRequest) {
             console.warn("[trainer-chat] missing sets/reps for non-timed exercise:", ex.name)
             failed.push(ex.name); continue
           }
-          const { error: insertError } = await adminDb.from("workout_plan_exercises" as never).insert({ day_id: planDay.id, exercise_id: exercise.id, sets: ex.sets!, reps: isTimed ? 0 : (ex.reps ?? 0), reps_max: ex.reps_max ?? null, rest_seconds: ex.rest_seconds ?? 90, duration_seconds: ex.duration_seconds ?? null, phase: ex.phase ?? "main", notes: ex.notes ?? null, order_index: orderIndex++ } as never)
-          if (!insertError) added.push(ex.name)
-          else { console.error("[trainer-chat] plan_exercise insert:", insertError); failed.push(ex.name) }
+          const { data: insertedExercise, error: insertError } = await adminDb.from("workout_plan_exercises" as never).insert({ day_id: planDay.id, exercise_id: exercise.id, sets: ex.sets!, reps: isTimed ? 0 : (ex.reps ?? 0), reps_max: ex.reps_max ?? null, rest_seconds: ex.rest_seconds ?? 90, duration_seconds: ex.duration_seconds ?? null, phase: ex.phase ?? "main", notes: ex.notes ?? null, order_index: orderIndex++ } as never).select("id").single() as { data: { id: string } | null; error: unknown }
+          if (insertedExercise && !insertError) {
+            const setConfigs = Array.from({ length: ex.sets ?? 1 }, (_, idx) => ({
+              exercise_id: insertedExercise.id,
+              set_number: idx + 1,
+              reps: ex.duration_seconds ? null : (ex.reps ?? null),
+              reps_max: ex.reps_max ?? null,
+              duration_seconds: ex.duration_seconds ?? null,
+            }))
+            await adminDb.from("workout_plan_set_configs" as never).insert(setConfigs as never)
+            added.push(ex.name)
+          } else { console.error("[trainer-chat] plan_exercise insert:", insertError); failed.push(ex.name) }
         }
         const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
         let text = `${added.length} ejercicio${added.length !== 1 ? "s" : ""} agregado${added.length !== 1 ? "s" : ""} al ${DAY_NAMES[i.day_of_week]} de ${match.full_name}: ${added.join(", ")}.`
