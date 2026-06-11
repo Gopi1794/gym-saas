@@ -337,7 +337,8 @@ export async function POST(req: NextRequest) {
         input_schema: {
           type: "object" as const,
           properties: {
-            member_name: { type: "string", description: "Nombre del miembro" },
+            member_id: { type: "string", description: "ID del miembro (usar si ya fue resuelto en get_member_training_plan — evita re-buscar por nombre)" },
+            member_name: { type: "string", description: "Nombre del miembro (usar si no se tiene member_id)" },
             day_of_week: { type: "number", description: "0=Domingo 1=Lunes 2=Martes 3=Miércoles 4=Jueves 5=Viernes 6=Sábado" },
             exercises: {
               type: "array",
@@ -345,20 +346,21 @@ export async function POST(req: NextRequest) {
                 type: "object",
                 properties: {
                   name: { type: "string", description: "Nombre del ejercicio en español" },
-                  category: { type: "string", enum: ["strength", "cardio", "hiit", "mobility", "core", "warmup"], description: "Categoría del ejercicio" },
+                  category: { type: "string", enum: ["strength", "cardio", "flexibility", "balance", "hiit"], description: "Categoría del ejercicio" },
                   muscle_groups: { type: "array", items: { type: "string" }, description: "Grupos musculares (ej: ['pecho', 'tríceps'])" },
-                  sets: { type: "number" },
-                  reps: { type: "number", description: "Repeticiones. Omitir si es ejercicio timed." },
+                  sets: { type: "number", description: "Series. Requerido si no es ejercicio timed." },
+                  reps: { type: "number", description: "Repeticiones. Requerido si no es ejercicio timed." },
                   reps_max: { type: "number", description: "Repetición máxima del rango (ej: 8 si el rango es 6-8)" },
                   rest_seconds: { type: "number" },
-                  duration_seconds: { type: "number", description: "Duración en segundos. Usar para ejercicios timed (planchas, cardio)." },
+                  duration_seconds: { type: "number", description: "Duración en segundos. Usar para ejercicios timed (planchas, cardio). Excluye reps." },
+                  phase: { type: "string", enum: ["warmup", "main", "cooldown"], description: "Sección: warmup=precalentamiento, main=principal, cooldown=vuelta a la calma" },
                   notes: { type: "string" },
                 },
-                required: ["name", "category"],
+                required: ["name", "category", "phase"],
               },
             },
           },
-          required: ["member_name", "day_of_week", "exercises"],
+          required: ["day_of_week", "exercises"],
         },
       },
       {
@@ -488,22 +490,20 @@ export async function POST(req: NextRequest) {
         const i = input as { member_name: string }
         const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: plan } = await (supabase as any).from("workout_plans").select("id, name").eq("assigned_to", match.id).eq("gym_id", profile.gym_id).eq("is_template", false).order("created_at", { ascending: false }).limit(1).maybeSingle() as { data: { id: string; name: string } | null }
+        const { data: plan } = await adminDb.from("workout_plans" as never).select("id, name").eq("assigned_to", match.id).eq("gym_id", profile.gym_id).eq("is_template", false).order("created_at", { ascending: false }).limit(1).maybeSingle() as { data: { id: string; name: string } | null }
         if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: days } = await (supabase as any).from("workout_plan_days").select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, exercises(name))").eq("plan_id", plan.id).order("day_of_week") as { data: { id: string; day_of_week: number; workout_plan_exercises: { order_index: number; sets: number; reps: number | null; exercises: { name: string } }[] }[] | null }
+        const { data: days } = await adminDb.from("workout_plan_days" as never).select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, phase, exercises(name))").eq("plan_id", plan.id).order("day_of_week") as { data: { id: string; day_of_week: number; workout_plan_exercises: { order_index: number; sets: number; reps: number | null; phase: string; exercises: { name: string } }[] }[] | null }
         const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
         const summary = (days ?? []).map(d => {
-          const exList = d.workout_plan_exercises.sort((a, b) => a.order_index - b.order_index).map(e => `  - ${e.exercises.name}${e.reps ? ` ${e.sets}x${e.reps}` : ` ${e.sets} series`}`).join("\n")
+          const exList = d.workout_plan_exercises.sort((a, b) => a.order_index - b.order_index).map(e => `  - [${e.phase}] ${e.exercises.name}${e.reps ? ` ${e.sets}x${e.reps}` : ` ${e.sets} series`}`).join("\n")
           return `${DAY_NAMES[d.day_of_week]} [day_id: ${d.id}]:\n${exList || "  (sin ejercicios)"}`
         }).join("\n\n")
-        return { text: `Plan "${plan.name}" de ${match.full_name} [plan_id: ${plan.id}]:\n\n${summary}` }
+        return { text: `Plan "${plan.name}" de ${match.full_name} [plan_id: ${plan.id}] [member_id: ${match.id}]:\n\n${summary}` }
       }
 
       // add_exercises_to_plan_day
       if (name === "add_exercises_to_plan_day") {
-        const i = input as { member_name: string; day_of_week: number; exercises: { name: string; category: string; muscle_groups?: string[]; sets?: number; reps?: number; reps_max?: number; rest_seconds?: number; duration_seconds?: number; notes?: string }[] }
+        const i = input as { member_name: string; day_of_week: number; exercises: { name: string; category: string; phase?: string; muscle_groups?: string[]; sets?: number; reps?: number; reps_max?: number; rest_seconds?: number; duration_seconds?: number; notes?: string }[] }
         const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
 
@@ -527,11 +527,11 @@ export async function POST(req: NextRequest) {
           const searchTerm = norm(ex.name)
 
           // Fetch candidates and filter in JS to handle accent normalization
-          const { data: gymCandidates } = await adminDb.from("exercises" as never).select("id, name").eq("gym_id", profile.gym_id).limit(50) as { data: { id: string; name: string }[] | null }
+          const { data: gymCandidates } = await adminDb.from("exercises" as never).select("id, name").eq("gym_id", profile.gym_id).limit(500) as { data: { id: string; name: string }[] | null }
           let exercise: { id: string } | null = gymCandidates?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
 
           if (!exercise) {
-            const { data: globalCandidates } = await adminDb.from("exercises" as never).select("id, name").is("gym_id", null).limit(200) as { data: { id: string; name: string }[] | null }
+            const { data: globalCandidates } = await adminDb.from("exercises" as never).select("id, name").is("gym_id", null).limit(500) as { data: { id: string; name: string }[] | null }
             exercise = globalCandidates?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
           }
 
@@ -544,7 +544,12 @@ export async function POST(req: NextRequest) {
 
           if (!exercise) { failed.push(ex.name); continue }
 
-          const { error: insertError } = await adminDb.from("workout_plan_exercises" as never).insert({ day_id: planDay.id, exercise_id: exercise.id, sets: ex.sets ?? 3, reps: ex.duration_seconds ? null : (ex.reps ?? 10), reps_max: ex.reps_max ?? null, rest_seconds: ex.rest_seconds ?? 90, duration_seconds: ex.duration_seconds ?? null, notes: ex.notes ?? null, order_index: orderIndex++ } as never)
+          const isTimed = !!ex.duration_seconds
+          if (!isTimed && (ex.sets === undefined || ex.reps === undefined)) {
+            console.warn("[trainer-chat] missing sets/reps for non-timed exercise:", ex.name)
+            failed.push(ex.name); continue
+          }
+          const { error: insertError } = await adminDb.from("workout_plan_exercises" as never).insert({ day_id: planDay.id, exercise_id: exercise.id, sets: ex.sets!, reps: isTimed ? null : ex.reps!, reps_max: ex.reps_max ?? null, rest_seconds: ex.rest_seconds ?? 90, duration_seconds: ex.duration_seconds ?? null, phase: ex.phase ?? "main", notes: ex.notes ?? null, order_index: orderIndex++ } as never)
           if (!insertError) added.push(ex.name)
           else { console.error("[trainer-chat] plan_exercise insert:", insertError); failed.push(ex.name) }
         }
