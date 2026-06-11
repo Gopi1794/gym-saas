@@ -569,17 +569,12 @@ export async function POST(req: NextRequest) {
           // Normalize search term: remove accents so "movilizacion" matches "Movilización"
           const searchTerm = norm(ex.name)
 
-          // Fetch candidates and filter in JS to handle accent normalization
-          const { data: gymCandidates } = await adminDb.from("exercises" as never).select("id, name").eq("gym_id", profile.gym_id).limit(500) as { data: { id: string; name: string }[] | null }
-          let exercise: { id: string } | null = gymCandidates?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
+          // Fetch all exercises and filter in JS to handle accent normalization
+          const { data: candidates } = await adminDb.from("exercises" as never).select("id, name").limit(500) as { data: { id: string; name: string }[] | null }
+          let exercise: { id: string } | null = candidates?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
 
           if (!exercise) {
-            const { data: globalCandidates } = await adminDb.from("exercises" as never).select("id, name").is("gym_id", null).limit(500) as { data: { id: string; name: string }[] | null }
-            exercise = globalCandidates?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
-          }
-
-          if (!exercise) {
-            const { data: newEx, error: createErr } = await adminDb.from("exercises" as never).insert({ gym_id: profile.gym_id, name: ex.name, category: ex.category, muscle_groups: ex.muscle_groups ?? [], is_timed: !!ex.duration_seconds || ex.category === "cardio" } as never).select("id").single() as { data: { id: string } | null; error: unknown }
+            const { data: newEx, error: createErr } = await adminDb.from("exercises" as never).insert({ name: ex.name, category: ex.category, muscle_groups: ex.muscle_groups ?? [], is_timed: !!ex.duration_seconds || ex.category === "cardio" } as never).select("id").single() as { data: { id: string } | null; error: unknown }
             if (createErr) { console.error("[trainer-chat] exercise create:", createErr); failed.push(ex.name); continue }
             exercise = newEx
             if (newEx) created.push(ex.name)
