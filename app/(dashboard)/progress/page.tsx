@@ -6,6 +6,7 @@ import PageTour from "@/components/onboarding/PageTour"
 import WeightChart from "@/components/nutrition/WeightChart"
 import { getWeightHistory } from "@/app/actions/nutrition-tracking"
 import { getExerciseHistory } from "@/app/actions/exercise-maxes"
+import WeightReminderBanner from "@/components/dashboard/WeightReminderBanner"
 import type { Step } from "react-joyride"
 
 const PROGRESS_STEPS: Step[] = [
@@ -69,6 +70,12 @@ export default async function ProgressPage() {
     trainingDays = (planDays ?? []).filter(d => d.workout_plan_exercises.length > 0).length
   }
 
+  const lastLogDate = weightHistory[weightHistory.length - 1]?.log_date ?? null
+  const todayStr = new Date().toISOString().split("T")[0]
+  const daysSinceLastWeightLog = lastLogDate
+    ? Math.floor((new Date(todayStr).getTime() - new Date(lastLogDate).getTime()) / 86_400_000)
+    : null
+
   return (
     <div className="space-y-5 pb-8">
       <div className="flex items-start justify-between gap-4">
@@ -78,6 +85,9 @@ export default async function ProgressPage() {
         </div>
         <PageTour tourKey="progress" steps={PROGRESS_STEPS} />
       </div>
+      {(daysSinceLastWeightLog === null || daysSinceLastWeightLog > 7) && (
+        <WeightReminderBanner daysSinceLastLog={daysSinceLastWeightLog} />
+      )}
       <WeightChart history={weightHistory} />
 
       <div data-tour="progress-content">

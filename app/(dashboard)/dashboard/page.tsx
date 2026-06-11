@@ -17,6 +17,7 @@ import RenewMembershipCard from "@/components/dashboard/RenewMembershipCard"
 import NutritionSummaryCard from "@/components/dashboard/NutritionSummaryCard"
 import { getMemberNutritionPlan } from "@/app/actions/nutrition"
 import { getNutritionStreak, getTodayConsumedMacros, getWaterToday } from "@/app/actions/nutrition-tracking"
+import WeightReminderBanner from "@/components/dashboard/WeightReminderBanner"
 import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, startOfTodayAR } from "@/lib/date-ar"
 
 export const dynamic = "force-dynamic"
@@ -136,6 +137,7 @@ export default async function DashboardPage() {
   let nutritionStreak = 0
   let memberConsumed = { calories: 0, protein: 0, carbs: 0, fat: 0 }
   let memberWaterGlasses = 0
+  let daysSinceLastWeightLog: number | null = null
 
   if (p?.role === "member") {
     type PlanRow = { id: string; name: string }
@@ -253,17 +255,30 @@ export default async function DashboardPage() {
       .limit(3) as unknown as Promise<{ data: RecentBadge[] | null }>)
     recentBadges = recentBadgesData
 
-    // Nutrition plan + streak + today's consumed + water for dashboard card
-    const [nutritionPlan, streak, consumed, waterGlasses] = await Promise.all([
+    // Nutrition plan + streak + today's consumed + water + last weight log
+    const [nutritionPlan, streak, consumed, waterGlasses, lastWeightLog] = await Promise.all([
       getMemberNutritionPlan(user!.id),
       getNutritionStreak(user!.id),
       getTodayConsumedMacros(user!.id, todayStr),
       getWaterToday(user!.id),
+      supabase
+        .from("weight_logs" as never)
+        .select("log_date")
+        .eq("member_id", user!.id)
+        .order("log_date", { ascending: false })
+        .limit(1)
+        .maybeSingle() as unknown as Promise<{ data: { log_date: string } | null }>,
     ])
     memberNutritionPlan = nutritionPlan
     nutritionStreak = streak
     memberConsumed = consumed
     memberWaterGlasses = waterGlasses
+
+    const lastLogDate = lastWeightLog.data?.log_date ?? null
+    if (lastLogDate) {
+      const diffMs = new Date(todayStr).getTime() - new Date(lastLogDate).getTime()
+      daysSinceLastWeightLog = Math.floor(diffMs / 86_400_000)
+    }
 
     // Fetch gym's configured membership plans (only when member may need renewal)
     const exp = p?.membership_expires_at
@@ -338,6 +353,11 @@ export default async function DashboardPage() {
         }
         return null
       })()}
+
+      {/* Weight reminder — members only, when > 7 days or never logged */}
+      {p?.role === "member" && (
+        <WeightReminderBanner daysSinceLastLog={daysSinceLastWeightLog} />
+      )}
 
       {/* Today's workout — members only */}
       {todayWorkout && (
