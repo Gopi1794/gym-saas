@@ -350,404 +350,196 @@ export async function POST(req: NextRequest) {
       },
     ]
 
-    const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 2048,
-      system: SYSTEM_PROMPT,
-      tools,
-      messages: body.messages,
-    })
+    // ── Tool executor ─────────────────────────────────────────
+    const executeToolCall = async (name: string, input: unknown): Promise<{ text: string; planId?: string; nutritionPlanId?: string }> => {
 
-    if (response.stop_reason !== "tool_use") {
-      const replyText = response.content.find(b => b.type === "text")?.text ?? ""
-      return respond({ reply: replyText })
-    }
-
-    const toolUse = response.content.find(b => b.type === "tool_use")
-    if (!toolUse || toolUse.type !== "tool_use") {
-      return respond({ reply: "Error interno al procesar la solicitud." })
-    }
-
-    // ── Tool: create_plan ─────────────────────────────────────
-    if (toolUse.name === "create_plan") {
-      const input = toolUse.input as {
-        mode: "describe" | "document"; member_name?: string; sport?: string
-        goal?: string; days_of_week?: number[]; document_text?: string; extra_notes?: string
+      // create_plan
+      if (name === "create_plan") {
+        const i = input as { mode: "describe" | "document"; member_name?: string; sport?: string; goal?: string; days_of_week?: number[]; document_text?: string; extra_notes?: string }
+        let memberId: string | null = null
+        if (i.member_name && members) {
+          memberId = members.find(m => m.full_name?.toLowerCase().includes(i.member_name!.toLowerCase()))?.id ?? null
+        }
+        const planInput = i.mode === "document"
+          ? { mode: "document" as const, memberId, documentText: i.document_text ?? "", gymId: profile.gym_id, trainerId: user.id }
+          : { mode: "describe" as const, memberId, sport: i.sport ?? "", goal: i.goal ?? "", daysOfWeek: i.days_of_week ?? [0, 2, 4], notes: i.extra_notes ?? "", gymId: profile.gym_id, trainerId: user.id }
+        const result = await generatePlan(planInput)
+        if (!result.ok) return { text: `No pude crear el plan: ${result.error}` }
+        return { text: `Plan de entrenamiento creado correctamente. [plan_id: ${result.planId}]`, planId: result.planId }
       }
 
-      let memberId: string | null = null
-      if (input.member_name && members) {
-        memberId = members.find(m => m.full_name?.toLowerCase().includes(input.member_name!.toLowerCase()))?.id ?? null
-      }
-
-      const planInput = input.mode === "document"
-        ? { mode: "document" as const, memberId, documentText: input.document_text ?? "", gymId: profile.gym_id, trainerId: user.id }
-        : { mode: "describe" as const, memberId, sport: input.sport ?? "", goal: input.goal ?? "", daysOfWeek: input.days_of_week ?? [0, 2, 4], notes: input.extra_notes ?? "", gymId: profile.gym_id, trainerId: user.id }
-
-      const result = await generatePlan(planInput)
-      if (!result.ok) return respond({ reply: `No pude crear el plan: ${result.error}` })
-
-      return Response.json({
-        reply: "Listo. El plan de entrenamiento fue creado. Podés revisarlo y ajustarlo desde el editor.",
-        planId: result.planId,
-      })
-    }
-
-    // ── Tool: create_nutrition_plan ───────────────────────────
-    if (toolUse.name === "create_nutrition_plan") {
-      const input = toolUse.input as {
-        member_name: string
-        goal: "volumen" | "definicion" | "mantenimiento" | "recomposicion" | "rendimiento" | "perdida_moderada"
-        plan_name?: string; target_calories?: number; notes?: string
-      }
-
-      const match = members?.find(m => m.full_name?.toLowerCase().includes(input.member_name.toLowerCase()))
-      if (!match) return respond({ reply: `No encontré al miembro "${input.member_name}" en el gym.` })
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: memberProfile } = await (supabase as any)
-        .from("profiles")
-        .select("weight_kg, height_cm, date_of_birth, training_frequency")
-        .eq("id", match.id)
-        .single() as { data: MemberProfile | null }
-
-      const targets = calculateNutritionTargets(memberProfile, input.goal, input.target_calories)
-
-      const goalLabels: Record<string, string> = {
-        volumen: "Volumen", definicion: "Definición", mantenimiento: "Mantenimiento",
-        recomposicion: "Recomposición", rendimiento: "Rendimiento", perdida_moderada: "Pérdida moderada",
-      }
-      const planName = input.plan_name ?? `Plan ${goalLabels[input.goal]} — ${match.full_name}`
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: plan, error } = await (supabase as any)
-        .from("nutrition_plans")
-        .insert({
-          gym_id: profile.gym_id,
-          member_id: match.id,
-          name: planName,
-          goal: input.goal,
-          target_calories: targets.calories,
-          target_protein: targets.protein,
-          target_carbs: targets.carbs,
-          target_fat: targets.fat,
-          notes: input.notes ?? null,
-          is_active: true,
-        })
-        .select("id")
-        .single() as { data: { id: string } | null; error: unknown }
-
-      if (error || !plan) return respond({ reply: "No pude crear el plan nutricional. Intentá de nuevo." })
-
-      return Response.json({
-        reply: `Plan creado para ${match.full_name} [plan_id: ${plan.id}]: ${targets.calories} kcal · ${targets.protein}g proteína · ${targets.carbs}g carbos · ${targets.fat}g grasa. ¿Querés que arme las comidas del día?`,
-        nutritionPlanId: plan.id,
-      })
-    }
-
-    // ── Tool: add_meals_to_plan ───────────────────────────────
-    if (toolUse.name === "add_meals_to_plan") {
-      const input = toolUse.input as {
-        plan_id: string
-        meals: {
-          name: string
-          time_label?: string
-          items: { food_name: string; food_name_es: string; quantity_grams: number }[]
-        }[]
-      }
-
-      const skippedFoods: string[] = []
-      let mealIndex = 0
-
-      for (const meal of input.meals) {
+      // create_nutrition_plan
+      if (name === "create_nutrition_plan") {
+        const i = input as { member_name: string; goal: "volumen" | "definicion" | "mantenimiento" | "recomposicion" | "rendimiento" | "perdida_moderada"; plan_name?: string; target_calories?: number; notes?: string }
+        const match = members?.find(m => m.full_name?.toLowerCase().includes(i.member_name.toLowerCase()))
+        if (!match) return { text: `No encontré al miembro "${i.member_name}" en el gym.` }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: createdMeal } = await (supabase as any)
-          .from("nutrition_meals")
-          .insert({
-            plan_id: input.plan_id,
-            name: meal.name,
-            time_label: meal.time_label ?? null,
-            order_index: mealIndex++,
-          })
-          .select("id")
-          .single() as { data: { id: string } | null }
+        const { data: mp } = await (supabase as any).from("profiles").select("weight_kg, height_cm, date_of_birth, training_frequency").eq("id", match.id).single() as { data: MemberProfile | null }
+        const targets = calculateNutritionTargets(mp, i.goal, i.target_calories)
+        const goalLabels: Record<string, string> = { volumen: "Volumen", definicion: "Definición", mantenimiento: "Mantenimiento", recomposicion: "Recomposición", rendimiento: "Rendimiento", perdida_moderada: "Pérdida moderada" }
+        const planName = i.plan_name ?? `Plan ${goalLabels[i.goal]} — ${match.full_name}`
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: plan, error } = await (supabase as any).from("nutrition_plans").insert({ gym_id: profile.gym_id, member_id: match.id, name: planName, goal: i.goal, target_calories: targets.calories, target_protein: targets.protein, target_carbs: targets.carbs, target_fat: targets.fat, notes: i.notes ?? null, is_active: true }).select("id").single() as { data: { id: string } | null; error: unknown }
+        if (error || !plan) return { text: "No pude crear el plan nutricional. Intentá de nuevo." }
+        return { text: `Plan creado para ${match.full_name} [plan_id: ${plan.id}]: ${targets.calories} kcal · ${targets.protein}g proteína · ${targets.carbs}g carbos · ${targets.fat}g grasa. ¿Querés que arme las comidas del día?`, nutritionPlanId: plan.id }
+      }
 
-        if (!createdMeal) continue
-        const mealId = createdMeal.id
-
-        for (const item of meal.items) {
+      // add_meals_to_plan
+      if (name === "add_meals_to_plan") {
+        const i = input as { plan_id: string; meals: { name: string; time_label?: string; items: { food_name: string; food_name_es: string; quantity_grams: number }[] }[] }
+        const skippedFoods: string[] = []
+        let mealIndex = 0
+        for (const meal of i.meals) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const foodId = await findOrImportFood(supabase as any, profile.gym_id, item.food_name, item.food_name_es)
-
-          if (!foodId) {
-            skippedFoods.push(item.food_name_es)
-            continue
+          const { data: createdMeal } = await (supabase as any).from("nutrition_meals").insert({ plan_id: i.plan_id, name: meal.name, time_label: meal.time_label ?? null, order_index: mealIndex++ }).select("id").single() as { data: { id: string } | null }
+          if (!createdMeal) continue
+          for (const item of meal.items) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const foodId = await findOrImportFood(supabase as any, profile.gym_id, item.food_name, item.food_name_es)
+            if (!foodId) { skippedFoods.push(item.food_name_es); continue }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase as any).from("nutrition_meal_items").insert({ meal_id: createdMeal.id, food_id: foodId, quantity_grams: item.quantity_grams })
           }
+        }
+        const warning = skippedFoods.length > 0 ? ` No se encontraron: ${skippedFoods.join(", ")} — agregálos manualmente.` : ""
+        return { text: `Listo. ${i.meals.length} comidas agregadas al plan.${warning}`, nutritionPlanId: i.plan_id }
+      }
 
+      // get_member_plans
+      if (name === "get_member_plans") {
+        const i = input as { member_name: string }
+        const match = members?.find(m => m.full_name?.toLowerCase().includes(i.member_name.toLowerCase()))
+        if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: plans } = await (supabase as any).from("nutrition_plans").select("id, name, goal, is_active").eq("member_id", match.id).eq("gym_id", profile.gym_id).order("created_at", { ascending: false }) as { data: { id: string; name: string; goal: string; is_active: boolean }[] | null }
+        if (!plans || plans.length === 0) return { text: `${match.full_name} no tiene planes nutricionales.` }
+        return { text: `Planes de ${match.full_name}:\n${plans.map(p => `• ${p.name} [plan_id: ${p.id}]${p.is_active ? " (activo)" : ""}`).join("\n")}` }
+      }
+
+      // delete_nutrition_plan
+      if (name === "delete_nutrition_plan") {
+        const i = input as { plan_id: string }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any).from("nutrition_plans").delete().eq("id", i.plan_id).eq("gym_id", profile.gym_id)
+        return { text: error ? "No pude eliminar el plan. Intentá de nuevo." : "Plan eliminado correctamente." }
+      }
+
+      // delete_meals_from_plan
+      if (name === "delete_meals_from_plan") {
+        const i = input as { plan_id: string; meal_names?: string[] }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let query = (supabase as any).from("nutrition_meals").delete().eq("plan_id", i.plan_id)
+        if (i.meal_names && i.meal_names.length > 0) query = query.in("name", i.meal_names)
+        const { error } = await query
+        if (error) return { text: "No pude eliminar las comidas. Intentá de nuevo." }
+        return { text: i.meal_names?.length ? `Comidas eliminadas: ${i.meal_names.join(", ")}.` : "Todas las comidas del plan fueron eliminadas." }
+      }
+
+      // get_member_training_plan
+      if (name === "get_member_training_plan") {
+        const i = input as { member_name: string }
+        const match = members?.find(m => m.full_name?.toLowerCase().includes(i.member_name.toLowerCase()))
+        if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: plan } = await (supabase as any).from("workout_plans").select("id, name").eq("assigned_to", match.id).eq("gym_id", profile.gym_id).eq("is_template", false).order("created_at", { ascending: false }).limit(1).maybeSingle() as { data: { id: string; name: string } | null }
+        if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: days } = await (supabase as any).from("workout_plan_days").select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, exercises(name))").eq("plan_id", plan.id).order("day_of_week") as { data: { id: string; day_of_week: number; workout_plan_exercises: { order_index: number; sets: number; reps: number | null; exercises: { name: string } }[] }[] | null }
+        const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+        const summary = (days ?? []).map(d => {
+          const exList = d.workout_plan_exercises.sort((a, b) => a.order_index - b.order_index).map(e => `  - ${e.exercises.name}${e.reps ? ` ${e.sets}x${e.reps}` : ` ${e.sets} series`}`).join("\n")
+          return `${DAY_NAMES[d.day_of_week]} [day_id: ${d.id}]:\n${exList || "  (sin ejercicios)"}`
+        }).join("\n\n")
+        return { text: `Plan "${plan.name}" de ${match.full_name} [plan_id: ${plan.id}]:\n\n${summary}` }
+      }
+
+      // add_exercises_to_plan_day
+      if (name === "add_exercises_to_plan_day") {
+        const i = input as { member_name: string; day_of_week: number; exercises: { name: string; category: string; muscle_groups?: string[]; sets?: number; reps?: number; reps_max?: number; rest_seconds?: number; duration_seconds?: number; notes?: string }[] }
+        const match = members?.find(m => m.full_name?.toLowerCase().includes(i.member_name.toLowerCase()))
+        if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: plan } = await (supabase as any).from("workout_plans").select("id").eq("assigned_to", match.id).eq("gym_id", profile.gym_id).eq("is_template", false).order("created_at", { ascending: false }).limit(1).maybeSingle() as { data: { id: string } | null }
+        if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let { data: planDay } = await (supabase as any).from("workout_plan_days").select("id").eq("plan_id", plan.id).eq("day_of_week", i.day_of_week).maybeSingle() as { data: { id: string } | null }
+        if (!planDay) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase as any)
-            .from("nutrition_meal_items")
-            .insert({ meal_id: mealId, food_id: foodId, quantity_grams: item.quantity_grams })
+          const { data: newDay } = await (supabase as any).from("workout_plan_days").insert({ plan_id: plan.id, day_of_week: i.day_of_week }).select("id").single() as { data: { id: string } | null }
+          planDay = newDay
         }
+        if (!planDay) return { text: "No se pudo obtener el día del plan." }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: existingEx } = await (supabase as any).from("workout_plan_exercises").select("order_index").eq("day_id", planDay.id).order("order_index", { ascending: false }).limit(1) as { data: { order_index: number }[] | null }
+        let orderIndex = existingEx?.[0] ? existingEx[0].order_index + 1 : 0
+        const added: string[] = [], created: string[] = [], failed: string[] = []
+        for (const ex of i.exercises) {
+          let exercise: { id: string } | null = null
+          const { data: gymEx } = await adminDb.from("exercises" as never).select("id").ilike("name", `%${ex.name}%`).eq("gym_id", profile.gym_id).limit(1).maybeSingle() as { data: { id: string } | null }
+          exercise = gymEx
+          if (!exercise) {
+            const { data: globalEx } = await adminDb.from("exercises" as never).select("id").ilike("name", `%${ex.name}%`).is("gym_id", null).limit(1).maybeSingle() as { data: { id: string } | null }
+            exercise = globalEx
+          }
+          if (!exercise) {
+            const { data: newEx } = await adminDb.from("exercises" as never).insert({ gym_id: profile.gym_id, name: ex.name, category: ex.category, muscle_groups: ex.muscle_groups ?? [], is_timed: !!ex.duration_seconds || ex.category === "cardio" } as never).select("id").single() as { data: { id: string } | null }
+            exercise = newEx
+            if (newEx) created.push(ex.name)
+          }
+          if (!exercise) { failed.push(ex.name); continue }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { error: insertError } = await (supabase as any).from("workout_plan_exercises").insert({ day_id: planDay.id, exercise_id: exercise.id, sets: ex.sets ?? 3, reps: ex.duration_seconds ? null : (ex.reps ?? 10), reps_max: ex.reps_max ?? null, rest_seconds: ex.rest_seconds ?? 90, duration_seconds: ex.duration_seconds ?? null, notes: ex.notes ?? null, order_index: orderIndex++ })
+          if (!insertError) added.push(ex.name); else failed.push(ex.name)
+        }
+        const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
+        let text = `${added.length} ejercicio${added.length !== 1 ? "s" : ""} agregado${added.length !== 1 ? "s" : ""} al ${DAY_NAMES[i.day_of_week]} de ${match.full_name}: ${added.join(", ")}.`
+        if (created.length > 0) text += ` (Creados en biblioteca: ${created.join(", ")}.)`
+        if (failed.length > 0) text += ` No se pudieron agregar: ${failed.join(", ")}.`
+        return { text }
       }
 
-      const warning = skippedFoods.length > 0
-        ? ` No se encontraron: ${skippedFoods.join(", ")} — agregálos manualmente.`
-        : ""
+      return { text: "Tool desconocido." }
+    }
 
-      return Response.json({
-        reply: `Listo. ${input.meals.length} comidas agregadas al plan.${warning}`,
-        nutritionPlanId: input.plan_id,
+    // ── Agentic loop (max 5 iterations) ──────────────────────
+    let agentMessages: Anthropic.MessageParam[] = [...body.messages]
+    let lastPlanId: string | undefined
+    let lastNutritionPlanId: string | undefined
+
+    for (let iter = 0; iter < 5; iter++) {
+      const response = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2048,
+        system: SYSTEM_PROMPT,
+        tools,
+        messages: agentMessages,
       })
-    }
 
-    // ── Tool: get_member_plans ────────────────────────────────
-    if (toolUse.name === "get_member_plans") {
-      const input = toolUse.input as { member_name: string }
-
-      const match = members?.find(m => m.full_name?.toLowerCase().includes(input.member_name.toLowerCase()))
-      if (!match) return respond({ reply: `No encontré al miembro "${input.member_name}".` })
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: plans } = await (supabase as any)
-        .from("nutrition_plans")
-        .select("id, name, goal, is_active")
-        .eq("member_id", match.id)
-        .eq("gym_id", profile.gym_id)
-        .order("created_at", { ascending: false }) as { data: { id: string; name: string; goal: string; is_active: boolean }[] | null }
-
-      if (!plans || plans.length === 0) {
-        return respond({ reply: `${match.full_name} no tiene planes nutricionales.` })
+      if (response.stop_reason !== "tool_use") {
+        const replyText = response.content.find(b => b.type === "text")?.text ?? ""
+        logChat("assistant", replyText)
+        return Response.json({ reply: replyText, planId: lastPlanId, nutritionPlanId: lastNutritionPlanId })
       }
 
-      const list = plans.map(p => `• ${p.name} [plan_id: ${p.id}]${p.is_active ? " (activo)" : ""}`).join("\n")
-      return respond({ reply: `Planes de ${match.full_name}:\n${list}` })
-    }
-
-    // ── Tool: delete_nutrition_plan ───────────────────────────
-    if (toolUse.name === "delete_nutrition_plan") {
-      const input = toolUse.input as { plan_id: string }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
-        .from("nutrition_plans")
-        .delete()
-        .eq("id", input.plan_id)
-        .eq("gym_id", profile.gym_id)
-
-      if (error) return respond({ reply: "No pude eliminar el plan. Intentá de nuevo." })
-      return respond({ reply: "Plan eliminado correctamente." })
-    }
-
-    // ── Tool: delete_meals_from_plan ──────────────────────────
-    if (toolUse.name === "delete_meals_from_plan") {
-      const input = toolUse.input as { plan_id: string; meal_names?: string[] }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let query = (supabase as any)
-        .from("nutrition_meals")
-        .delete()
-        .eq("plan_id", input.plan_id)
-
-      if (input.meal_names && input.meal_names.length > 0) {
-        query = query.in("name", input.meal_names)
+      // Execute all tool_use blocks and collect results
+      const toolResultContent: Anthropic.ToolResultBlockParam[] = []
+      for (const block of response.content) {
+        if (block.type !== "tool_use") continue
+        const result = await executeToolCall(block.name, block.input)
+        if (result.planId) lastPlanId = result.planId
+        if (result.nutritionPlanId) lastNutritionPlanId = result.nutritionPlanId
+        toolResultContent.push({ type: "tool_result", tool_use_id: block.id, content: result.text })
       }
 
-      const { error } = await query
-      if (error) return respond({ reply: "No pude eliminar las comidas. Intentá de nuevo." })
-
-      const msg = input.meal_names?.length
-        ? `Comidas eliminadas: ${input.meal_names.join(", ")}.`
-        : "Todas las comidas del plan fueron eliminadas."
-      return respond({ reply: msg })
+      // Feed results back into the conversation
+      agentMessages = [
+        ...agentMessages,
+        { role: "assistant", content: response.content },
+        { role: "user", content: toolResultContent },
+      ]
     }
 
-    // ── Tool: get_member_training_plan ───────────────────────────
-    if (toolUse.name === "get_member_training_plan") {
-      const input = toolUse.input as { member_name: string }
-
-      const match = members?.find(m => m.full_name?.toLowerCase().includes(input.member_name.toLowerCase()))
-      if (!match) return respond({ reply: `No encontré al miembro "${input.member_name}".` })
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: plan } = await (supabase as any)
-        .from("workout_plans")
-        .select("id, name")
-        .eq("assigned_to", match.id)
-        .eq("gym_id", profile.gym_id)
-        .eq("is_template", false)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle() as { data: { id: string; name: string } | null }
-
-      if (!plan) return respond({ reply: `${match.full_name} no tiene un plan de entrenamiento asignado.` })
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: days } = await (supabase as any)
-        .from("workout_plan_days")
-        .select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, exercises(name))")
-        .eq("plan_id", plan.id)
-        .order("day_of_week") as {
-          data: {
-            id: string
-            day_of_week: number
-            workout_plan_exercises: { order_index: number; sets: number; reps: number | null; exercises: { name: string } }[]
-          }[] | null
-        }
-
-      const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
-      const summary = (days ?? []).map(d => {
-        const exList = d.workout_plan_exercises
-          .sort((a, b) => a.order_index - b.order_index)
-          .map(e => `  - ${e.exercises.name}${e.reps ? ` ${e.sets}x${e.reps}` : ` ${e.sets} series`}`)
-          .join("\n")
-        return `${DAY_NAMES[d.day_of_week]} [day_id: ${d.id}]:\n${exList || "  (sin ejercicios)"}`
-      }).join("\n\n")
-
-      return respond({ reply: `Plan "${plan.name}" de ${match.full_name} [plan_id: ${plan.id}]:\n\n${summary}` })
-    }
-
-    // ── Tool: add_exercises_to_plan_day ──────────────────────────
-    if (toolUse.name === "add_exercises_to_plan_day") {
-      const input = toolUse.input as {
-        member_name: string
-        day_of_week: number
-        exercises: {
-          name: string
-          category: string
-          muscle_groups?: string[]
-          sets?: number
-          reps?: number
-          reps_max?: number
-          rest_seconds?: number
-          duration_seconds?: number
-          notes?: string
-        }[]
-      }
-
-      const match = members?.find(m => m.full_name?.toLowerCase().includes(input.member_name.toLowerCase()))
-      if (!match) return respond({ reply: `No encontré al miembro "${input.member_name}".` })
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: plan } = await (supabase as any)
-        .from("workout_plans")
-        .select("id")
-        .eq("assigned_to", match.id)
-        .eq("gym_id", profile.gym_id)
-        .eq("is_template", false)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle() as { data: { id: string } | null }
-
-      if (!plan) return respond({ reply: `${match.full_name} no tiene un plan de entrenamiento asignado.` })
-
-      // Find or create the plan day
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let { data: planDay } = await (supabase as any)
-        .from("workout_plan_days")
-        .select("id")
-        .eq("plan_id", plan.id)
-        .eq("day_of_week", input.day_of_week)
-        .maybeSingle() as { data: { id: string } | null }
-
-      if (!planDay) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: newDay } = await (supabase as any)
-          .from("workout_plan_days")
-          .insert({ plan_id: plan.id, day_of_week: input.day_of_week })
-          .select("id")
-          .single() as { data: { id: string } | null }
-        planDay = newDay
-      }
-
-      if (!planDay) return respond({ reply: "No se pudo obtener el día del plan." })
-
-      // Get current max order_index for this day
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: existingExercises } = await (supabase as any)
-        .from("workout_plan_exercises")
-        .select("order_index")
-        .eq("day_id", planDay.id)
-        .order("order_index", { ascending: false })
-        .limit(1) as { data: { order_index: number }[] | null }
-
-      let orderIndex = existingExercises?.[0] ? existingExercises[0].order_index + 1 : 0
-
-      const added: string[] = []
-      const created: string[] = []
-      const failed: string[] = []
-
-      for (const ex of input.exercises) {
-        // Find exercise in library — gym-specific first, then global (null gym_id)
-        // Using adminDb to bypass RLS restrictions on exercises table
-        let exercise: { id: string } | null = null
-        const { data: gymEx } = await adminDb
-          .from("exercises" as never)
-          .select("id")
-          .ilike("name", `%${ex.name}%`)
-          .eq("gym_id", profile.gym_id)
-          .limit(1)
-          .maybeSingle() as { data: { id: string } | null }
-        exercise = gymEx
-
-        if (!exercise) {
-          const { data: globalEx } = await adminDb
-            .from("exercises" as never)
-            .select("id")
-            .ilike("name", `%${ex.name}%`)
-            .is("gym_id", null)
-            .limit(1)
-            .maybeSingle() as { data: { id: string } | null }
-          exercise = globalEx
-        }
-
-        // Create in library if not found
-        if (!exercise) {
-          const { data: newEx } = await adminDb
-            .from("exercises" as never)
-            .insert({
-              gym_id: profile.gym_id,
-              name: ex.name,
-              category: ex.category,
-              muscle_groups: ex.muscle_groups ?? [],
-              is_timed: !!ex.duration_seconds || ex.category === "cardio",
-            } as never)
-            .select("id")
-            .single() as { data: { id: string } | null }
-          exercise = newEx
-          if (newEx) created.push(ex.name)
-        }
-
-        if (!exercise) { failed.push(ex.name); continue }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: insertError } = await (supabase as any)
-          .from("workout_plan_exercises")
-          .insert({
-            day_id: planDay.id,
-            exercise_id: exercise.id,
-            sets: ex.sets ?? 3,
-            reps: ex.duration_seconds ? null : (ex.reps ?? 10),
-            reps_max: ex.reps_max ?? null,
-            rest_seconds: ex.rest_seconds ?? 90,
-            duration_seconds: ex.duration_seconds ?? null,
-            notes: ex.notes ?? null,
-            order_index: orderIndex++,
-          })
-
-        if (!insertError) added.push(ex.name)
-        else failed.push(ex.name)
-      }
-
-      const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
-      let reply = `${added.length} ejercicio${added.length !== 1 ? "s" : ""} agregado${added.length !== 1 ? "s" : ""} al ${DAY_NAMES[input.day_of_week]} de ${match.full_name}: ${added.join(", ")}.`
-      if (created.length > 0) reply += ` (Creados en biblioteca: ${created.join(", ")}.)`
-      if (failed.length > 0) reply += ` No se pudieron agregar: ${failed.join(", ")}.`
-
-      return respond({ reply })
-    }
-
-    return respond({ reply: "No entendí la solicitud." })
+    return respond({ reply: "No pude completar la operación. Intentá de nuevo." })
 
   } catch (err) {
     console.error("[trainer-chat]", err)
