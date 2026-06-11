@@ -466,38 +466,47 @@ export async function POST(req: NextRequest) {
         const i = input as { member_name: string; day_of_week: number; exercises: { name: string; category: string; muscle_groups?: string[]; sets?: number; reps?: number; reps_max?: number; rest_seconds?: number; duration_seconds?: number; notes?: string }[] }
         const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: plan } = await (supabase as any).from("workout_plans").select("id").eq("assigned_to", match.id).eq("gym_id", profile.gym_id).eq("is_template", false).order("created_at", { ascending: false }).limit(1).maybeSingle() as { data: { id: string } | null }
+
+        // Use adminDb throughout to avoid RLS blocking plan/day/exercise operations
+        const { data: plan } = await adminDb.from("workout_plans" as never).select("id").eq("assigned_to", match.id).eq("gym_id", profile.gym_id).eq("is_template", false).order("created_at", { ascending: false }).limit(1).maybeSingle() as { data: { id: string } | null }
         if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let { data: planDay } = await (supabase as any).from("workout_plan_days").select("id").eq("plan_id", plan.id).eq("day_of_week", i.day_of_week).maybeSingle() as { data: { id: string } | null }
+
+        let { data: planDay } = await adminDb.from("workout_plan_days" as never).select("id").eq("plan_id", plan.id).eq("day_of_week", i.day_of_week).maybeSingle() as { data: { id: string } | null }
         if (!planDay) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: newDay } = await (supabase as any).from("workout_plan_days").insert({ plan_id: plan.id, day_of_week: i.day_of_week }).select("id").single() as { data: { id: string } | null }
+          const { data: newDay } = await adminDb.from("workout_plan_days" as never).insert({ plan_id: plan.id, day_of_week: i.day_of_week } as never).select("id").single() as { data: { id: string } | null }
           planDay = newDay
         }
         if (!planDay) return { text: "No se pudo obtener el día del plan." }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: existingEx } = await (supabase as any).from("workout_plan_exercises").select("order_index").eq("day_id", planDay.id).order("order_index", { ascending: false }).limit(1) as { data: { order_index: number }[] | null }
+
+        const { data: existingEx } = await adminDb.from("workout_plan_exercises" as never).select("order_index").eq("day_id", planDay.id).order("order_index", { ascending: false }).limit(1) as { data: { order_index: number }[] | null }
         let orderIndex = existingEx?.[0] ? existingEx[0].order_index + 1 : 0
         const added: string[] = [], created: string[] = [], failed: string[] = []
+
         for (const ex of i.exercises) {
-          let exercise: { id: string } | null = null
-          const { data: gymEx } = await adminDb.from("exercises" as never).select("id").ilike("name", `%${ex.name}%`).eq("gym_id", profile.gym_id).limit(1).maybeSingle() as { data: { id: string } | null }
-          exercise = gymEx
+          // Normalize search term: remove accents so "movilizacion" matches "Movilización"
+          const searchTerm = norm(ex.name)
+
+          // Fetch candidates and filter in JS to handle accent normalization
+          const { data: gymCandidates } = await adminDb.from("exercises" as never).select("id, name").eq("gym_id", profile.gym_id).limit(50) as { data: { id: string; name: string }[] | null }
+          let exercise: { id: string } | null = gymCandidates?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
+
           if (!exercise) {
-            const { data: globalEx } = await adminDb.from("exercises" as never).select("id").ilike("name", `%${ex.name}%`).is("gym_id", null).limit(1).maybeSingle() as { data: { id: string } | null }
-            exercise = globalEx
+            const { data: globalCandidates } = await adminDb.from("exercises" as never).select("id, name").is("gym_id", null).limit(200) as { data: { id: string; name: string }[] | null }
+            exercise = globalCandidates?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
           }
+
           if (!exercise) {
-            const { data: newEx } = await adminDb.from("exercises" as never).insert({ gym_id: profile.gym_id, name: ex.name, category: ex.category, muscle_groups: ex.muscle_groups ?? [], is_timed: !!ex.duration_seconds || ex.category === "cardio" } as never).select("id").single() as { data: { id: string } | null }
+            const { data: newEx, error: createErr } = await adminDb.from("exercises" as never).insert({ gym_id: profile.gym_id, name: ex.name, category: ex.category, muscle_groups: ex.muscle_groups ?? [], is_timed: !!ex.duration_seconds || ex.category === "cardio" } as never).select("id").single() as { data: { id: string } | null; error: unknown }
+            if (createErr) { console.error("[trainer-chat] exercise create:", createErr); failed.push(ex.name); continue }
             exercise = newEx
             if (newEx) created.push(ex.name)
           }
+
           if (!exercise) { failed.push(ex.name); continue }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error: insertError } = await (supabase as any).from("workout_plan_exercises").insert({ day_id: planDay.id, exercise_id: exercise.id, sets: ex.sets ?? 3, reps: ex.duration_seconds ? null : (ex.reps ?? 10), reps_max: ex.reps_max ?? null, rest_seconds: ex.rest_seconds ?? 90, duration_seconds: ex.duration_seconds ?? null, notes: ex.notes ?? null, order_index: orderIndex++ })
-          if (!insertError) added.push(ex.name); else failed.push(ex.name)
+
+          const { error: insertError } = await adminDb.from("workout_plan_exercises" as never).insert({ day_id: planDay.id, exercise_id: exercise.id, sets: ex.sets ?? 3, reps: ex.duration_seconds ? null : (ex.reps ?? 10), reps_max: ex.reps_max ?? null, rest_seconds: ex.rest_seconds ?? 90, duration_seconds: ex.duration_seconds ?? null, notes: ex.notes ?? null, order_index: orderIndex++ } as never)
+          if (!insertError) added.push(ex.name)
+          else { console.error("[trainer-chat] plan_exercise insert:", insertError); failed.push(ex.name) }
         }
         const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
         let text = `${added.length} ejercicio${added.length !== 1 ? "s" : ""} agregado${added.length !== 1 ? "s" : ""} al ${DAY_NAMES[i.day_of_week]} de ${match.full_name}: ${added.join(", ")}.`
