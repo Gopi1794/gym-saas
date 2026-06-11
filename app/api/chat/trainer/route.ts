@@ -678,28 +678,40 @@ export async function POST(req: NextRequest) {
       const failed: string[] = []
 
       for (const ex of input.exercises) {
-        // Find exercise in library
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let { data: exercise } = await (supabase as any)
-          .from("exercises")
+        // Find exercise in library — gym-specific first, then global (null gym_id)
+        // Using adminDb to bypass RLS restrictions on exercises table
+        let exercise: { id: string } | null = null
+        const { data: gymEx } = await adminDb
+          .from("exercises" as never)
           .select("id")
           .ilike("name", `%${ex.name}%`)
-          .or(`gym_id.is.null,gym_id.eq.${profile.gym_id}`)
+          .eq("gym_id", profile.gym_id)
           .limit(1)
           .maybeSingle() as { data: { id: string } | null }
+        exercise = gymEx
+
+        if (!exercise) {
+          const { data: globalEx } = await adminDb
+            .from("exercises" as never)
+            .select("id")
+            .ilike("name", `%${ex.name}%`)
+            .is("gym_id", null)
+            .limit(1)
+            .maybeSingle() as { data: { id: string } | null }
+          exercise = globalEx
+        }
 
         // Create in library if not found
         if (!exercise) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: newEx } = await (supabase as any)
-            .from("exercises")
+          const { data: newEx } = await adminDb
+            .from("exercises" as never)
             .insert({
               gym_id: profile.gym_id,
               name: ex.name,
               category: ex.category,
               muscle_groups: ex.muscle_groups ?? [],
               is_timed: !!ex.duration_seconds || ex.category === "cardio",
-            })
+            } as never)
             .select("id")
             .single() as { data: { id: string } | null }
           exercise = newEx
