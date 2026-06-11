@@ -18,6 +18,15 @@ TUS CAPACIDADES:
 5. Eliminar un plan nutricional completo
 6. Eliminar comidas específicas o todas las comidas de un plan
 7. Buscar los planes de un miembro (para obtener el plan_id)
+8. Ver el plan de entrenamiento actual de un miembro (días y ejercicios)
+9. Agregar ejercicios a un día del plan de entrenamiento de un miembro — si el ejercicio no existe en la biblioteca, lo crea automáticamente
+
+FLUJO PARA AGREGAR EJERCICIOS AL PLAN:
+- Si el usuario pide agregar ejercicio(s) al plan de un miembro, primero llamás get_member_training_plan para ver si tiene plan y cuáles días existen
+- Luego llamás add_exercises_to_plan_day con el día correcto (0=Dom, 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb)
+- El sistema busca el ejercicio en la biblioteca del gym; si no existe, lo crea automáticamente antes de agregarlo al plan
+- Para ejercicios timed (planchas, cardio, etc.) usás duration_seconds en lugar de reps
+- El usuario te da SOLO el nombre del ejercicio y el día. VOS completás todos los campos técnicos usando tu conocimiento de fitness: category, muscle_groups, sets, reps, rest_seconds, is_timed. No le preguntás nada al usuario — actuás directo.
 
 FLUJO PARA PLANES NUTRICIONALES:
 - Cuando creás un plan nutricional, el sistema te devuelve el plan_id entre corchetes
@@ -261,6 +270,47 @@ export async function POST(req: NextRequest) {
             },
           },
           required: ["plan_id"],
+        },
+      },
+      {
+        name: "get_member_training_plan",
+        description: "Obtiene el plan de entrenamiento activo de un miembro con sus días, day_ids y ejercicios actuales.",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            member_name: { type: "string" },
+          },
+          required: ["member_name"],
+        },
+      },
+      {
+        name: "add_exercises_to_plan_day",
+        description: "Agrega ejercicios a un día específico del plan de entrenamiento de un miembro. Si el ejercicio no existe en la biblioteca lo crea automáticamente.",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            member_name: { type: "string", description: "Nombre del miembro" },
+            day_of_week: { type: "number", description: "0=Domingo 1=Lunes 2=Martes 3=Miércoles 4=Jueves 5=Viernes 6=Sábado" },
+            exercises: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string", description: "Nombre del ejercicio en español" },
+                  category: { type: "string", enum: ["strength", "cardio", "hiit", "mobility", "core", "warmup"], description: "Categoría del ejercicio" },
+                  muscle_groups: { type: "array", items: { type: "string" }, description: "Grupos musculares (ej: ['pecho', 'tríceps'])" },
+                  sets: { type: "number" },
+                  reps: { type: "number", description: "Repeticiones. Omitir si es ejercicio timed." },
+                  reps_max: { type: "number", description: "Repetición máxima del rango (ej: 8 si el rango es 6-8)" },
+                  rest_seconds: { type: "number" },
+                  duration_seconds: { type: "number", description: "Duración en segundos. Usar para ejercicios timed (planchas, cardio)." },
+                  notes: { type: "string" },
+                },
+                required: ["name", "category"],
+              },
+            },
+          },
+          required: ["member_name", "day_of_week", "exercises"],
         },
       },
       {
@@ -510,6 +560,179 @@ export async function POST(req: NextRequest) {
         ? `Comidas eliminadas: ${input.meal_names.join(", ")}.`
         : "Todas las comidas del plan fueron eliminadas."
       return respond({ reply: msg })
+    }
+
+    // ── Tool: get_member_training_plan ───────────────────────────
+    if (toolUse.name === "get_member_training_plan") {
+      const input = toolUse.input as { member_name: string }
+
+      const match = members?.find(m => m.full_name?.toLowerCase().includes(input.member_name.toLowerCase()))
+      if (!match) return respond({ reply: `No encontré al miembro "${input.member_name}".` })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: plan } = await (supabase as any)
+        .from("workout_plans")
+        .select("id, name")
+        .eq("assigned_to", match.id)
+        .eq("gym_id", profile.gym_id)
+        .eq("is_template", false)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle() as { data: { id: string; name: string } | null }
+
+      if (!plan) return respond({ reply: `${match.full_name} no tiene un plan de entrenamiento asignado.` })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: days } = await (supabase as any)
+        .from("workout_plan_days")
+        .select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, exercises(name))")
+        .eq("plan_id", plan.id)
+        .order("day_of_week") as {
+          data: {
+            id: string
+            day_of_week: number
+            workout_plan_exercises: { order_index: number; sets: number; reps: number | null; exercises: { name: string } }[]
+          }[] | null
+        }
+
+      const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+      const summary = (days ?? []).map(d => {
+        const exList = d.workout_plan_exercises
+          .sort((a, b) => a.order_index - b.order_index)
+          .map(e => `  - ${e.exercises.name}${e.reps ? ` ${e.sets}x${e.reps}` : ` ${e.sets} series`}`)
+          .join("\n")
+        return `${DAY_NAMES[d.day_of_week]} [day_id: ${d.id}]:\n${exList || "  (sin ejercicios)"}`
+      }).join("\n\n")
+
+      return respond({ reply: `Plan "${plan.name}" de ${match.full_name} [plan_id: ${plan.id}]:\n\n${summary}` })
+    }
+
+    // ── Tool: add_exercises_to_plan_day ──────────────────────────
+    if (toolUse.name === "add_exercises_to_plan_day") {
+      const input = toolUse.input as {
+        member_name: string
+        day_of_week: number
+        exercises: {
+          name: string
+          category: string
+          muscle_groups?: string[]
+          sets?: number
+          reps?: number
+          reps_max?: number
+          rest_seconds?: number
+          duration_seconds?: number
+          notes?: string
+        }[]
+      }
+
+      const match = members?.find(m => m.full_name?.toLowerCase().includes(input.member_name.toLowerCase()))
+      if (!match) return respond({ reply: `No encontré al miembro "${input.member_name}".` })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: plan } = await (supabase as any)
+        .from("workout_plans")
+        .select("id")
+        .eq("assigned_to", match.id)
+        .eq("gym_id", profile.gym_id)
+        .eq("is_template", false)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle() as { data: { id: string } | null }
+
+      if (!plan) return respond({ reply: `${match.full_name} no tiene un plan de entrenamiento asignado.` })
+
+      // Find or create the plan day
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let { data: planDay } = await (supabase as any)
+        .from("workout_plan_days")
+        .select("id")
+        .eq("plan_id", plan.id)
+        .eq("day_of_week", input.day_of_week)
+        .maybeSingle() as { data: { id: string } | null }
+
+      if (!planDay) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: newDay } = await (supabase as any)
+          .from("workout_plan_days")
+          .insert({ plan_id: plan.id, day_of_week: input.day_of_week })
+          .select("id")
+          .single() as { data: { id: string } | null }
+        planDay = newDay
+      }
+
+      if (!planDay) return respond({ reply: "No se pudo obtener el día del plan." })
+
+      // Get current max order_index for this day
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: existingExercises } = await (supabase as any)
+        .from("workout_plan_exercises")
+        .select("order_index")
+        .eq("day_id", planDay.id)
+        .order("order_index", { ascending: false })
+        .limit(1) as { data: { order_index: number }[] | null }
+
+      let orderIndex = existingExercises?.[0] ? existingExercises[0].order_index + 1 : 0
+
+      const added: string[] = []
+      const created: string[] = []
+      const failed: string[] = []
+
+      for (const ex of input.exercises) {
+        // Find exercise in library
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let { data: exercise } = await (supabase as any)
+          .from("exercises")
+          .select("id")
+          .ilike("name", `%${ex.name}%`)
+          .or(`gym_id.is.null,gym_id.eq.${profile.gym_id}`)
+          .limit(1)
+          .maybeSingle() as { data: { id: string } | null }
+
+        // Create in library if not found
+        if (!exercise) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: newEx } = await (supabase as any)
+            .from("exercises")
+            .insert({
+              gym_id: profile.gym_id,
+              name: ex.name,
+              category: ex.category,
+              muscle_groups: ex.muscle_groups ?? [],
+              is_timed: !!ex.duration_seconds || ex.category === "cardio",
+            })
+            .select("id")
+            .single() as { data: { id: string } | null }
+          exercise = newEx
+          if (newEx) created.push(ex.name)
+        }
+
+        if (!exercise) { failed.push(ex.name); continue }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: insertError } = await (supabase as any)
+          .from("workout_plan_exercises")
+          .insert({
+            day_id: planDay.id,
+            exercise_id: exercise.id,
+            sets: ex.sets ?? 3,
+            reps: ex.duration_seconds ? null : (ex.reps ?? 10),
+            reps_max: ex.reps_max ?? null,
+            rest_seconds: ex.rest_seconds ?? 90,
+            duration_seconds: ex.duration_seconds ?? null,
+            notes: ex.notes ?? null,
+            order_index: orderIndex++,
+          })
+
+        if (!insertError) added.push(ex.name)
+        else failed.push(ex.name)
+      }
+
+      const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
+      let reply = `${added.length} ejercicio${added.length !== 1 ? "s" : ""} agregado${added.length !== 1 ? "s" : ""} al ${DAY_NAMES[input.day_of_week]} de ${match.full_name}: ${added.join(", ")}.`
+      if (created.length > 0) reply += ` (Creados en biblioteca: ${created.join(", ")}.)`
+      if (failed.length > 0) reply += ` No se pudieron agregar: ${failed.join(", ")}.`
+
+      return respond({ reply })
     }
 
     return respond({ reply: "No entendí la solicitud." })
