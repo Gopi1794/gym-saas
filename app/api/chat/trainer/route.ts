@@ -39,7 +39,7 @@ Una vez resuelto el miembro en la conversación, reutilizás su ID — no volvé
 
 <flujo_agregar_ejercicios>
 1. Llamás get_member_training_plan con el ID del miembro.
-2. Verificás que el día pedido existe en el plan (0=Dom, 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb).
+2. Verificás que el día pedido existe en el plan (0=Lun, 1=Mar, 2=Mié, 3=Jue, 4=Vie, 5=Sáb, 6=Dom).
    - Si el día NO existe en el plan: avisás qué días tiene el plan y preguntás si quiere usar uno de esos o agregar el día nuevo. No agregás a otro día por tu cuenta.
 3. Completás los campos técnicos faltantes (category, muscle_groups, sets, reps o duration_seconds, rest_seconds, is_timed) con valores estándar de fitness. Para ejercicios de tiempo (planchas, cardio) usás duration_seconds, no reps.
 4. Mostrás el resumen y pedís confirmación:
@@ -383,7 +383,7 @@ export async function POST(req: NextRequest) {
           properties: {
             member_id: { type: "string", description: "ID del miembro (usar si ya fue resuelto en get_member_training_plan — evita re-buscar por nombre)" },
             member_name: { type: "string", description: "Nombre del miembro (usar si no se tiene member_id)" },
-            day_of_week: { type: "number", description: "0=Domingo 1=Lunes 2=Martes 3=Miércoles 4=Jueves 5=Viernes 6=Sábado" },
+            day_of_week: { type: "number", description: "0=Lunes 1=Martes 2=Miércoles 3=Jueves 4=Viernes 5=Sábado 6=Domingo" },
             exercises: {
               type: "array",
               items: {
@@ -537,7 +537,7 @@ export async function POST(req: NextRequest) {
         const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
         if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
         const { data: days } = await adminDb.from("workout_plan_days" as never).select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, duration_seconds, phase, exercises(name))").eq("plan_id", plan.id).order("day_of_week") as { data: { id: string; day_of_week: number; workout_plan_exercises: { order_index: number; sets: number; reps: number | null; duration_seconds: number | null; phase: string; exercises: { name: string } }[] }[] | null }
-        const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+        const DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
         const summary = (days ?? []).map(d => {
           const exList = d.workout_plan_exercises.sort((a, b) => a.order_index - b.order_index).map(e => {
             const vol = e.duration_seconds ? `${e.sets}x${e.duration_seconds}s` : e.reps ? `${e.sets}x${e.reps}` : `${e.sets} series`
@@ -600,7 +600,7 @@ export async function POST(req: NextRequest) {
           if (!insertError) added.push(ex.name)
           else { console.error("[trainer-chat] plan_exercise insert:", insertError); failed.push(ex.name) }
         }
-        const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
+        const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
         let text = `${added.length} ejercicio${added.length !== 1 ? "s" : ""} agregado${added.length !== 1 ? "s" : ""} al ${DAY_NAMES[i.day_of_week]} de ${match.full_name}: ${added.join(", ")}.`
         if (created.length > 0) text += ` (Creados en biblioteca: ${created.join(", ")}.)`
         if (failed.length > 0) text += ` No se pudieron agregar: ${failed.join(", ")}.`
