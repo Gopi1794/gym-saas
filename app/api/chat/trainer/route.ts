@@ -148,6 +148,14 @@ async function findOrImportFood(supabase: any, gymId: string, foodNameEn: string
   }
 }
 
+// ── Helpers ───────────────────────────────────────────────────
+
+const norm = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+
+const findMember = (members: { id: string; full_name: string }[] | null, name: string) =>
+  members?.find(m => norm(m.full_name ?? "").includes(norm(name))) ?? null
+
 // ── Route ─────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -358,7 +366,7 @@ export async function POST(req: NextRequest) {
         const i = input as { mode: "describe" | "document"; member_name?: string; sport?: string; goal?: string; days_of_week?: number[]; document_text?: string; extra_notes?: string }
         let memberId: string | null = null
         if (i.member_name && members) {
-          memberId = members.find(m => m.full_name?.toLowerCase().includes(i.member_name!.toLowerCase()))?.id ?? null
+          memberId = findMember(members, i.member_name!)?.id ?? null
         }
         const planInput = i.mode === "document"
           ? { mode: "document" as const, memberId, documentText: i.document_text ?? "", gymId: profile.gym_id, trainerId: user.id }
@@ -371,7 +379,7 @@ export async function POST(req: NextRequest) {
       // create_nutrition_plan
       if (name === "create_nutrition_plan") {
         const i = input as { member_name: string; goal: "volumen" | "definicion" | "mantenimiento" | "recomposicion" | "rendimiento" | "perdida_moderada"; plan_name?: string; target_calories?: number; notes?: string }
-        const match = members?.find(m => m.full_name?.toLowerCase().includes(i.member_name.toLowerCase()))
+        const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}" en el gym.` }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: mp } = await (supabase as any).from("profiles").select("weight_kg, height_cm, date_of_birth, training_frequency").eq("id", match.id).single() as { data: MemberProfile | null }
@@ -408,7 +416,7 @@ export async function POST(req: NextRequest) {
       // get_member_plans
       if (name === "get_member_plans") {
         const i = input as { member_name: string }
-        const match = members?.find(m => m.full_name?.toLowerCase().includes(i.member_name.toLowerCase()))
+        const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: plans } = await (supabase as any).from("nutrition_plans").select("id, name, goal, is_active").eq("member_id", match.id).eq("gym_id", profile.gym_id).order("created_at", { ascending: false }) as { data: { id: string; name: string; goal: string; is_active: boolean }[] | null }
@@ -438,7 +446,7 @@ export async function POST(req: NextRequest) {
       // get_member_training_plan
       if (name === "get_member_training_plan") {
         const i = input as { member_name: string }
-        const match = members?.find(m => m.full_name?.toLowerCase().includes(i.member_name.toLowerCase()))
+        const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: plan } = await (supabase as any).from("workout_plans").select("id, name").eq("assigned_to", match.id).eq("gym_id", profile.gym_id).eq("is_template", false).order("created_at", { ascending: false }).limit(1).maybeSingle() as { data: { id: string; name: string } | null }
@@ -456,7 +464,7 @@ export async function POST(req: NextRequest) {
       // add_exercises_to_plan_day
       if (name === "add_exercises_to_plan_day") {
         const i = input as { member_name: string; day_of_week: number; exercises: { name: string; category: string; muscle_groups?: string[]; sets?: number; reps?: number; reps_max?: number; rest_seconds?: number; duration_seconds?: number; notes?: string }[] }
-        const match = members?.find(m => m.full_name?.toLowerCase().includes(i.member_name.toLowerCase()))
+        const match = findMember(members ?? null, i.member_name)
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: plan } = await (supabase as any).from("workout_plans").select("id").eq("assigned_to", match.id).eq("gym_id", profile.gym_id).eq("is_template", false).order("created_at", { ascending: false }).limit(1).maybeSingle() as { data: { id: string } | null }
