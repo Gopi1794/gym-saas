@@ -227,8 +227,15 @@ async function resolveMemberPlan(
   return linked ?? null
 }
 
-const findMember = (members: { id: string; full_name: string }[] | null, name: string) =>
-  members?.find(m => norm(m.full_name ?? "").includes(norm(name))) ?? null
+const findMember = (members: { id: string; full_name: string }[] | null, name: string) => {
+  console.log("[trainer-chat] findMember:", {
+    searchName: name,
+    normalized: norm(name),
+    memberCount: members?.length ?? 0,
+    firstNames: members?.slice(0, 5).map(m => m.full_name)
+  })
+  return members?.find(m => norm(m.full_name ?? "").includes(norm(name))) ?? null
+}
 
 // ── Route ─────────────────────────────────────────────────────
 
@@ -257,6 +264,9 @@ export async function POST(req: NextRequest) {
       .eq("gym_id", profile.gym_id)
       .eq("role", "member")
       .order("full_name") as { data: { id: string; full_name: string }[] | null }
+
+    console.log("[trainer-chat] members loaded:", members?.length ?? "null",
+      members?.map(m => m.full_name).slice(0, 10))
 
     const body = await req.json() as {
       messages: { role: "user" | "assistant"; content: string }[]
