@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback, type ElementType } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo, type ElementType } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X, Flame, Dumbbell, Wind, RefreshCw, ChevronDown } from "lucide-react"
@@ -126,6 +126,19 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [pickerPhase, setPickerPhase] = useState<Phase>("main")
+
+  const muscleVolume = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const day of Object.values(days)) {
+      for (const ex of day.exercises) {
+        for (const m of ex.exercises.muscle_groups ?? []) {
+          const key = m.charAt(0).toUpperCase() + m.slice(1).toLowerCase()
+          counts.set(key, (counts.get(key) ?? 0) + ex.sets)
+        }
+      }
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
+  }, [days])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -706,6 +719,31 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
             )
           })}
         </div>
+      </div>
+
+      {/* Muscle volume panel */}
+      <div className="rounded-2xl border border-zinc-300 dark:border-white/[6%] bg-white dark:bg-zinc-900/50 backdrop-blur-md p-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Volumen muscular semanal</p>
+        {muscleVolume.length === 0 ? (
+          <p className="text-xs text-zinc-600 dark:text-zinc-500">Agregá grupos musculares a los ejercicios para ver el análisis.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {muscleVolume.map(([muscle, sets]) => (
+              <div key={muscle} className="flex items-center gap-3">
+                <span className="w-28 shrink-0 truncate text-xs font-medium text-zinc-600 dark:text-zinc-400">{muscle}</span>
+                <div className="flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800 h-2">
+                  <div
+                    className="h-full rounded-full bg-brand-600 transition-all duration-500"
+                    style={{ width: `${Math.round((sets / muscleVolume[0][1]) * 100)}%` }}
+                  />
+                </div>
+                <span className="w-14 shrink-0 text-right text-xs tabular-nums text-zinc-500">
+                  {sets} {sets === 1 ? "serie" : "series"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Exercise picker — trainer only */}
