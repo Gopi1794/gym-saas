@@ -392,7 +392,7 @@ export async function POST(req: NextRequest) {
                   phase: { type: "string", enum: ["warmup", "main", "cooldown"], description: "Sección: warmup=precalentamiento, main=principal, cooldown=vuelta a la calma" },
                   notes: { type: "string" },
                 },
-                required: ["name", "category", "phase"],
+                required: ["name", "category", "phase", "sets"],
               },
             },
           },
@@ -583,8 +583,8 @@ export async function POST(req: NextRequest) {
           if (!exercise) { failed.push(ex.name); continue }
 
           const isTimed = !!ex.duration_seconds
-          if (!isTimed && (ex.sets === undefined || ex.reps === undefined)) {
-            console.warn("[trainer-chat] missing sets/reps for non-timed exercise:", ex.name)
+          if (ex.sets === undefined || (!isTimed && ex.reps === undefined)) {
+            console.warn("[trainer-chat] missing sets/reps for exercise:", ex.name)
             failed.push(ex.name); continue
           }
           const { data: insertedExercise, error: insertError } = await adminDb.from("workout_plan_exercises" as never).insert({ day_id: planDay.id, exercise_id: exercise.id, sets: ex.sets!, reps: isTimed ? 0 : (ex.reps ?? 0), reps_max: ex.reps_max ?? null, rest_seconds: ex.rest_seconds ?? 90, duration_seconds: ex.duration_seconds ?? null, phase: ex.phase ?? "main", notes: ex.notes ?? null, order_index: orderIndex++ } as never).select("id").single() as { data: { id: string } | null; error: unknown }
