@@ -121,16 +121,16 @@ function statusClass(status: MuscleStatus) {
 }
 
 const MUSCLE_ZONE_IMAGE: Record<MuscleZone, string> = {
-  chest:      "pectorales.png",
-  back:       "dorsal-ancho.png",
-  shoulders:  "deltoides-lateral.png",
-  biceps:     "biceps-braquiorradial.png",
-  triceps:    "triceps.png",
-  quads:      "cuadriceps-aductores.png",
-  hamstrings: "isquiotibiales-gluteo.png",
-  glutes:     "gluteo-mayor.png",
-  calves:     "gemelos.png",
-  core:       "recto-abdominal-oblicuos.png",
+  shoulders:  "1.png",   // Deltoides lateral
+  chest:      "2.png",   // Pectorales
+  quads:      "3.png",   // Cuádriceps + Aductores
+  back:       "12.png",  // Dorsal ancho
+  core:       "5.png",   // Recto abdominal + Oblicuos
+  hamstrings: "6.png",   // Isquiotibiales
+  biceps:     "7.png",   // Bíceps + Braquiorradial
+  calves:     "8.png",   // Gemelos
+  glutes:     "9.png",   // Glúteo mayor
+  triceps:    "10.png",  // Tríceps
 }
 
 function MuscleIcon({ zone, className }: { zone: MuscleZone; className?: string }) {
