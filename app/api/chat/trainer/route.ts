@@ -610,8 +610,22 @@ export async function POST(req: NextRequest) {
       return { text: "Tool desconocido." }
     }
 
+    // ── Cargar historial de conversaciones anteriores ─────────
+    const { data: historyRows } = await adminDb.from("chat_logs" as never)
+      .select("role, content")
+      .eq("user_id", user.id)
+      .eq("agent", "trainer")
+      .order("created_at", { ascending: false })
+      .limit(30) as { data: { role: "user" | "assistant"; content: string }[] | null }
+
+    const currentContents = new Set(body.messages.map(m => m.content))
+    const priorHistory: Anthropic.MessageParam[] = (historyRows ?? [])
+      .reverse()
+      .filter(m => !currentContents.has(m.content))
+      .map(m => ({ role: m.role, content: m.content }))
+
     // ── Agentic loop (max 5 iterations) ──────────────────────
-    let agentMessages: Anthropic.MessageParam[] = [...body.messages]
+    let agentMessages: Anthropic.MessageParam[] = [...priorHistory, ...body.messages]
     let lastPlanId: string | undefined
     let lastNutritionPlanId: string | undefined
 
