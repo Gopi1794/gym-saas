@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type ElementType } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X, Flame, Dumbbell, Wind, RefreshCw, ChevronDown } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X, Flame, Dumbbell, Wind, RefreshCw, ChevronDown, Info, Lightbulb } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -56,6 +56,137 @@ const PHASE_CARD: Record<Phase, string> = {
   warmup:   "bg-orange-50 border-orange-200/60 dark:bg-yellow-950/40 dark:border-yellow-900/20",
   main:     "bg-red-50 border-red-200/60 dark:bg-red-950/40 dark:border-red-900/20",
   cooldown: "bg-sky-50 border-sky-200/60 dark:bg-blue-950/40 dark:border-blue-900/20",
+}
+
+type MuscleZone = "chest" | "back" | "shoulders" | "biceps" | "triceps" | "quads" | "hamstrings" | "glutes" | "calves" | "core"
+type MuscleStatus = "low" | "slightly-low" | "optimal" | "high"
+
+const MUSCLE_META: Record<string, { zone: MuscleZone; range: [number, number] }> = {
+  pecho: { zone: "chest", range: [10, 20] },
+  pectoral: { zone: "chest", range: [10, 20] },
+  pectorales: { zone: "chest", range: [10, 20] },
+  espalda: { zone: "back", range: [10, 20] },
+  dorsal: { zone: "back", range: [10, 20] },
+  dorsales: { zone: "back", range: [10, 20] },
+  hombros: { zone: "shoulders", range: [10, 18] },
+  deltoides: { zone: "shoulders", range: [10, 18] },
+  biceps: { zone: "biceps", range: [8, 16] },
+  bíceps: { zone: "biceps", range: [8, 16] },
+  triceps: { zone: "triceps", range: [8, 16] },
+  tríceps: { zone: "triceps", range: [8, 16] },
+  cuadriceps: { zone: "quads", range: [10, 20] },
+  cuádriceps: { zone: "quads", range: [10, 20] },
+  isquiotibiales: { zone: "hamstrings", range: [8, 16] },
+  femorales: { zone: "hamstrings", range: [8, 16] },
+  gluteos: { zone: "glutes", range: [8, 16] },
+  glúteos: { zone: "glutes", range: [8, 16] },
+  pantorrillas: { zone: "calves", range: [8, 16] },
+  gemelos: { zone: "calves", range: [8, 16] },
+  abdomen: { zone: "core", range: [6, 14] },
+  abdominales: { zone: "core", range: [6, 14] },
+  core: { zone: "core", range: [6, 14] },
+}
+
+function normalizeMuscle(muscle: string) {
+  return muscle.trim().toLowerCase()
+}
+
+function getMuscleMeta(muscle: string) {
+  return MUSCLE_META[normalizeMuscle(muscle)] ?? { zone: "core" as MuscleZone, range: [8, 16] as [number, number] }
+}
+
+function getMuscleStatus(sets: number, [min, max]: [number, number]): MuscleStatus {
+  if (sets > max) return "high"
+  if (sets >= min) return "optimal"
+  if (sets >= Math.max(1, Math.round(min * 0.75))) return "slightly-low"
+  return "low"
+}
+
+function statusLabel(status: MuscleStatus) {
+  return {
+    low: "BAJO",
+    "slightly-low": "LIGERAMENTE BAJO",
+    optimal: "ÓPTIMO",
+    high: "ALTO",
+  }[status]
+}
+
+function statusClass(status: MuscleStatus) {
+  return {
+    low: "bg-red-500/10 text-red-400",
+    "slightly-low": "bg-amber-500/10 text-amber-400",
+    optimal: "bg-emerald-500/10 text-emerald-400",
+    high: "bg-orange-500/10 text-orange-400",
+  }[status]
+}
+
+function MuscleSilhouette({ zone, className }: { zone: MuscleZone; className?: string }) {
+  const active = (target: MuscleZone | MuscleZone[]) => {
+    const targets = Array.isArray(target) ? target : [target]
+    return targets.includes(zone)
+  }
+
+  return (
+    <svg viewBox="0 0 64 96" className={className} aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500/60">
+        <circle cx="32" cy="10" r="6" fill="currentColor" className="text-zinc-500/45" />
+        <path d="M25 20h14l5 23-4 26H24l-4-26 5-23Z" fill="currentColor" className="text-zinc-500/35" />
+        <path d="M24 25 12 37M40 25l12 12M24 69l-7 20M40 69l7 20" strokeWidth="7" />
+      </g>
+      <g className="text-red-500 drop-shadow-[0_0_7px_rgba(239,68,68,0.7)]" fill="currentColor" opacity="0.95">
+        {active("shoulders") && (
+          <>
+            <circle cx="22" cy="25" r="5" />
+            <circle cx="42" cy="25" r="5" />
+          </>
+        )}
+        {active("chest") && (
+          <>
+            <path d="M25 28c4-4 10-4 14 0l-2 11H27l-2-11Z" />
+            <path d="M32 28v12" stroke="rgba(0,0,0,.35)" strokeWidth="1" />
+          </>
+        )}
+        {active("back") && <path d="M23 25c5 4 13 4 18 0l2 20c-7 5-15 5-22 0l2-20Z" />}
+        {active("biceps") && (
+          <>
+            <path d="M15 36c5 2 7 9 4 15l-5-2c2-5 1-9-3-12l4-1Z" />
+            <path d="M49 36c-5 2-7 9-4 15l5-2c-2-5-1-9 3-12l-4-1Z" />
+          </>
+        )}
+        {active("triceps") && (
+          <>
+            <path d="M18 42c4 4 4 11 1 17l-5-2c2-5 2-10 0-14l4-1Z" />
+            <path d="M46 42c-4 4-4 11-1 17l5-2c-2-5-2-10 0-14l-4-1Z" />
+          </>
+        )}
+        {active("core") && <path d="M27 42h10l2 16H25l2-16Z" />}
+        {active("glutes") && (
+          <>
+            <path d="M24 60c4-3 7-3 8 2v7h-8v-9Z" />
+            <path d="M40 60c-4-3-7-3-8 2v7h8v-9Z" />
+          </>
+        )}
+        {active("quads") && (
+          <>
+            <path d="M24 70h8l-2 19h-7l1-19Z" />
+            <path d="M40 70h-8l2 19h7l-1-19Z" />
+          </>
+        )}
+        {active("hamstrings") && (
+          <>
+            <path d="M23 69h7l-1 19h-7l1-19Z" />
+            <path d="M41 69h-7l1 19h7l-1-19Z" />
+          </>
+        )}
+        {active("calves") && (
+          <>
+            <path d="M22 82h7l-1 11h-8l2-11Z" />
+            <path d="M42 82h-7l1 11h8l-2-11Z" />
+          </>
+        )}
+      </g>
+    </svg>
+  )
 }
 
 type DayData = {
@@ -139,6 +270,18 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
   }, [days])
+  const muscleVolumeStats = useMemo(() => {
+    return muscleVolume.map(([muscle, sets]) => {
+      const meta = getMuscleMeta(muscle)
+      const status = getMuscleStatus(sets, meta.range)
+      return { muscle, sets, ...meta, status }
+    })
+  }, [muscleVolume])
+  const totalMuscleSets = muscleVolumeStats.reduce((sum, item) => sum + item.sets, 0)
+  const recommendedMuscles = muscleVolumeStats
+    .filter((item) => item.status === "low" || item.status === "slightly-low")
+    .slice(0, 4)
+    .map((item) => item.muscle.toLowerCase())
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -722,30 +865,105 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       </div>
 
       {/* Muscle volume panel */}
-      <div className="rounded-2xl border border-zinc-300 dark:border-white/[6%] bg-white dark:bg-zinc-900/50 backdrop-blur-md p-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Volumen muscular semanal</p>
-        {muscleVolume.length === 0 ? (
+      <div className="rounded-2xl border border-zinc-300 dark:border-white/[6%] bg-white dark:bg-zinc-950/60 backdrop-blur-md p-4 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Dumbbell className="h-4 w-4 text-red-500" />
+              <p className="text-sm font-black uppercase tracking-wide text-zinc-900 dark:text-zinc-100">Volumen muscular semanal</p>
+            </div>
+            <p className="mt-3 text-xs text-zinc-600 dark:text-zinc-400">Series efectivas por grupo muscular</p>
+          </div>
+          {totalMuscleSets > 0 && (
+            <div className="flex items-center gap-2 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+              <Info className="h-3.5 w-3.5 text-zinc-500" />
+              {totalMuscleSets} series totales
+            </div>
+          )}
+        </div>
+
+        {muscleVolumeStats.length === 0 ? (
           <p className="text-xs text-zinc-600 dark:text-zinc-500">Agregá grupos musculares a los ejercicios para ver el análisis.</p>
         ) : (
-          <div className="space-y-2.5">
-            {muscleVolume.map(([muscle, sets]) => (
-              <div key={muscle} className="flex items-center gap-3">
-                <span className="w-28 shrink-0 truncate text-xs font-medium text-zinc-600 dark:text-zinc-400">{muscle}</span>
-                <div className="flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800 h-2">
-                  <div
-                    className="h-full rounded-full bg-brand-600 transition-all duration-500"
-                    style={{ width: `${Math.round((sets / muscleVolume[0][1]) * 100)}%` }}
-                  />
-                </div>
-                <span className="w-14 shrink-0 text-right text-xs tabular-nums text-zinc-500">
-                  {sets} {sets === 1 ? "serie" : "series"}
-                </span>
+          <div className="grid gap-6 xl:grid-cols-[1fr_330px]">
+            <div className="min-w-0">
+              <div className="mb-3 grid grid-cols-[176px_1fr_116px_156px] items-center gap-4 px-1 text-[10px] font-semibold text-zinc-500 max-lg:hidden">
+                <span />
+                <span>Series efectivas</span>
+                <span className="text-center">Rango recomendado</span>
+                <span className="text-center">Estado</span>
               </div>
-            ))}
+
+              <div className="space-y-3">
+                {muscleVolumeStats.map(({ muscle, sets, zone, range, status }) => {
+                  const progress = Math.min(100, Math.round((sets / range[1]) * 100))
+                  return (
+                    <div key={muscle} className="grid items-center gap-3 rounded-xl border border-transparent p-2 transition-colors hover:border-zinc-200 hover:bg-zinc-50 dark:hover:border-white/[6%] dark:hover:bg-white/[2%] lg:grid-cols-[176px_1fr_116px_156px]">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-white/[3%]">
+                          <MuscleSilhouette zone={zone} className="h-10 w-7" />
+                        </div>
+                        <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{muscle}</span>
+                      </div>
+
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/[6%]">
+                          <div
+                            className="h-full rounded-full bg-red-600 shadow-[0_0_16px_rgba(220,38,38,0.55)] transition-[width] duration-200 ease-out"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <span className="w-8 shrink-0 text-sm font-black tabular-nums text-red-500">{sets}</span>
+                      </div>
+
+                      <span className="text-center text-sm font-medium tabular-nums text-zinc-700 dark:text-zinc-200">
+                        {range[0]} - {range[1]}
+                      </span>
+
+                      <div className="flex lg:justify-center">
+                        <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-black uppercase", statusClass(status))}>
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                          {statusLabel(status)}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-zinc-300/70 bg-zinc-50/70 p-5 dark:border-white/[7%] dark:bg-white/[3%]">
+                <p className="mb-4 text-sm font-black uppercase tracking-wide text-zinc-800 dark:text-zinc-200">Resumen semanal</p>
+                <div
+                  className="mx-auto grid h-52 w-52 place-items-center rounded-full"
+                  style={{ background: `conic-gradient(rgb(239 68 68) ${Math.min(360, totalMuscleSets * 8)}deg, rgba(113,113,122,.25) 0deg)` }}
+                >
+                  <div className="grid h-40 w-40 place-items-center rounded-full bg-white text-center shadow-inner dark:bg-zinc-950">
+                    <div>
+                      <p className="text-5xl font-black text-zinc-900 dark:text-white">{totalMuscleSets}</p>
+                      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Series totales</p>
+                      <p className="text-xs text-zinc-500">esta semana</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-300/70 bg-zinc-50/70 p-5 dark:border-white/[7%] dark:bg-white/[3%]">
+                <div className="mb-3 flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-orange-500" />
+                  <p className="text-sm font-black uppercase tracking-wide text-red-500">Recomendación</p>
+                </div>
+                <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+                  {recommendedMuscles.length > 0
+                    ? `Considerá aumentar ligeramente ${recommendedMuscles.join(", ")} para balancear mejor el estímulo semanal.`
+                    : "Tu volumen está bien balanceado. Mantené el estímulo y revisá la recuperación semana a semana."}
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
-
       {/* Exercise picker — trainer only */}
       {!readOnly && <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="max-h-[80vh] overflow-hidden flex flex-col sm:max-w-lg [&>button:last-child]:hidden">
@@ -964,3 +1182,4 @@ function SetConfigRow({ config, saving, onChange, onRemove }: {
     </div>
   )
 }
+
