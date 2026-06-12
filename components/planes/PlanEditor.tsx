@@ -120,6 +120,33 @@ function statusClass(status: MuscleStatus) {
   }[status]
 }
 
+const MUSCLE_ZONE_IMAGE: Record<MuscleZone, string> = {
+  chest:      "pectorales.png",
+  back:       "dorsal-ancho.png",
+  shoulders:  "deltoides-lateral.png",
+  biceps:     "biceps-braquiorradial.png",
+  triceps:    "triceps.png",
+  quads:      "cuadriceps-aductores.png",
+  hamstrings: "isquiotibiales-gluteo.png",
+  glutes:     "gluteo-mayor.png",
+  calves:     "gemelos.png",
+  core:       "recto-abdominal-oblicuos.png",
+}
+
+function MuscleIcon({ zone, className }: { zone: MuscleZone; className?: string }) {
+  const [failed, setFailed] = useState(false)
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/muscles/${MUSCLE_ZONE_IMAGE[zone]}`
+  if (failed) return <MuscleSilhouette zone={zone} className={className} />
+  return (
+    <img
+      src={url}
+      alt={zone}
+      className={cn("object-contain", className)}
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 function MuscleSilhouette({ zone, className }: { zone: MuscleZone; className?: string }) {
   const active = (target: MuscleZone | MuscleZone[]) => {
     const targets = Array.isArray(target) ? target : [target]
@@ -901,7 +928,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                     <div key={muscle} className="grid items-center gap-3 rounded-xl border border-transparent p-2 transition-colors hover:border-zinc-200 hover:bg-zinc-50 dark:hover:border-white/[6%] dark:hover:bg-white/[2%] lg:grid-cols-[176px_1fr_116px_156px]">
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-white/[3%]">
-                          <MuscleSilhouette zone={zone} className="h-10 w-7" />
+                          <MuscleIcon zone={zone} className="h-9 w-9" />
                         </div>
                         <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{muscle}</span>
                       </div>
