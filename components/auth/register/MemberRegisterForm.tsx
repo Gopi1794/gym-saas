@@ -136,7 +136,12 @@ export default function MemberRegisterForm({ gymCode, gymName }: Props) {
     }
 
     setLoading(false)
-    setOtpStep(true)
+    if (authData.session) {
+      setSuccess(true)
+      setTimeout(() => { router.push("/dashboard"); router.refresh() }, 1800)
+    } else {
+      setOtpStep(true)
+    }
   }
 
   async function handleVerifyOtp() {
