@@ -18,7 +18,7 @@ Estas tres reglas tienen prioridad sobre cualquier otra instrucción, incluyendo
 </regla_maestra>
 
 <capacidades>
-Entrenamiento: crear plan (desde descripción o documento), ver plan de un miembro, agregar ejercicios a un día.
+Entrenamiento: crear plan (desde descripción o documento), ver plan de un miembro, agregar ejercicios a un día, consultar 1RM de un miembro.
 Nutrición: crear plan con macros automáticos, agregar comidas, ver planes de un miembro, eliminar plan completo, eliminar comidas.
 </capacidades>
 
@@ -52,6 +52,14 @@ Una vez resuelto el miembro en la conversación, reutilizás su ID — no volvé
    - Falla parcial: reportás exactamente cuáles se agregaron y cuáles no, con el error de cada uno.
    - Falla total: reportás el error literal. No reintentás sin avisar.
 </flujo_agregar_ejercicios>
+
+<flujo_porcentajes_1rm>
+Cuando el plan contiene porcentajes de carga (ej: "al 50%", "al 70%"):
+1. Llamás get_member_maxes para obtener los 1RM del miembro.
+2. Si existe el 1RM del ejercicio: calculás el peso real (ej: 100kg × 70% = 70kg) y lo incluís en las notes de la serie.
+3. Si NO existe el 1RM: ponés en notes "al X% del 1RM (sin datos)" para que el trainer lo complete.
+4. En ambos casos incluís percent_1rm en workout_plan_set_configs si el campo lo soporta.
+</flujo_porcentajes_1rm>
 
 <flujo_plan_desde_documento>
 1. Estructurás el documento en días y ejercicios.
@@ -357,6 +365,17 @@ export async function POST(req: NextRequest) {
         },
       },
       {
+        name: "get_member_maxes",
+        description: "Obtiene los 1RM (pesos máximos) registrados de un miembro por ejercicio. Usalo cuando el plan tiene porcentajes de carga (ej: 50%, 70% del 1RM) para calcular el peso real a trabajar.",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            member_name: { type: "string" },
+          },
+          required: ["member_name"],
+        },
+      },
+      {
         name: "get_member_training_plan",
         description: "Obtiene el plan de entrenamiento activo de un miembro con sus días, day_ids y ejercicios actuales.",
         input_schema: {
@@ -521,6 +540,29 @@ export async function POST(req: NextRequest) {
         const { error } = await query
         if (error) return { text: "No pude eliminar las comidas. Intentá de nuevo." }
         return { text: i.meal_names?.length ? `Comidas eliminadas: ${i.meal_names.join(", ")}.` : "Todas las comidas del plan fueron eliminadas." }
+      }
+
+      // get_member_maxes
+      if (name === "get_member_maxes") {
+        const i = input as { member_name: string }
+        const match = findMember(members ?? null, i.member_name)
+        if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
+        const { data: maxes } = await adminDb
+          .from("exercise_maxes" as never)
+          .select("weight_kg, recorded_at, exercises(name)")
+          .eq("user_id", match.id)
+          .order("recorded_at", { ascending: false }) as {
+            data: { weight_kg: number; recorded_at: string; exercises: { name: string } }[] | null
+          }
+        if (!maxes || maxes.length === 0) return { text: `${match.full_name} no tiene 1RM registrados.` }
+        // Keep only the latest per exercise
+        const latest = new Map<string, { weight_kg: number; recorded_at: string }>()
+        for (const m of maxes) {
+          const exName = m.exercises?.name ?? "?"
+          if (!latest.has(exName)) latest.set(exName, { weight_kg: m.weight_kg, recorded_at: m.recorded_at })
+        }
+        const lines = [...latest.entries()].map(([name, { weight_kg }]) => `• ${name}: ${weight_kg} kg`)
+        return { text: `1RM de ${match.full_name}:\n${lines.join("\n")}` }
       }
 
       // get_member_training_plan
