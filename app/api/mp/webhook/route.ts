@@ -110,6 +110,39 @@ async function finalizePayment(
   }
 
   console.log(`[mp/webhook] payment ${paymentId} finalized — member ${memberId} extended ${durationDays} days`)
+
+  // Notificar al admin del gym
+  try {
+    const { data: member } = await admin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", memberId)
+      .maybeSingle()
+
+    const { data: admins } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("gym_id", gymId)
+      .eq("role", "admin")
+
+    if (admins && admins.length > 0) {
+      const amount = payment.transaction_amount ?? 0
+      const formatted = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(amount)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin.from("notifications" as never) as any).insert(
+        admins.map((a: { id: string }) => ({
+          user_id: a.id,
+          gym_id: gymId,
+          type: "payment_received",
+          title: "Pago recibido 💳",
+          body: `${member?.full_name ?? "Un miembro"} pagó ${formatted} (${membershipType ?? "basic"})`,
+          data: { member_id: memberId, payment_id: paymentId, amount },
+        }))
+      )
+    }
+  } catch (notifErr) {
+    console.error("[mp/webhook] error sending admin notification:", notifErr)
+  }
 }
 
 async function processPayment(paymentId: string, externalRef?: string, gymIdOverride?: string) {
