@@ -129,7 +129,7 @@ export default function RegisterShell({
             : submitLabel}
         </button>
 
-        {step > 0 && (
+        {step > 0 ? (
           <button
             type="button"
             onClick={onBack}
@@ -138,6 +138,14 @@ export default function RegisterShell({
             <ChevronLeft className="h-4 w-4" />
             Volver
           </button>
+        ) : (
+          <Link
+            href="/login"
+            className="flex w-full items-center justify-center gap-1.5 py-2.5 text-sm text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Cancelar
+          </Link>
         )}
       </div>
 
