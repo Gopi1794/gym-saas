@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import {
   useReactTable,
   getCoreRowModel,
@@ -22,6 +23,7 @@ export interface PaymentRow {
   status: "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "cash"
   mp_payment_id: string | null
   created_at: string
+  user_id: string | null
   profiles: {
     full_name: string | null
     avatar_url: string | null
@@ -77,18 +79,26 @@ const columns = [
   col.accessor((row) => row.profiles?.full_name ?? "—", {
     id: "member",
     header: "Miembro",
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2.5">
-        <ProfileAvatar
-          src={row.original.profiles?.avatar_url}
-          name={row.original.profiles?.full_name}
-          size={32}
-        />
-        <span className="text-sm text-zinc-100 truncate max-w-[160px]">
-          {row.original.profiles?.full_name ?? "—"}
-        </span>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const userId = row.original.user_id
+      const inner = (
+        <div className="flex items-center gap-2.5">
+          <ProfileAvatar
+            src={row.original.profiles?.avatar_url}
+            name={row.original.profiles?.full_name}
+            size={32}
+          />
+          <span className="text-sm text-zinc-100 truncate max-w-[160px] group-hover:text-brand-400 transition-colors">
+            {row.original.profiles?.full_name ?? "—"}
+          </span>
+        </div>
+      )
+      return userId ? (
+        <Link href={`/members/${userId}`} className="group">
+          {inner}
+        </Link>
+      ) : inner
+    },
   }),
   col.accessor("amount", {
     header: "Monto",
