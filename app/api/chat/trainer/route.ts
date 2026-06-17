@@ -84,6 +84,16 @@ Cuando el plan contiene porcentajes de carga (ej: "al 50%", "al 70%"):
 3. Solo ejecutás tras un "sí" explícito. Cualquier otra respuesta (pregunta, cambio de tema, silencio sobre el punto) cancela la operación.
 </flujo_eliminar>
 
+<flujo_reemplazar_ejercicios>
+Cuando el usuario pide reemplazar, corregir o eliminar ejercicios específicos de un día:
+1. SCOPE QUIRÚRGICO: solo tocás los ejercicios explícitamente nombrados. NUNCA eliminás el día completo ni ejercicios que no fueron mencionados.
+2. Antes de eliminar, mostrás la lista exacta de ejercicios que vas a borrar y pedís confirmación:
+   "Voy a eliminar SOLO estos ejercicios del [día] de [Nombre]: [lista]. El resto del día queda intacto. ¿Confirmás?"
+3. Después de eliminar y antes de agregar los reemplazos, llamás get_member_training_plan para verificar qué quedó en el día. Si algo que debía quedar desapareció, avisás antes de continuar.
+4. Recién después agregás los ejercicios correctos.
+5. Al finalizar, llamás get_member_training_plan nuevamente y mostrás el estado final del día para que el usuario confirme que todo está bien.
+</flujo_reemplazar_ejercicios>
+
 <confirmaciones>
 - Cuentan como confirmación: "sí", "dale", "confirmo", "ok", "hacelo" o equivalente claro.
 - Si el usuario responde con una MODIFICACIÓN ("sí pero poné 4 series"), actualizás el resumen con el cambio y volvés a pedir confirmación.
@@ -387,6 +397,23 @@ export async function POST(req: NextRequest) {
         },
       },
       {
+        name: "remove_exercises_from_day",
+        description: "Elimina ejercicios específicos de un día del plan. SOLO elimina los ejercicios nombrados, nunca el día completo.",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            member_name: { type: "string" },
+            day_of_week: { type: "number", description: "0=Lunes 1=Martes 2=Miércoles 3=Jueves 4=Viernes 5=Sábado 6=Domingo" },
+            exercise_names: {
+              type: "array",
+              items: { type: "string" },
+              description: "Nombres exactos de los ejercicios a eliminar (tal como aparecen en el plan)",
+            },
+          },
+          required: ["member_name", "day_of_week", "exercise_names"],
+        },
+      },
+      {
         name: "add_exercises_to_plan_day",
         description: "Agrega ejercicios a un día específico del plan de entrenamiento de un miembro. Si el ejercicio no existe en la biblioteca lo crea automáticamente.",
         input_schema: {
@@ -583,6 +610,41 @@ export async function POST(req: NextRequest) {
           return `${DAY_NAMES[d.day_of_week]} [day_id: ${d.id}]:\n${exList || "  (sin ejercicios)"}`
         }).join("\n\n")
         return { text: `Plan "${plan.name}" de ${match.full_name} [plan_id: ${plan.id}] [member_id: ${match.id}]:\n\n${summary}` }
+      }
+
+      // remove_exercises_from_day
+      if (name === "remove_exercises_from_day") {
+        const i = input as { member_name: string; day_of_week: number; exercise_names: string[] }
+        const match = findMember(members ?? null, i.member_name)
+        if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
+        const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
+        if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
+        const { data: planDay } = await adminDb
+          .from("workout_plan_days" as never)
+          .select("id")
+          .eq("plan_id", plan.id)
+          .eq("day_of_week", i.day_of_week)
+          .maybeSingle() as { data: { id: string } | null }
+        if (!planDay) return { text: "No existe ese día en el plan." }
+
+        const { data: planExercises } = await adminDb
+          .from("workout_plan_exercises" as never)
+          .select("id, exercises(name)")
+          .eq("day_id", planDay.id) as { data: { id: string; exercises: { name: string } }[] | null }
+
+        const removed: string[] = []
+        const notFound: string[] = []
+
+        for (const exName of i.exercise_names) {
+          const match2 = planExercises?.find(pe => norm(pe.exercises?.name ?? "") === norm(exName) || norm(pe.exercises?.name ?? "").includes(norm(exName)))
+          if (!match2) { notFound.push(exName); continue }
+          await adminDb.from("workout_plan_exercises" as never).delete().eq("id", match2.id)
+          removed.push(exName)
+        }
+
+        let text = removed.length > 0 ? `Eliminados: ${removed.join(", ")}.` : "No se eliminó ningún ejercicio."
+        if (notFound.length > 0) text += ` No encontrados: ${notFound.join(", ")}.`
+        return { text }
       }
 
       // add_exercises_to_plan_day
