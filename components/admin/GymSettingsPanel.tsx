@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
-import { CheckCircle2, AlertCircle, Loader2, Eye, EyeOff, Lock, ShieldCheck } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, Eye, EyeOff, Lock, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveMpToken } from "@/app/actions/gym-settings";
 import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 export default function GymSettingsPanel() {
   const [unlocked, setUnlocked] = useState(false);
@@ -19,6 +20,7 @@ export default function GymSettingsPanel() {
   const [result, setResult] = useState<{ ok?: boolean; error?: string } | null>(null);
 
   const supabase = createClient();
+  const router = useRouter();
 
   async function handleUnlock(e: React.FormEvent) {
     e.preventDefault();
@@ -56,12 +58,22 @@ export default function GymSettingsPanel() {
       {!unlocked && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl space-y-5">
-            <div className="flex flex-col items-center gap-2 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-700/20 border border-brand-700/30">
-                <Lock className="h-5 w-5 text-brand-500" />
+            <div className="flex items-start justify-between">
+              <div className="flex flex-col items-center gap-2 text-center flex-1">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-700/20 border border-brand-700/30">
+                  <Lock className="h-5 w-5 text-brand-500" />
+                </div>
+                <h2 className="text-lg font-semibold text-zinc-50">Confirmá tu identidad</h2>
+                <p className="text-sm text-zinc-400">Ingresá tu contraseña para modificar el token de Mercado Pago.</p>
               </div>
-              <h2 className="text-lg font-semibold text-zinc-50">Confirmá tu identidad</h2>
-              <p className="text-sm text-zinc-400">Ingresá tu contraseña para modificar el token de Mercado Pago.</p>
+              <button
+                type="button"
+                onClick={() => router.push("/admin?tab=exportaciones")}
+                className="shrink-0 flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
             <form onSubmit={handleUnlock} className="space-y-4">
               <div className="space-y-2">
