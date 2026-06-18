@@ -926,6 +926,14 @@ export async function POST(req: NextRequest) {
     let lastPlanId: string | undefined
     let lastNutritionPlanId: string | undefined
 
+    // Si el usuario está confirmando una acción propuesta, forzamos tool_choice: any
+    // para evitar que el modelo genere texto sin ejecutar el tool
+    const lastIncomingMsg = body.messages[body.messages.length - 1]
+    const isConfirmation = lastIncomingMsg?.role === "user" &&
+      /^(sí|si|dale|ok|okay|confirmo|hacelo|listo|perfecto|va|bueno|sigue|adelante)\s*[!.]*$/i.test(
+        (typeof lastIncomingMsg.content === "string" ? lastIncomingMsg.content : "").trim()
+      )
+
     for (let iter = 0; iter < 5; iter++) {
       const response = await anthropic.messages.create({
         model: "claude-haiku-4-5-20251001",
@@ -933,6 +941,7 @@ export async function POST(req: NextRequest) {
         system: dynamicSystem,
         tools,
         messages: agentMessages,
+        ...(isConfirmation && iter === 0 ? { tool_choice: { type: "any" as const } } : {}),
       })
 
       if (response.stop_reason !== "tool_use") {
