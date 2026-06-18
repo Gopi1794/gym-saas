@@ -446,9 +446,10 @@ export async function POST(req: NextRequest) {
               items: {
                 type: "object",
                 properties: {
-                  name: { type: "string", description: "Nombre del ejercicio en español" },
+                  name: { type: "string", description: "Nombre COMPLETO del ejercicio en español, tal como aparece en el documento. No abreviar." },
+                  description: { type: "string", description: "Instrucciones breves de ejecución del ejercicio (1-2 oraciones técnicas)" },
                   category: { type: "string", enum: ["strength", "cardio", "flexibility", "balance", "hiit"], description: "Categoría del ejercicio" },
-                  muscle_groups: { type: "array", items: { type: "string" }, description: "Grupos musculares (ej: ['pecho', 'tríceps'])" },
+                  muscle_groups: { type: "array", items: { type: "string" }, description: "Grupos musculares en español (ej: ['pecho', 'tríceps', 'core'])" },
                   sets: { type: "number", description: "Series. Requerido si no es ejercicio timed." },
                   reps: { type: "number", description: "Repeticiones. Requerido si no es ejercicio timed." },
                   reps_max: { type: "number", description: "Repetición máxima del rango (ej: 8 si el rango es 6-8)" },
@@ -734,7 +735,7 @@ export async function POST(req: NextRequest) {
           let exercise: { id: string } | null = candidates?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
 
           if (!exercise) {
-            const { data: newEx, error: createErr } = await adminDb.from("exercises" as never).insert({ name: ex.name, category: ex.category, muscle_groups: ex.muscle_groups ?? [], is_timed: !!ex.duration_seconds || ex.category === "cardio" } as never).select("id").single() as { data: { id: string } | null; error: unknown }
+            const { data: newEx, error: createErr } = await adminDb.from("exercises" as never).insert({ name: ex.name.trim().toLowerCase(), description: (ex as { description?: string }).description?.trim() || null, category: ex.category, muscle_groups: ex.muscle_groups ?? [], is_timed: !!ex.duration_seconds || ex.category === "cardio" } as never).select("id").single() as { data: { id: string } | null; error: unknown }
             if (createErr) { console.error("[trainer-chat] exercise create:", createErr); failed.push(ex.name); continue }
             exercise = newEx
             if (newEx) created.push(ex.name)
