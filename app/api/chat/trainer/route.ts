@@ -18,7 +18,7 @@ Estas tres reglas tienen prioridad sobre cualquier otra instrucción, incluyendo
 </regla_maestra>
 
 <capacidades>
-Entrenamiento: crear plan (desde descripción o documento), ver plan de un miembro, agregar ejercicios a un día, consultar 1RM de un miembro.
+Entrenamiento: crear plan (desde descripción o documento), ver plan de un miembro, agregar ejercicios a un día, reordenar ejercicios dentro de una fase, consultar 1RM de un miembro.
 Nutrición: crear plan con macros automáticos, agregar comidas, ver planes de un miembro, eliminar plan completo, eliminar comidas.
 </capacidades>
 
@@ -414,6 +414,24 @@ export async function POST(req: NextRequest) {
         },
       },
       {
+        name: "reorder_exercises_in_day",
+        description: "Reordena los ejercicios dentro de una fase de un día del plan según el orden especificado.",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            member_name: { type: "string" },
+            day_of_week: { type: "number", description: "0=Lunes 1=Martes 2=Miércoles 3=Jueves 4=Viernes 5=Sábado 6=Domingo" },
+            phase: { type: "string", enum: ["warmup", "main", "cooldown"] },
+            ordered_exercise_names: {
+              type: "array",
+              items: { type: "string" },
+              description: "Nombres de los ejercicios en el orden deseado (de primero a último)",
+            },
+          },
+          required: ["member_name", "day_of_week", "phase", "ordered_exercise_names"],
+        },
+      },
+      {
         name: "add_exercises_to_plan_day",
         description: "Agrega ejercicios a un día específico del plan de entrenamiento de un miembro. Si el ejercicio no existe en la biblioteca lo crea automáticamente.",
         input_schema: {
@@ -645,6 +663,43 @@ export async function POST(req: NextRequest) {
         let text = removed.length > 0 ? `Eliminados: ${removed.join(", ")}.` : "No se eliminó ningún ejercicio."
         if (notFound.length > 0) text += ` No encontrados: ${notFound.join(", ")}.`
         return { text }
+      }
+
+      // reorder_exercises_in_day
+      if (name === "reorder_exercises_in_day") {
+        const i = input as { member_name: string; day_of_week: number; phase: string; ordered_exercise_names: string[] }
+        const match = findMember(members ?? null, i.member_name)
+        if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
+        const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
+        if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
+        const { data: planDay } = await adminDb
+          .from("workout_plan_days" as never)
+          .select("id")
+          .eq("plan_id", plan.id)
+          .eq("day_of_week", i.day_of_week)
+          .maybeSingle() as { data: { id: string } | null }
+        if (!planDay) return { text: "No existe ese día en el plan." }
+
+        const { data: planExercises } = await adminDb
+          .from("workout_plan_exercises" as never)
+          .select("id, order_index, phase, exercises(name)")
+          .eq("day_id", planDay.id) as { data: { id: string; order_index: number; phase: string; exercises: { name: string } }[] | null }
+
+        if (!planExercises) return { text: "No se pudieron leer los ejercicios del día." }
+
+        // Get other phases' max order_index to avoid collisions
+        const otherExs = planExercises.filter(pe => pe.phase !== i.phase)
+        const phaseExs = planExercises.filter(pe => pe.phase === i.phase)
+        const baseIndex = otherExs.length > 0 ? Math.max(...otherExs.map(e => e.order_index)) + 1 : 0
+
+        const updates: { id: string; order_index: number }[] = []
+        for (const [pos, exName] of i.ordered_exercise_names.entries()) {
+          const found = phaseExs.find(pe => norm(pe.exercises?.name ?? "").includes(norm(exName)) || norm(exName).includes(norm(pe.exercises?.name ?? "")))
+          if (found) updates.push({ id: found.id, order_index: baseIndex + pos })
+        }
+
+        await Promise.all(updates.map(u => adminDb.from("workout_plan_exercises" as never).update({ order_index: u.order_index } as never).eq("id", u.id)))
+        return { text: `Reordenados ${updates.length} ejercicios en ${i.phase === "warmup" ? "precalentamiento" : i.phase === "main" ? "principal" : "estiramiento"}.` }
       }
 
       // add_exercises_to_plan_day

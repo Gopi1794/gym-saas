@@ -3,7 +3,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type ElementType } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X, Flame, Dumbbell, Wind, RefreshCw, ChevronDown, Info, Lightbulb } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X, Flame, Dumbbell, Wind, RefreshCw, ChevronDown, Info, Lightbulb, GripVertical } from "lucide-react"
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -216,6 +219,21 @@ function MuscleSilhouette({ zone, className }: { zone: MuscleZone; className?: s
   )
 }
 
+function SortableExerciseWrapper({
+  id, disabled, children,
+}: {
+  id: string
+  disabled?: boolean
+  children: (props: { dragHandleProps: React.HTMLAttributes<HTMLElement>; isDragging: boolean }) => React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled })
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
+      {children({ dragHandleProps: { ...attributes, ...listeners }, isDragging })}
+    </div>
+  )
+}
+
 type DayData = {
   id: string | null   // null = day not yet created in DB
   exercises: PlanExercise[]
@@ -321,6 +339,30 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   }, [])
   const supabase = createClient()
   const router = useRouter()
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  async function reorderExercises(phase: Phase, activeId: string, overId: string) {
+    if (activeId === overId) return
+    const allExs = days[selectedDay].exercises
+    const phaseExs = allExs.filter(pe => (pe.phase ?? "main") === phase)
+    const oldIndex = phaseExs.findIndex(pe => pe.id === activeId)
+    const newIndex = phaseExs.findIndex(pe => pe.id === overId)
+    if (oldIndex === -1 || newIndex === -1) return
+    const reordered = arrayMove(phaseExs, oldIndex, newIndex)
+    const phaseOrder: Phase[] = ["warmup", "main", "cooldown"]
+    const newAllExs: PlanExercise[] = []
+    let idx = 0
+    for (const ph of phaseOrder) {
+      const exsForPhase = ph === phase ? reordered : allExs.filter(pe => (pe.phase ?? "main") === ph)
+      for (const ex of exsForPhase) newAllExs.push({ ...ex, order_index: idx++ })
+    }
+    setDays(prev => ({ ...prev, [selectedDay]: { ...prev[selectedDay], exercises: newAllExs } }))
+    await Promise.all(newAllExs.map(ex => supabase.from("workout_plan_exercises").update({ order_index: ex.order_index } as never).eq("id", ex.id)))
+  }
 
   const refreshExercises = useCallback(async () => {
     setRefreshing(true)
@@ -720,6 +762,12 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
             <p className="text-sm text-zinc-500">Día de descanso</p>
           </div>
         ) : (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event: DragEndEvent) => {
+            const { active, over } = event
+            if (!over || active.id === over.id) return
+            const activeEx = currentDay.exercises.find(pe => pe.id === String(active.id))
+            if (activeEx) reorderExercises(activeEx.phase ?? "main", String(active.id), String(over.id))
+          }}>
           <div>
             {PHASES.map(({ key: phaseKey, label, Icon, color }) => {
               const phaseExs = currentDay.exercises.filter((pe) => (pe.phase ?? "main") === phaseKey)
@@ -757,11 +805,19 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                         {phaseExs.length === 0 && !readOnly && (
                           <p className="px-4 py-3 text-xs text-zinc-500">Sin ejercicios</p>
                         )}
+                        <SortableContext items={phaseExs.map(pe => pe.id)} strategy={verticalListSortingStrategy}>
                         {phaseExs.map((pe, index) => (
-                  <div key={pe.id} style={{ scrollMarginTop: '104px' }} className={cn("mx-3 mb-2 rounded-xl border overflow-hidden", PHASE_CARD[phaseKey])}>
+                  <SortableExerciseWrapper key={pe.id} id={pe.id} disabled={readOnly}>
+                  {({ dragHandleProps }) => (
+                  <div style={{ scrollMarginTop: '104px' }} className={cn("mx-3 mb-2 rounded-xl border overflow-hidden", PHASE_CARD[phaseKey])}>
 
                 {/* Card header: image + name + trash */}
                 <div className="flex items-center gap-3 px-3 pt-3 pb-2 bg-white/30 dark:bg-white/[5%]">
+                  {!readOnly && (
+                    <button {...dragHandleProps} className="shrink-0 cursor-grab active:cursor-grabbing text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300 touch-none" aria-label="Mover ejercicio">
+                      <GripVertical className="h-4 w-4" />
+                    </button>
+                  )}
                   <div className="relative shrink-0">
                     {pe.exercises.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -852,7 +908,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                   </>
                 )}
               </div>
+                  )}
+                  </SortableExerciseWrapper>
                         ))}
+                        </SortableContext>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -860,6 +919,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
               )
             })}
           </div>
+          </DndContext>
         )}
       </div>
 
