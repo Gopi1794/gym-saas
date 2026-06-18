@@ -18,7 +18,6 @@ import NutritionSummaryCard from "@/components/dashboard/NutritionSummaryCard"
 import { getMemberNutritionPlan } from "@/app/actions/nutrition"
 import { getNutritionStreak, getTodayConsumedMacros, getWaterToday } from "@/app/actions/nutrition-tracking"
 import WeightReminderBanner from "@/components/dashboard/WeightReminderBanner"
-import WeightProgressCard from "@/components/dashboard/WeightProgressCard"
 import MonthlyTrainingCalendar from "@/components/dashboard/MonthlyTrainingCalendar"
 import PersonalRecordsCard from "@/components/dashboard/PersonalRecordsCard"
 import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, startOfTodayAR } from "@/lib/date-ar"
@@ -141,7 +140,6 @@ export default async function DashboardPage() {
   let memberConsumed = { calories: 0, protein: 0, carbs: 0, fat: 0 }
   let memberWaterGlasses = 0
   let daysSinceLastWeightLog: number | null = null
-  let weightLogs: { log_date: string; weight_kg: number }[] = []
   let personalRecords: { exercise_name: string; weight_kg: number }[] = []
   let monthSessionDates: string[] = []
 
@@ -300,15 +298,6 @@ export default async function DashboardPage() {
         }>)
       membershipPlans = plansData ?? []
     }
-
-    // Weight logs (sparkline)
-    const { data: wlData } = await (supabase
-      .from("weight_logs" as never)
-      .select("log_date, weight_kg")
-      .eq("member_id", user!.id)
-      .order("log_date", { ascending: false })
-      .limit(10) as unknown as Promise<{ data: { log_date: string; weight_kg: number }[] | null }>)
-    weightLogs = (wlData ?? []).slice().reverse()
 
     // Personal records (latest max per exercise)
     const { data: maxesData } = await (supabase
@@ -496,7 +485,6 @@ export default async function DashboardPage() {
       {p?.role === "member" && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <WeightProgressCard logs={weightLogs} />
             <MonthlyTrainingCalendar
               sessionDates={monthSessionDates}
               year={todayDate.getFullYear()}
