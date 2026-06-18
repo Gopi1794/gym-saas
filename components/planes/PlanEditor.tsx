@@ -972,76 +972,70 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
         {muscleVolumeStats.length === 0 ? (
           <p className="text-xs text-zinc-600 dark:text-zinc-500">Agregá grupos musculares a los ejercicios para ver el análisis.</p>
         ) : (
-          <div className="grid gap-6 xl:grid-cols-[1fr_330px]">
-            <div className="min-w-0">
-              <div className="mb-3 grid grid-cols-[176px_1fr_116px_156px] items-center gap-4 px-1 text-[10px] font-semibold text-zinc-500 max-lg:hidden">
-                <span />
-                <span>Series efectivas</span>
-                <span className="text-center">Rango recomendado</span>
-                <span className="text-center">Estado</span>
-              </div>
-
-              <div className="space-y-3">
-                {muscleVolumeStats.map(({ muscle, sets, zone, range, status }) => {
-                  const progress = Math.min(100, Math.round((sets / range[1]) * 100))
-                  return (
-                    <div key={muscle} className="grid items-center gap-3 rounded-xl border border-transparent p-2 transition-colors hover:border-zinc-200 hover:bg-zinc-50 dark:hover:border-white/[6%] dark:hover:bg-white/[2%] lg:grid-cols-[176px_1fr_116px_156px]">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-white/[3%]">
-                          <MuscleIcon zone={zone} className="h-9 w-9" />
-                        </div>
-                        <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{muscle}</span>
-                      </div>
-
-                      <div className="flex min-w-0 items-center gap-3">
+          <div className="grid gap-4 xl:grid-cols-[1fr_268px]">
+            {/* Muscle card grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {muscleVolumeStats.map(({ muscle, sets, zone, range, status }) => {
+                const progress = Math.min(100, Math.round((sets / range[1]) * 100))
+                return (
+                  <div key={muscle} className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-white/[5%] bg-zinc-50 dark:bg-[#111214] flex flex-col">
+                    {/* Anatomical image */}
+                    <div className="flex items-center justify-center bg-zinc-100 dark:bg-[#0D0D10] py-3">
+                      <MuscleIcon zone={zone} className="h-28 w-24" />
+                    </div>
+                    {/* Card content */}
+                    <div className="px-3 pt-2 pb-3 flex flex-col gap-1.5">
+                      <p className="text-[13px] font-semibold text-zinc-900 dark:text-white text-center leading-tight">{muscle}</p>
+                      {/* Progress row — barra original */}
+                      <div className="flex items-center gap-2">
                         <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/[6%]">
                           <div
                             className="h-full rounded-full bg-red-600 shadow-[0_0_16px_rgba(220,38,38,0.55)] transition-[width] duration-200 ease-out"
                             style={{ width: `${progress}%` }}
                           />
                         </div>
-                        <span className="w-8 shrink-0 text-sm font-black tabular-nums text-red-500">{sets}</span>
+                        <span className="w-7 shrink-0 text-[13px] font-black tabular-nums text-red-500 text-right">{sets}</span>
                       </div>
-
-                      <span className="text-center text-sm font-medium tabular-nums text-zinc-700 dark:text-zinc-200">
-                        {range[0]} - {range[1]}
-                      </span>
-
-                      <div className="flex lg:justify-center">
-                        <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-black uppercase", statusClass(status))}>
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-600 text-center">Rango recomendado {range[0]} - {range[1]}</p>
+                      {/* Status badge */}
+                      <div className="flex justify-center">
+                        <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-[3px] text-[9px] font-black uppercase tracking-wide", statusClass(status))}>
+                          <span className="h-1.5 w-1.5 rounded-full bg-current shrink-0" />
                           {statusLabel(status)}
                         </span>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
             </div>
 
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-zinc-300/70 bg-zinc-50/70 p-5 dark:border-white/[7%] dark:bg-white/[3%]">
-                <p className="mb-4 text-sm font-black uppercase tracking-wide text-zinc-800 dark:text-zinc-200">Resumen semanal</p>
+            {/* Right summary panel */}
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-zinc-300/70 bg-zinc-50/70 p-5 dark:border-white/[7%] dark:bg-[#111214]">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[11px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300">Resumen semanal</p>
+                  <span className="text-[11px] text-zinc-500 tabular-nums">{totalMuscleSets} series totales</span>
+                </div>
                 <div
-                  className="mx-auto grid h-52 w-52 place-items-center rounded-full"
-                  style={{ background: `conic-gradient(rgb(239 68 68) ${Math.min(360, totalMuscleSets * 8)}deg, rgba(113,113,122,.25) 0deg)` }}
+                  className="mx-auto grid place-items-center rounded-full"
+                  style={{ width: 168, height: 168, background: `conic-gradient(rgb(239 68 68) ${Math.min(360, totalMuscleSets * 8)}deg, rgba(113,113,122,.18) 0deg)` }}
                 >
-                  <div className="grid h-40 w-40 place-items-center rounded-full bg-white text-center shadow-inner dark:bg-zinc-950">
+                  <div className="grid place-items-center rounded-full bg-zinc-50 dark:bg-[#111214] text-center" style={{ width: 126, height: 126 }}>
                     <div>
-                      <p className="text-5xl font-black text-zinc-900 dark:text-white">{totalMuscleSets}</p>
-                      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Series totales</p>
-                      <p className="text-xs text-zinc-500">esta semana</p>
+                      <p className="text-4xl font-black text-zinc-900 dark:text-white">{totalMuscleSets}</p>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-tight">Series totales<br />esta semana</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-zinc-300/70 bg-zinc-50/70 p-5 dark:border-white/[7%] dark:bg-white/[3%]">
-                <div className="mb-3 flex items-center gap-2">
-                  <Lightbulb className="h-4 w-4 text-orange-500" />
-                  <p className="text-sm font-black uppercase tracking-wide text-red-500">Recomendación</p>
+              <div className="rounded-2xl border border-zinc-300/70 bg-zinc-50/70 p-4 dark:border-white/[7%] dark:bg-[#111214]">
+                <div className="mb-2 flex items-center gap-2">
+                  <Lightbulb className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Recomendación</p>
                 </div>
-                <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+                <p className="text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-400">
                   {recommendedMuscles.length > 0
                     ? `Considerá aumentar ligeramente ${recommendedMuscles.join(", ")} para balancear mejor el estímulo semanal.`
                     : "Tu volumen está bien balanceado. Mantené el estímulo y revisá la recuperación semana a semana."}
