@@ -21,7 +21,6 @@ import WeightReminderBanner from "@/components/dashboard/WeightReminderBanner"
 import WeightProgressCard from "@/components/dashboard/WeightProgressCard"
 import MonthlyTrainingCalendar from "@/components/dashboard/MonthlyTrainingCalendar"
 import PersonalRecordsCard from "@/components/dashboard/PersonalRecordsCard"
-import QuickCheckInButton from "@/components/dashboard/QuickCheckInButton"
 import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, startOfTodayAR } from "@/lib/date-ar"
 
 export const dynamic = "force-dynamic"
@@ -144,7 +143,6 @@ export default async function DashboardPage() {
   let daysSinceLastWeightLog: number | null = null
   let weightLogs: { log_date: string; weight_kg: number }[] = []
   let personalRecords: { exercise_name: string; weight_kg: number }[] = []
-  let isCheckedInToday = false
   let monthSessionDates: string[] = []
 
   if (p?.role === "member") {
@@ -327,18 +325,6 @@ export default async function DashboardPage() {
       return acc
     }, []).slice(0, 8)
 
-    // Today's check-in status
-    const { data: openCI } = await (supabase
-      .from("check_ins" as never)
-      .select("id")
-      .eq("user_id", user!.id)
-      .eq("gym_id", p?.gym_id ?? "")
-      .is("checked_out_at", null)
-      .gte("checked_in_at", startOfTodayAR())
-      .limit(1)
-      .maybeSingle() as unknown as Promise<{ data: { id: string } | null }>)
-    isCheckedInToday = !!openCI
-
     // Sessions this month for calendar
     const { data: monthSessions } = await (supabase
       .from("workout_sessions" as never)
@@ -506,10 +492,9 @@ export default async function DashboardPage() {
         <BadgeStrip badges={recentBadges ?? []} />
       )}
 
-      {/* Member extras: check-in, peso, calendario, PRs */}
+      {/* Member extras: peso, calendario, PRs */}
       {p?.role === "member" && (
         <>
-          <QuickCheckInButton gymId={p.gym_id ?? ""} isCheckedIn={isCheckedInToday} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <WeightProgressCard logs={weightLogs} />
             <MonthlyTrainingCalendar
