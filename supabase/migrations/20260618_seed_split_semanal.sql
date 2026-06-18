@@ -176,7 +176,7 @@ BEGIN
   -- ═══════════════════════════════════════════════════════════════════════
   INSERT INTO workout_plan_exercises
     (day_id, exercise_id, sets, reps, reps_max, rest_seconds, phase, notes, order_index)
-  SELECT v_day0, e.id, t.s, t.r, t.rm, t.rest, 'main', t.note, t.ord
+  SELECT v_day0, e.id, t.s::smallint, t.r::smallint, t.rm::smallint, t.rest::smallint, 'main'::text, t.note::text, t.ord::int
   FROM (VALUES
     ('sentadillas con barra',       3, 10, NULL, 120, 'Con barra 30 kg',             1),
     ('sentadillas con disco',        3, 10, NULL,  90, NULL,                          2),
@@ -214,7 +214,7 @@ BEGIN
   -- ═══════════════════════════════════════════════════════════════════════
   INSERT INTO workout_plan_exercises
     (day_id, exercise_id, sets, reps, reps_max, rest_seconds, phase, notes, order_index)
-  SELECT v_day1, e.id, t.s, t.r, t.rm, t.rest, 'main', t.note, t.ord
+  SELECT v_day1, e.id, t.s::smallint, t.r::smallint, t.rm::smallint, t.rest::smallint, 'main'::text, t.note::text, t.ord::int
   FROM (VALUES
     ('dominadas',                     3,  8, NULL, 120, NULL,                          1),
     ('remo trx',                      3, 10, NULL,  90, NULL,                          2),
@@ -251,7 +251,7 @@ BEGIN
   -- ═══════════════════════════════════════════════════════════════════════
   INSERT INTO workout_plan_exercises
     (day_id, exercise_id, sets, reps, reps_max, rest_seconds, phase, notes, order_index)
-  SELECT d.day_id, e.id, t.s, t.r, t.rm, t.rest, 'main', t.note, t.ord
+  SELECT d.day_id, e.id, t.s::smallint, t.r::smallint, t.rm::smallint, t.rest::smallint, 'main'::text, t.note::text, t.ord::int
   FROM (SELECT unnest(ARRAY[v_day2, v_day4]) AS day_id) d
   CROSS JOIN (VALUES
     ('press plano',                   4, 10, NULL, 120, '25 kg + barra',               1),
@@ -276,7 +276,7 @@ BEGIN
   -- ═══════════════════════════════════════════════════════════════════════
   INSERT INTO workout_plan_exercises
     (day_id, exercise_id, sets, reps, reps_max, rest_seconds, phase, notes, order_index)
-  SELECT d.day_id, e.id, t.s, t.r, t.rm, t.rest, 'main', t.note, t.ord
+  SELECT d.day_id, e.id, t.s::smallint, t.r::smallint, t.rm::smallint, t.rest::smallint, 'main'::text, t.note::text, t.ord::int
   FROM (SELECT unnest(ARRAY[v_day3, v_day5]) AS day_id) d
   CROSS JOIN (VALUES
     ('curl con barra recta',           4, 10, NULL, 90, '15 kg',                        1),
@@ -314,7 +314,7 @@ BEGIN
   -- ═══════════════════════════════════════════════════════════════════════
   INSERT INTO workout_plan_exercises
     (day_id, exercise_id, sets, reps, reps_max, rest_seconds, phase, notes, order_index)
-  SELECT d.day_id, e.id, t.s, t.r, t.rm, t.rest, 'main', t.note, t.ord + 100
+  SELECT d.day_id, e.id, t.s::smallint, t.r::smallint, t.rm::smallint, t.rest::smallint, 'main'::text, t.note::text, t.ord::int + 100
   FROM (SELECT unnest(ARRAY[v_day0, v_day1, v_day2, v_day3, v_day4, v_day5]) AS day_id) d
   CROSS JOIN (VALUES
     ('plancha',                         3, 30, NULL, 60, 'Tiempo en segundos',   1),
