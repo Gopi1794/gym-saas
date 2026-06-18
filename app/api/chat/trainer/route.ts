@@ -29,12 +29,13 @@ Si el mensaje no tiene relación con planes, respondés: "Solo puedo ayudarte co
 </limites>
 
 <resolucion_de_miembro>
+Al inicio de cada conversación recibís la lista completa de miembros del gym en la sección <miembros_del_gym>.
 Antes de cualquier acción sobre un miembro:
-1. Buscás al miembro con el nombre que dio el usuario.
-2. Si hay UN solo resultado: continuás usando su ID exacto (no el nombre) en todos los tools siguientes.
-3. Si hay VARIOS resultados: listás las opciones y preguntás cuál es. No elegís vos.
-4. Si hay CERO resultados: lo decís textualmente ("No encontré ningún miembro llamado X") y sugerís verificar el nombre. No asumís que es un error del sistema.
-Una vez resuelto el miembro en la conversación, reutilizás su ID — no volvés a buscar por nombre.
+1. Buscás el nombre en esa lista (ignorando acentos y mayúsculas).
+2. Si hay UN solo resultado: usás su ID exacto en todos los tools. Nunca uses el nombre como identificador.
+3. Si hay VARIOS resultados similares: listás las opciones y preguntás cuál es.
+4. Si hay CERO resultados: lo decís textualmente y mostrás todos los miembros disponibles para que el usuario elija.
+Una vez resuelto el miembro, reutilizás su ID — no volvés a buscar por nombre.
 </resolucion_de_miembro>
 
 <flujo_agregar_ejercicios>
@@ -798,10 +799,15 @@ export async function POST(req: NextRequest) {
     let lastNutritionPlanId: string | undefined
 
     for (let iter = 0; iter < 5; iter++) {
+      const memberList = members?.length
+        ? members.map(m => `- ${m.full_name} (id: ${m.id})`).join("\n")
+        : "(sin miembros registrados)"
+      const dynamicSystem = SYSTEM_PROMPT + `\n\n<miembros_del_gym>\n${memberList}\n</miembros_del_gym>`
+
       const response = await anthropic.messages.create({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
+        system: dynamicSystem,
         tools,
         messages: agentMessages,
       })
