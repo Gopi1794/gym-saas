@@ -277,19 +277,18 @@ export async function POST(req: NextRequest) {
       return new Response("Forbidden", { status: 403 })
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: members } = await (supabase as any)
-      .from("profiles")
-      .select("id, full_name, email")
-      .eq("gym_id", profile.gym_id)
-      .eq("role", "member")
-      .order("full_name") as { data: { id: string; full_name: string; email: string | null }[] | null }
-
     const body = await req.json() as {
       messages: { role: "user" | "assistant"; content: string }[]
     }
 
     const adminDb = createAdminClient()
+
+    const { data: members } = await adminDb
+      .from("profiles" as never)
+      .select("id, full_name, email")
+      .eq("gym_id", profile.gym_id)
+      .eq("role", "member")
+      .order("full_name") as { data: { id: string; full_name: string; email: string | null }[] | null }
     const logChat = (role: "user" | "assistant", content: string) => {
       adminDb
         .from("chat_logs" as never)
