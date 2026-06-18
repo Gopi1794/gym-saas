@@ -283,12 +283,14 @@ export async function POST(req: NextRequest) {
 
     const adminDb = createAdminClient()
 
-    const { data: members } = await adminDb
-      .from("profiles" as never)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: members, error: membersError } = await (adminDb as any)
+      .from("profiles")
       .select("id, full_name, email")
       .eq("gym_id", profile.gym_id)
       .eq("role", "member")
-      .order("full_name") as { data: { id: string; full_name: string; email: string | null }[] | null }
+      .order("full_name") as { data: { id: string; full_name: string; email: string | null }[] | null; error: unknown }
+    console.log("[trainer-chat] gym_id:", profile.gym_id, "members count:", members?.length ?? 0, "error:", membersError)
     const logChat = (role: "user" | "assistant", content: string) => {
       adminDb
         .from("chat_logs" as never)
