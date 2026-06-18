@@ -5,10 +5,11 @@ import { useEffect } from "react"
 export function ForceDark({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const html = document.documentElement
-    const prev = html.className
+    const prev = html.getAttribute("class") ?? ""
     html.classList.add("dark")
+    html.classList.remove("light")
     return () => {
-      html.className = prev
+      html.setAttribute("class", prev)
     }
   }, [])
 
