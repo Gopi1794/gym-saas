@@ -19,6 +19,9 @@ BEGIN
   SELECT id INTO v_admin_id FROM profiles
     WHERE gym_id = v_gym_id AND role IN ('admin','trainer') LIMIT 1;
 
+  -- Limpiar ejecuciones anteriores parciales
+  DELETE FROM workout_plans WHERE name = 'Split Semanal Completo' AND gym_id = v_gym_id;
+
   -- ═══════════════════════════════════════════════════════════════════════
   -- 1. INSERTAR EJERCICIOS (idempotente por nombre)
   -- ═══════════════════════════════════════════════════════════════════════
