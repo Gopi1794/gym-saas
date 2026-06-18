@@ -706,7 +706,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       </div>
 
       {/* Day content */}
-      <div className="rounded-2xl border border-zinc-300 dark:border-white/[6%] bg-white dark:bg-zinc-900/50 backdrop-blur-md overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+      <div className="rounded-2xl border border-zinc-300 dark:border-white/[6%] bg-white dark:bg-zinc-900/50 backdrop-blur-md overflow-y-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
         <div className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-300 dark:border-white/[6%] px-5 py-4 bg-white dark:bg-[#111113] rounded-t-2xl">
           <div>
             <p className="font-semibold text-zinc-100">{DAY_FULL[selectedDay]}</p>
