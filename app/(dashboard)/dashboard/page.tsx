@@ -18,6 +18,10 @@ import NutritionSummaryCard from "@/components/dashboard/NutritionSummaryCard"
 import { getMemberNutritionPlan } from "@/app/actions/nutrition"
 import { getNutritionStreak, getTodayConsumedMacros, getWaterToday } from "@/app/actions/nutrition-tracking"
 import WeightReminderBanner from "@/components/dashboard/WeightReminderBanner"
+import WeightProgressCard from "@/components/dashboard/WeightProgressCard"
+import MonthlyTrainingCalendar from "@/components/dashboard/MonthlyTrainingCalendar"
+import PersonalRecordsCard from "@/components/dashboard/PersonalRecordsCard"
+import QuickCheckInButton from "@/components/dashboard/QuickCheckInButton"
 import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, startOfTodayAR } from "@/lib/date-ar"
 
 export const dynamic = "force-dynamic"
@@ -138,6 +142,10 @@ export default async function DashboardPage() {
   let memberConsumed = { calories: 0, protein: 0, carbs: 0, fat: 0 }
   let memberWaterGlasses = 0
   let daysSinceLastWeightLog: number | null = null
+  let weightLogs: { log_date: string; weight_kg: number }[] = []
+  let personalRecords: { exercise_name: string; weight_kg: number }[] = []
+  let isCheckedInToday = false
+  let monthSessionDates: string[] = []
 
   if (p?.role === "member") {
     type PlanRow = { id: string; name: string }
@@ -294,6 +302,50 @@ export default async function DashboardPage() {
         }>)
       membershipPlans = plansData ?? []
     }
+
+    // Weight logs (sparkline)
+    const { data: wlData } = await (supabase
+      .from("weight_logs" as never)
+      .select("log_date, weight_kg")
+      .eq("member_id", user!.id)
+      .order("log_date", { ascending: false })
+      .limit(10) as unknown as Promise<{ data: { log_date: string; weight_kg: number }[] | null }>)
+    weightLogs = (wlData ?? []).slice().reverse()
+
+    // Personal records (latest max per exercise)
+    const { data: maxesData } = await (supabase
+      .from("exercise_maxes" as never)
+      .select("weight_kg, exercises(name)")
+      .eq("user_id", user!.id)
+      .order("recorded_at", { ascending: false }) as unknown as Promise<{
+        data: { weight_kg: number; exercises: { name: string } }[] | null
+      }>)
+    const seen = new Set<string>()
+    personalRecords = (maxesData ?? []).reduce<{ exercise_name: string; weight_kg: number }[]>((acc, r) => {
+      const name = r.exercises?.name ?? ""
+      if (!seen.has(name)) { seen.add(name); acc.push({ exercise_name: name, weight_kg: Number(r.weight_kg) }) }
+      return acc
+    }, []).slice(0, 8)
+
+    // Today's check-in status
+    const { data: openCI } = await (supabase
+      .from("check_ins" as never)
+      .select("id")
+      .eq("user_id", user!.id)
+      .eq("gym_id", p?.gym_id ?? "")
+      .is("checked_out_at", null)
+      .gte("checked_in_at", startOfTodayAR())
+      .limit(1)
+      .maybeSingle() as unknown as Promise<{ data: { id: string } | null }>)
+    isCheckedInToday = !!openCI
+
+    // Sessions this month for calendar
+    const { data: monthSessions } = await (supabase
+      .from("workout_sessions" as never)
+      .select("completed_at")
+      .eq("user_id", user!.id)
+      .gte("completed_at", firstOfMonthAR()) as unknown as Promise<{ data: { completed_at: string }[] | null }>)
+    monthSessionDates = (monthSessions ?? []).map(s => s.completed_at)
   }
 
   const revenueThisMonth = (paymentsThisMonth ?? []).reduce((sum, p) => sum + (p.amount ?? 0), 0)
@@ -452,6 +504,22 @@ export default async function DashboardPage() {
       {/* Badge strip — members only */}
       {p?.role === "member" && (
         <BadgeStrip badges={recentBadges ?? []} />
+      )}
+
+      {/* Member extras: check-in, peso, calendario, PRs */}
+      {p?.role === "member" && (
+        <>
+          <QuickCheckInButton gymId={p.gym_id ?? ""} isCheckedIn={isCheckedInToday} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <WeightProgressCard logs={weightLogs} />
+            <MonthlyTrainingCalendar
+              sessionDates={monthSessionDates}
+              year={todayDate.getFullYear()}
+              month={todayDate.getMonth()}
+            />
+          </div>
+          <PersonalRecordsCard records={personalRecords} />
+        </>
       )}
 
       {/* Leaderboard */}
