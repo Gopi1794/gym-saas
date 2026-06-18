@@ -733,7 +733,9 @@ export async function POST(req: NextRequest) {
         const i = input as { member_id?: string; member_name?: string; day_of_week: number; exercises: { name: string; category?: string; phase?: string; muscle_groups?: string[]; sets?: number; reps?: number; reps_max?: number; rest_seconds?: number; duration_seconds?: number; notes?: string }[] }
         console.log("[trainer-chat] add_exercises_to_plan_day LLAMADO:", JSON.stringify({ member_name: i.member_name, member_id: i.member_id, day: i.day_of_week, exercises: i.exercises.map(e => ({ name: e.name, category: e.category, phase: e.phase, sets: e.sets, reps: e.reps, duration_seconds: e.duration_seconds })) }))
         if (!i.member_name && !i.member_id) return { text: "Falta el nombre del miembro." }
-        const match = findMember(members ?? null, i.member_name ?? "")
+        const match = i.member_id
+          ? (members ?? []).find(m => m.id === i.member_id) ?? null
+          : findMember(members ?? null, i.member_name ?? "")
         if (!match) return { text: `No encontré al miembro "${i.member_name ?? i.member_id}".` }
 
         // Use adminDb throughout to avoid RLS blocking plan/day/exercise operations
