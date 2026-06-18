@@ -247,13 +247,12 @@ async function resolveMemberPlan(
   return linked ?? null
 }
 
-const findMember = (members: { id: string; full_name: string; email?: string | null }[] | null, name: string) => {
+const findMember = (members: { id: string; full_name: string }[] | null, name: string) => {
   if (!name) return null
   const n = norm(name)
   return members?.find(m =>
     norm(m.full_name ?? "").includes(n) ||
-    norm(n).includes(norm(m.full_name ?? "")) ||
-    (m.email && norm(m.email).includes(n))
+    norm(n).includes(norm(m.full_name ?? ""))
   ) ?? null
 }
 
@@ -284,13 +283,12 @@ export async function POST(req: NextRequest) {
     const adminDb = createAdminClient()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: members, error: membersError } = await (adminDb as any)
+    const { data: members } = await (adminDb as any)
       .from("profiles")
-      .select("id, full_name, email")
+      .select("id, full_name")
       .eq("gym_id", profile.gym_id)
       .eq("role", "member")
-      .order("full_name") as { data: { id: string; full_name: string; email: string | null }[] | null; error: unknown }
-    console.log("[trainer-chat] gym_id:", profile.gym_id, "members count:", members?.length ?? 0, "error:", membersError)
+      .order("full_name") as { data: { id: string; full_name: string }[] | null }
     const logChat = (role: "user" | "assistant", content: string) => {
       adminDb
         .from("chat_logs" as never)
