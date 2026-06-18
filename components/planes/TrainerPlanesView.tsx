@@ -91,8 +91,8 @@ function PlanListRow({ plan, members, isTemplate }: { plan: PlanRow; members: Me
             key={i}
             className={`flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-bold ${
               activeDaySet.has(i)
-                ? "bg-brand-700/30 text-brand-400"
-                : "bg-zinc-800 text-zinc-600"
+                ? "bg-brand-700 text-white"
+                : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
             }`}
           >
             {d}
@@ -176,7 +176,7 @@ export default function TrainerPlanesView({ trainerId, gymId, memberPlans, templ
               {count > 0 && (
                 <span className={[
                   "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-                  isActive ? "bg-brand-700/40 text-brand-300" : "bg-zinc-800 text-zinc-500",
+                  isActive ? "bg-brand-700 text-white" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500",
                 ].join(" ")}>
                   {count}
                 </span>

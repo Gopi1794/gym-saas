@@ -71,7 +71,7 @@ export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-colors",
                   activeDays.has(i)
-                    ? "bg-brand-700/20 dark:bg-brand-700/30 text-brand-600 dark:text-brand-400 ring-1 ring-brand-700/40"
+                    ? "bg-brand-700 text-white"
                     : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
                 )}
               >

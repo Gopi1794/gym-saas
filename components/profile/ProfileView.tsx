@@ -929,20 +929,6 @@ export default function ProfileView({
         )}
       </div>
 
-      {/* Apariencia — solo mobile, el desktop tiene el toggle en el sidebar */}
-      <div className="md:hidden flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-900/50 px-5 py-4 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800/60 text-zinc-400">
-            <Sun className="h-4 w-4" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-zinc-200">Apariencia</p>
-            <p className="text-xs text-zinc-500">Claro / Oscuro</p>
-          </div>
-        </div>
-        <AnimatedThemeToggler />
-      </div>
-
       {/* Cerrar sesión — siempre al fondo */}
       <button
         type="button"

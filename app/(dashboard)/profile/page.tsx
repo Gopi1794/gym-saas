@@ -4,6 +4,7 @@ import ProfileView from "@/components/profile/ProfileView"
 import BadgeGrid from "@/components/profile/BadgeGrid"
 import NotificationPreferences from "@/components/profile/NotificationPreferences"
 import MembershipStatusCard from "@/components/profile/MembershipStatusCard"
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 import type { Achievement, Profile } from "@/types"
 
 export const metadata: Metadata = { title: "Profile" }
@@ -80,9 +81,14 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-50">Mi Perfil</h1>
-        <p className="text-zinc-400">Tu tarjeta de entrenador</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-50">Mi Perfil</h1>
+          <p className="text-zinc-400">Tu tarjeta de entrenador</p>
+        </div>
+        <div className="md:hidden">
+          <AnimatedThemeToggler />
+        </div>
       </div>
 
       {p.role === "member" && (
