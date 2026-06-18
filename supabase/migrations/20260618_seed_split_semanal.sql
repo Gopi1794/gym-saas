@@ -210,7 +210,9 @@ BEGIN
     ('peso muerto unilateral',       3, 10, NULL, 120, NULL,                         27),
     ('buenos días',                 3, 10, NULL,  90, NULL,                         28)
   ) AS t(name, s, r, rm, rest, note, ord)
-  JOIN exercises e ON lower(e.name) = lower(t.name);
+  JOIN (SELECT MIN(id) AS id, lower(name) AS lname FROM exercises GROUP BY lower(name)) e
+    ON e.lname = lower(t.name)
+  ON CONFLICT (day_id, order_index) DO NOTHING;
 
   -- ═══════════════════════════════════════════════════════════════════════
   -- 5. MARTES — ESPALDA Y HOMBROS
@@ -247,7 +249,9 @@ BEGIN
     ('posterior parado',              3, 10, NULL,  60, NULL,                         26),
     ('posterior en banco',            3, 10, NULL,  60, NULL,                         27)
   ) AS t(name, s, r, rm, rest, note, ord)
-  JOIN exercises e ON lower(e.name) = lower(t.name);
+  JOIN (SELECT MIN(id) AS id, lower(name) AS lname FROM exercises GROUP BY lower(name)) e
+    ON e.lname = lower(t.name)
+  ON CONFLICT (day_id, order_index) DO NOTHING;
 
   -- ═══════════════════════════════════════════════════════════════════════
   -- 6. MIÉRCOLES Y VIERNES — PECHO (insertamos en ambos días)
@@ -272,7 +276,9 @@ BEGIN
     ('svend press',                   5, 10, NULL,  60, NULL,                          13),
     ('press con mancuerna pecho',     3, 10, NULL,  90, NULL,                          14)
   ) AS t(name, s, r, rm, rest, note, ord)
-  JOIN exercises e ON lower(e.name) = lower(t.name);
+  JOIN (SELECT MIN(id) AS id, lower(name) AS lname FROM exercises GROUP BY lower(name)) e
+    ON e.lname = lower(t.name)
+  ON CONFLICT (day_id, order_index) DO NOTHING;
 
   -- ═══════════════════════════════════════════════════════════════════════
   -- 7. JUEVES Y SÁBADO — BÍCEPS Y TRÍCEPS
@@ -310,7 +316,9 @@ BEGIN
     ('tríceps en polea con soga',     3, 10, NULL, 60, NULL,                           26),
     ('extensión de tríceps 1 brazo', 3, 10, NULL, 60, NULL,                           27)
   ) AS t(name, s, r, rm, rest, note, ord)
-  JOIN exercises e ON lower(e.name) = lower(t.name);
+  JOIN (SELECT MIN(id) AS id, lower(name) AS lname FROM exercises GROUP BY lower(name)) e
+    ON e.lname = lower(t.name)
+  ON CONFLICT (day_id, order_index) DO NOTHING;
 
   -- ═══════════════════════════════════════════════════════════════════════
   -- 8. ABDOMINALES — todos los días (order_index 100+)
@@ -337,6 +345,8 @@ BEGIN
     ('bicicleta',                       3, 10, NULL, 60, NULL,                   15),
     ('abdominales en declinado',        3, 10, NULL, 60, NULL,                   16)
   ) AS t(name, s, r, rm, rest, note, ord)
-  JOIN exercises e ON lower(e.name) = lower(t.name);
+  JOIN (SELECT MIN(id) AS id, lower(name) AS lname FROM exercises GROUP BY lower(name)) e
+    ON e.lname = lower(t.name)
+  ON CONFLICT (day_id, order_index) DO NOTHING;
 
 END $$;
