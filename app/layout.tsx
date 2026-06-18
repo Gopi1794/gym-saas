@@ -25,6 +25,9 @@ export const metadata: Metadata = {
     title: "GymFlow — The gym OS built for growth",
     description: "Manage members, track check-ins with QR codes, and build an exercise library — all in one modern platform.",
   },
+  other: {
+    google: "notranslate",
+  },
 }
 
 export default function RootLayout({
@@ -33,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning translate="no">
       <body className={`${inter.variable} ${anton.variable} ${bebas.variable} font-sans`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
           {children}
