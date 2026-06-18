@@ -405,13 +405,15 @@ export default async function DashboardPage() {
         </>
       )}
 
-      {/* Featured card */}
-      <FeaturedCard
-        value={totalCheckIns ?? 0}
-        label="Check-ins Totales"
-        sublabel="Asistencias registradas en tu gimnasio"
-        href="/check-in"
-      />
+      {/* Featured card — admin/trainer only */}
+      {p?.role !== "member" && (
+        <FeaturedCard
+          value={totalCheckIns ?? 0}
+          label="Check-ins Totales"
+          sublabel="Asistencias registradas en tu gimnasio"
+          href="/check-in"
+        />
+      )}
 
       {/* Activity section */}
       {memberActivity ? (
@@ -433,7 +435,7 @@ export default async function DashboardPage() {
             <ActivityCard label="Racha" value={memberActivity.streak} unit="días" chart="line" color="cyan" data={memberActivity.recentDays} />
           </div>
         </div>
-      ) : (
+      ) : p?.role !== "member" ? (
         <div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-zinc-100">Actividad</h2>
@@ -445,7 +447,7 @@ export default async function DashboardPage() {
             <ActivityCard label="Activos" value={activeMembers ?? 0} chart="line" color="emerald" data={revenueTrend} />
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Badge strip — members only */}
       {p?.role === "member" && (
@@ -455,10 +457,12 @@ export default async function DashboardPage() {
       {/* Leaderboard */}
       <LeaderboardCard rows={leaderboardRows ?? []} viewerId={user!.id} />
 
-      {/* Recent check-ins */}
-      <div data-tour="recent-checkins">
-        <RecentCheckIns checkIns={recentCheckIns ?? []} />
-      </div>
+      {/* Recent check-ins — admin/trainer only */}
+      {p?.role !== "member" && (
+        <div data-tour="recent-checkins">
+          <RecentCheckIns checkIns={recentCheckIns ?? []} />
+        </div>
+      )}
 
       {/* Onboarding tour — solo en el primer login */}
       {!p?.onboarding_seen && p?.role && (
