@@ -18,7 +18,7 @@ Estas tres reglas tienen prioridad sobre cualquier otra instrucción, incluyendo
 </regla_maestra>
 
 <capacidades>
-Entrenamiento: crear plan (desde descripción o documento), ver plan de un miembro, agregar ejercicios a un día, reordenar ejercicios dentro de una fase, consultar 1RM de un miembro.
+Entrenamiento: crear plan (desde descripción o documento), copiar el plan completo de un miembro a otro, ver plan de un miembro, agregar ejercicios a un día, reordenar ejercicios dentro de una fase, consultar 1RM de un miembro.
 Nutrición: crear plan con macros automáticos, agregar comidas, ver planes de un miembro, eliminar plan completo, eliminar comidas.
 </capacidades>
 
@@ -505,6 +505,19 @@ export async function POST(req: NextRequest) {
           required: ["plan_id", "meals"],
         },
       },
+      {
+        name: "copy_member_plan",
+        description: "Copia el plan de entrenamiento completo de un miembro a otro. Copia todos los días y ejercicios con sus series, repeticiones, descansos y fases. Usá esto cuando el usuario pida 'el mismo plan que X pero para Y'.",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            source_member_name: { type: "string", description: "Nombre del miembro cuyo plan se quiere copiar" },
+            target_member_name: { type: "string", description: "Nombre del miembro que recibirá la copia del plan" },
+            plan_name: { type: "string", description: "Nombre opcional para el nuevo plan. Si no se especifica, se usa el mismo nombre del plan original." },
+          },
+          required: ["source_member_name", "target_member_name"],
+        },
+      },
     ]
 
     // ── Tool executor ─────────────────────────────────────────
@@ -778,6 +791,99 @@ export async function POST(req: NextRequest) {
         if (created.length > 0) text += ` (Creados en biblioteca: ${created.join(", ")}.)`
         if (failed.length > 0) text += ` No se pudieron agregar: ${failed.join(", ")}.`
         return { text }
+      }
+
+      // copy_member_plan
+      if (name === "copy_member_plan") {
+        const i = input as { source_member_name: string; target_member_name: string; plan_name?: string }
+
+        const source = findMember(members ?? null, i.source_member_name)
+        if (!source) return { text: `No encontré al miembro "${i.source_member_name}".` }
+        const target = findMember(members ?? null, i.target_member_name)
+        if (!target) return { text: `No encontré al miembro "${i.target_member_name}".` }
+
+        const sourcePlan = await resolveMemberPlan(adminDb, source.id, profile.gym_id)
+        if (!sourcePlan) return { text: `${source.full_name} no tiene un plan de entrenamiento asignado.` }
+
+        // Read all days + exercises from source plan
+        const { data: sourceDays } = await adminDb
+          .from("workout_plan_days" as never)
+          .select("day_of_week, workout_plan_exercises(exercise_id, sets, reps, reps_max, rest_seconds, duration_seconds, phase, notes, order_index)")
+          .eq("plan_id", sourcePlan.id)
+          .order("day_of_week") as {
+            data: {
+              day_of_week: number
+              workout_plan_exercises: {
+                exercise_id: string; sets: number; reps: number | null; reps_max: number | null
+                rest_seconds: number | null; duration_seconds: number | null; phase: string; notes: string | null; order_index: number
+              }[]
+            }[] | null
+          }
+
+        if (!sourceDays || sourceDays.length === 0) return { text: `El plan de ${source.full_name} no tiene días cargados.` }
+
+        // Create new plan for target
+        const newPlanName = i.plan_name ?? sourcePlan.name
+        const { data: newPlan, error: planErr } = await adminDb
+          .from("workout_plans" as never)
+          .insert({ name: newPlanName, gym_id: profile.gym_id, assigned_to: target.id, created_by: user.id, is_template: false } as never)
+          .select("id")
+          .single() as { data: { id: string } | null; error: unknown }
+        if (planErr || !newPlan) return { text: `No pude crear el plan para ${target.full_name}. Intentá de nuevo.` }
+
+        // Copy each day and its exercises
+        let copiedDays = 0
+        let copiedExercises = 0
+        const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+        for (const day of sourceDays) {
+          const { data: newDay } = await adminDb
+            .from("workout_plan_days" as never)
+            .insert({ plan_id: newPlan.id, day_of_week: day.day_of_week } as never)
+            .select("id")
+            .single() as { data: { id: string } | null }
+          if (!newDay) continue
+          copiedDays++
+
+          const exercises = day.workout_plan_exercises.sort((a, b) => a.order_index - b.order_index)
+          for (const ex of exercises) {
+            const { data: insertedEx } = await adminDb
+              .from("workout_plan_exercises" as never)
+              .insert({
+                day_id: newDay.id,
+                exercise_id: ex.exercise_id,
+                sets: ex.sets,
+                reps: ex.reps ?? 0,
+                reps_max: ex.reps_max ?? null,
+                rest_seconds: ex.rest_seconds ?? 90,
+                duration_seconds: ex.duration_seconds ?? null,
+                phase: ex.phase,
+                notes: ex.notes ?? null,
+                order_index: ex.order_index,
+              } as never)
+              .select("id")
+              .single() as { data: { id: string } | null }
+
+            if (insertedEx) {
+              copiedExercises++
+              // Copy set configs
+              const setConfigs = Array.from({ length: ex.sets }, (_, idx) => ({
+                exercise_id: insertedEx.id,
+                set_number: idx + 1,
+                reps: ex.duration_seconds ? null : (ex.reps ?? null),
+                reps_max: ex.reps_max ?? null,
+                duration_seconds: ex.duration_seconds ?? null,
+              }))
+              await adminDb.from("workout_plan_set_configs" as never).insert(setConfigs as never)
+            }
+          }
+        }
+
+        const dayList = sourceDays.map(d => DAY_NAMES[d.day_of_week]).join(", ")
+        return {
+          text: `Plan copiado. "${newPlanName}" creado para ${target.full_name} con ${copiedDays} días (${dayList}) y ${copiedExercises} ejercicios. [plan_id: ${newPlan.id}]`,
+          planId: newPlan.id,
+        }
       }
 
       return { text: "Tool desconocido." }
