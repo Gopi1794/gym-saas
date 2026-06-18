@@ -275,21 +275,6 @@ export default function ProfileView({
       {/* Profile card */}
       <div className="relative overflow-hidden rounded-[2rem] border border-zinc-200 dark:border-white/10 bg-zinc-950/70 shadow-2xl shadow-black/30 backdrop-blur-xl">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_28%)]" />
-        {/* Radar animation — top left */}
-        <div className="pointer-events-none absolute -top-2 -left-2 z-0">
-          <svg width="540" height="390" viewBox="0 0 180 130" fill="none">
-            <circle cx="30" cy="30" r="28" stroke="rgba(213,0,0,0.09)" strokeWidth="1.5" />
-            <circle cx="30" cy="30" r="56" stroke="rgba(213,0,0,0.06)" strokeWidth="1.5" />
-            <circle cx="30" cy="30" r="86" stroke="rgba(213,0,0,0.04)" strokeWidth="1" />
-            <line x1="30" y1="4"  x2="30" y2="56" stroke="rgba(213,0,0,0.06)" strokeWidth="1" />
-            <line x1="4"  y1="30" x2="56" y2="30" stroke="rgba(213,0,0,0.06)" strokeWidth="1" />
-            <circle cx="30" cy="30" r="4" fill="rgba(213,0,0,0.30)" />
-            <circle cx="30" cy="30" r="22" stroke="rgba(213,0,0,0.25)" strokeWidth="1.5" fill="none"
-              className="animate-ring-ping [transform-box:fill-box] [transform-origin:center]" />
-            <circle cx="30" cy="30" r="22" stroke="rgba(213,0,0,0.25)" strokeWidth="1.5" fill="none"
-              className="animate-ring-ping [animation-delay:1.25s] [transform-box:fill-box] [transform-origin:center]" />
-          </svg>
-        </div>
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-500/70 to-transparent" />
 
         <div className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -944,8 +929,8 @@ export default function ProfileView({
         )}
       </div>
 
-      {/* Apariencia */}
-      <div className="flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-900/50 px-5 py-4 backdrop-blur-md">
+      {/* Apariencia — solo mobile, el desktop tiene el toggle en el sidebar */}
+      <div className="md:hidden flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-900/50 px-5 py-4 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800/60 text-zinc-400">
             <Sun className="h-4 w-4" />
