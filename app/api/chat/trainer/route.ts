@@ -760,8 +760,15 @@ export async function POST(req: NextRequest) {
           let exercise: { id: string } | null = exerciseLibrary?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
 
           if (!exercise) {
-            const { data: newEx, error: createErr } = await adminDb.from("exercises" as never).insert({ name: ex.name.trim().toLowerCase(), description: (ex as { description?: string }).description?.trim() || null, category: ex.category, muscle_groups: ex.muscle_groups ?? [], is_timed: !!ex.duration_seconds || ex.category === "cardio" } as never).select("id").single() as { data: { id: string } | null; error: unknown }
-            if (createErr) { console.error("[trainer-chat] exercise create:", createErr); failed.push(ex.name); continue }
+            const resolvedCategory = ex.category ?? (ex.phase === "cooldown" ? "flexibility" : ex.phase === "warmup" ? "cardio" : "strength")
+            const { data: newEx, error: createErr } = await adminDb.from("exercises" as never).insert({
+              name: ex.name.trim().toLowerCase(),
+              description: (ex as { description?: string }).description?.trim() || null,
+              category: resolvedCategory,
+              muscle_groups: ex.muscle_groups ?? [],
+              is_timed: !!ex.duration_seconds || resolvedCategory === "cardio",
+            } as never).select("id").single() as { data: { id: string } | null; error: unknown }
+            if (createErr) { console.error("[trainer-chat] exercise create:", JSON.stringify(createErr)); failed.push(ex.name); continue }
             exercise = newEx
             if (newEx) created.push(ex.name)
           }
@@ -787,9 +794,12 @@ export async function POST(req: NextRequest) {
           } else { console.error("[trainer-chat] plan_exercise insert:", insertError); failed.push(ex.name) }
         }
         const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-        let text = `${added.length} ejercicio${added.length !== 1 ? "s" : ""} agregado${added.length !== 1 ? "s" : ""} al ${DAY_NAMES[i.day_of_week]} de ${match.full_name}: ${added.join(", ")}.`
+        if (added.length === 0) {
+          return { text: `ERROR: No se agregó ningún ejercicio al ${DAY_NAMES[i.day_of_week]} de ${match.full_name}. Fallaron: ${failed.join(", ")}. DEBÉS informar al usuario que el ejercicio NO fue agregado y preguntar si querés intentarlo de nuevo.` }
+        }
+        let text = `OK: ${added.length} ejercicio${added.length !== 1 ? "s" : ""} agregado${added.length !== 1 ? "s" : ""} al ${DAY_NAMES[i.day_of_week]} de ${match.full_name}: ${added.join(", ")}.`
         if (created.length > 0) text += ` (Creados en biblioteca: ${created.join(", ")}.)`
-        if (failed.length > 0) text += ` No se pudieron agregar: ${failed.join(", ")}.`
+        if (failed.length > 0) text += ` ADVERTENCIA: no se pudieron agregar: ${failed.join(", ")}.`
         return { text }
       }
 
