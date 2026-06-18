@@ -29,7 +29,9 @@ import {
   CheckCircle2,
   ChevronsRight,
   LogOut,
+  Sun,
 } from "lucide-react";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import AchievementBadge from "@/components/achievements/AchievementBadge";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -942,22 +944,34 @@ export default function ProfileView({
         )}
       </div>
 
-      {/* Logout — solo mobile, solo members */}
-      {profile.role === "member" && (
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={signingOut}
-          className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 text-sm font-semibold text-zinc-600 transition-colors hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 md:hidden"
-        >
-          {signingOut ? (
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          ) : (
-            <LogOut className="h-4 w-4" />
-          )}
-          Cerrar sesión
-        </button>
-      )}
+      {/* Apariencia */}
+      <div className="flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-900/50 px-5 py-4 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800/60 text-zinc-400">
+            <Sun className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-zinc-200">Apariencia</p>
+            <p className="text-xs text-zinc-500">Claro / Oscuro</p>
+          </div>
+        </div>
+        <AnimatedThemeToggler />
+      </div>
+
+      {/* Cerrar sesión — siempre al fondo */}
+      <button
+        type="button"
+        onClick={handleSignOut}
+        disabled={signingOut}
+        className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 text-sm font-semibold text-zinc-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400 dark:hover:border-red-900/50 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+      >
+        {signingOut ? (
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        ) : (
+          <LogOut className="h-4 w-4" />
+        )}
+        Cerrar sesión
+      </button>
     </div>
   );
 }
