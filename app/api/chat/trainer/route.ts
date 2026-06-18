@@ -246,9 +246,14 @@ async function resolveMemberPlan(
   return linked ?? null
 }
 
-const findMember = (members: { id: string; full_name: string }[] | null, name: string) => {
+const findMember = (members: { id: string; full_name: string; email?: string | null }[] | null, name: string) => {
   if (!name) return null
-  return members?.find(m => norm(m.full_name ?? "").includes(norm(name))) ?? null
+  const n = norm(name)
+  return members?.find(m =>
+    norm(m.full_name ?? "").includes(n) ||
+    norm(n).includes(norm(m.full_name ?? "")) ||
+    (m.email && norm(m.email).includes(n))
+  ) ?? null
 }
 
 // ── Route ─────────────────────────────────────────────────────
@@ -274,10 +279,10 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: members } = await (supabase as any)
       .from("profiles")
-      .select("id, full_name")
+      .select("id, full_name, email")
       .eq("gym_id", profile.gym_id)
       .eq("role", "member")
-      .order("full_name") as { data: { id: string; full_name: string }[] | null }
+      .order("full_name") as { data: { id: string; full_name: string; email: string | null }[] | null }
 
     const body = await req.json() as {
       messages: { role: "user" | "assistant"; content: string }[]
@@ -510,7 +515,9 @@ export async function POST(req: NextRequest) {
         const i = input as { mode: "describe" | "document"; member_name?: string; sport?: string; goal?: string; days_of_week?: number[]; document_text?: string; extra_notes?: string }
         let memberId: string | null = null
         if (i.member_name && members) {
-          memberId = findMember(members, i.member_name!)?.id ?? null
+          const found = findMember(members, i.member_name!)
+          if (!found) return { text: `No encontré al miembro "${i.member_name}" en el gym. Verificá que esté registrado con rol "miembro".` }
+          memberId = found.id
         }
         const planInput = i.mode === "document"
           ? { mode: "document" as const, memberId, documentText: i.document_text ?? "", gymId: profile.gym_id, trainerId: user.id }
