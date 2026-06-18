@@ -23,7 +23,7 @@ Nutrición: crear plan con macros automáticos, agregar comidas, ver planes de u
 </capacidades>
 
 <limites>
-NO podés: modificar series/reps/descanso de ejercicios ya cargados, eliminar ejercicios de un plan, eliminar planes de entrenamiento, reordenar ejercicios, responder sobre medicina/lesiones/motivación, gestionar membresías/pagos/configuración, enviar notificaciones.
+NO podés: modificar series/reps/descanso de ejercicios ya cargados, eliminar ejercicios de un plan, eliminar planes de entrenamiento, responder sobre medicina/lesiones/motivación, gestionar membresías/pagos/configuración, enviar notificaciones.
 Si te piden algo de esta lista, respondés: "Eso todavía no lo puedo hacer desde el chat. Podés hacerlo manualmente desde el panel." y nombrás la sección si la conocés.
 Si el mensaje no tiene relación con planes, respondés: "Solo puedo ayudarte con planes de entrenamiento o nutrición."
 </limites>
@@ -464,7 +464,7 @@ export async function POST(req: NextRequest) {
                   phase: { type: "string", enum: ["warmup", "main", "cooldown"], description: "Sección: warmup=precalentamiento, main=principal, cooldown=vuelta a la calma" },
                   notes: { type: "string" },
                 },
-                required: ["name", "category", "phase", "sets"],
+                required: ["name", "phase", "sets"],
               },
             },
           },
@@ -628,12 +628,16 @@ export async function POST(req: NextRequest) {
         if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
         const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
         if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
-        const { data: days } = await adminDb.from("workout_plan_days" as never).select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, duration_seconds, phase, exercises(name))").eq("plan_id", plan.id).order("day_of_week") as { data: { id: string; day_of_week: number; workout_plan_exercises: { order_index: number; sets: number; reps: number | null; duration_seconds: number | null; phase: string; exercises: { name: string } }[] }[] | null }
+        const { data: days } = await adminDb.from("workout_plan_days" as never).select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, reps_max, duration_seconds, rest_seconds, phase, notes, exercises(name, category, muscle_groups))").eq("plan_id", plan.id).order("day_of_week") as { data: { id: string; day_of_week: number; workout_plan_exercises: { order_index: number; sets: number; reps: number | null; reps_max: number | null; duration_seconds: number | null; rest_seconds: number | null; phase: string; notes: string | null; exercises: { name: string; category: string; muscle_groups: string[] } }[] }[] | null }
         const DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
         const summary = (days ?? []).map(d => {
           const exList = d.workout_plan_exercises.sort((a, b) => a.order_index - b.order_index).map(e => {
-            const vol = e.duration_seconds ? `${e.sets}x${e.duration_seconds}s` : e.reps ? `${e.sets}x${e.reps}` : `${e.sets} series`
-            return `  - [${e.phase}] ${e.exercises.name} (${vol})`
+            const vol = e.duration_seconds ? `${e.sets}x${e.duration_seconds}s` : e.reps ? `${e.sets}x${e.reps}${e.reps_max ? `-${e.reps_max}` : ""}` : `${e.sets} series`
+            const rest = e.rest_seconds ? ` descanso:${e.rest_seconds}s` : ""
+            const notes = e.notes ? ` notas:"${e.notes}"` : ""
+            const cat = e.exercises.category ? ` cat:${e.exercises.category}` : ""
+            const mg = e.exercises.muscle_groups?.length ? ` músculos:[${e.exercises.muscle_groups.join(",")}]` : ""
+            return `  - [${e.phase}] ${e.exercises.name} (${vol}${rest}${cat}${mg}${notes})`
           }).join("\n")
           return `${DAY_NAMES[d.day_of_week]} [day_id: ${d.id}]:\n${exList || "  (sin ejercicios)"}`
         }).join("\n\n")
@@ -734,13 +738,14 @@ export async function POST(req: NextRequest) {
         let orderIndex = existingEx?.[0] ? existingEx[0].order_index + 1 : 0
         const added: string[] = [], created: string[] = [], failed: string[] = []
 
+        // Cache exercise library once for this batch (avoid N queries of 500 rows)
+        const { data: exerciseLibrary } = await adminDb.from("exercises" as never).select("id, name").limit(500) as { data: { id: string; name: string }[] | null }
+
         for (const ex of i.exercises) {
           // Normalize search term: remove accents so "movilizacion" matches "Movilización"
           const searchTerm = norm(ex.name)
 
-          // Fetch all exercises and filter in JS to handle accent normalization
-          const { data: candidates } = await adminDb.from("exercises" as never).select("id, name").limit(500) as { data: { id: string; name: string }[] | null }
-          let exercise: { id: string } | null = candidates?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
+          let exercise: { id: string } | null = exerciseLibrary?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
 
           if (!exercise) {
             const { data: newEx, error: createErr } = await adminDb.from("exercises" as never).insert({ name: ex.name.trim().toLowerCase(), description: (ex as { description?: string }).description?.trim() || null, category: ex.category, muscle_groups: ex.muscle_groups ?? [], is_timed: !!ex.duration_seconds || ex.category === "cardio" } as never).select("id").single() as { data: { id: string } | null; error: unknown }
@@ -794,16 +799,16 @@ export async function POST(req: NextRequest) {
       .map(m => ({ role: m.role, content: m.content }))
 
     // ── Agentic loop (max 5 iterations) ──────────────────────
+    const memberList = members?.length
+      ? members.map(m => `- ${m.full_name} (id: ${m.id})`).join("\n")
+      : "(sin miembros registrados)"
+    const dynamicSystem = SYSTEM_PROMPT + `\n\n<miembros_del_gym>\n${memberList}\n</miembros_del_gym>`
+
     let agentMessages: Anthropic.MessageParam[] = [...priorHistory, ...body.messages]
     let lastPlanId: string | undefined
     let lastNutritionPlanId: string | undefined
 
     for (let iter = 0; iter < 5; iter++) {
-      const memberList = members?.length
-        ? members.map(m => `- ${m.full_name} (id: ${m.id})`).join("\n")
-        : "(sin miembros registrados)"
-      const dynamicSystem = SYSTEM_PROMPT + `\n\n<miembros_del_gym>\n${memberList}\n</miembros_del_gym>`
-
       const response = await anthropic.messages.create({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 2048,
