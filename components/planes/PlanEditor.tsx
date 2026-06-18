@@ -61,33 +61,56 @@ const PHASE_CARD: Record<Phase, string> = {
   cooldown: "bg-sky-50 border-sky-200/60 dark:bg-blue-950/40 dark:border-blue-900/20",
 }
 
-type MuscleZone = "chest" | "back" | "shoulders" | "biceps" | "triceps" | "quads" | "hamstrings" | "glutes" | "calves" | "core"
+type MuscleZone = "chest" | "back" | "shoulders" | "biceps" | "triceps" | "quads" | "hamstrings" | "glutes" | "calves" | "core" | "obliques" | "traps" | "rhomboids" | "lower_back" | "soleus" | "serratus" | "pec_minor" | "rear_delts" | "front_delts"
 type MuscleStatus = "low" | "slightly-low" | "optimal" | "high"
 
 const MUSCLE_META: Record<string, { zone: MuscleZone; range: [number, number] }> = {
-  pecho: { zone: "chest", range: [10, 20] },
-  pectoral: { zone: "chest", range: [10, 20] },
-  pectorales: { zone: "chest", range: [10, 20] },
-  espalda: { zone: "back", range: [10, 20] },
-  dorsal: { zone: "back", range: [10, 20] },
-  dorsales: { zone: "back", range: [10, 20] },
-  hombros: { zone: "shoulders", range: [10, 18] },
-  deltoides: { zone: "shoulders", range: [10, 18] },
-  biceps: { zone: "biceps", range: [8, 16] },
-  bíceps: { zone: "biceps", range: [8, 16] },
-  triceps: { zone: "triceps", range: [8, 16] },
-  tríceps: { zone: "triceps", range: [8, 16] },
-  cuadriceps: { zone: "quads", range: [10, 20] },
-  cuádriceps: { zone: "quads", range: [10, 20] },
-  isquiotibiales: { zone: "hamstrings", range: [8, 16] },
-  femorales: { zone: "hamstrings", range: [8, 16] },
-  gluteos: { zone: "glutes", range: [8, 16] },
-  glúteos: { zone: "glutes", range: [8, 16] },
-  pantorrillas: { zone: "calves", range: [8, 16] },
-  gemelos: { zone: "calves", range: [8, 16] },
-  abdomen: { zone: "core", range: [6, 14] },
-  abdominales: { zone: "core", range: [6, 14] },
-  core: { zone: "core", range: [6, 14] },
+  // Pecho
+  pecho:             { zone: "chest",       range: [10, 20] },
+  pectoral:          { zone: "chest",       range: [10, 20] },
+  pectorales:        { zone: "chest",       range: [10, 20] },
+  "pectoral menor":  { zone: "pec_minor",   range: [6,  12] },
+  serratos:          { zone: "serratus",    range: [6,  12] },
+  // Espalda
+  espalda:           { zone: "back",        range: [10, 20] },
+  dorsal:            { zone: "back",        range: [10, 20] },
+  dorsales:          { zone: "back",        range: [10, 20] },
+  "dorsal ancho":    { zone: "back",        range: [10, 20] },
+  trapecio:          { zone: "traps",       range: [8,  16] },
+  trapecios:         { zone: "traps",       range: [8,  16] },
+  romboides:         { zone: "rhomboids",   range: [6,  14] },
+  "espalda media":   { zone: "rhomboids",   range: [6,  14] },
+  lumbar:            { zone: "lower_back",  range: [6,  12] },
+  lumbares:          { zone: "lower_back",  range: [6,  12] },
+  "erector espinal": { zone: "lower_back",  range: [6,  12] },
+  // Hombros
+  hombros:               { zone: "shoulders",  range: [10, 18] },
+  deltoides:             { zone: "shoulders",  range: [10, 18] },
+  "deltoides lateral":   { zone: "shoulders",  range: [10, 18] },
+  "deltoides anterior":  { zone: "front_delts",range: [8,  16] },
+  "deltoides posterior": { zone: "rear_delts", range: [8,  16] },
+  // Brazos
+  biceps:   { zone: "biceps",   range: [8, 16] },
+  bíceps:   { zone: "biceps",   range: [8, 16] },
+  triceps:  { zone: "triceps",  range: [8, 16] },
+  tríceps:  { zone: "triceps",  range: [8, 16] },
+  // Core
+  abdomen:     { zone: "core",     range: [6, 14] },
+  abdominales: { zone: "core",     range: [6, 14] },
+  core:        { zone: "core",     range: [6, 14] },
+  oblicuos:    { zone: "obliques", range: [6, 14] },
+  // Piernas
+  cuadriceps:     { zone: "quads",      range: [10, 20] },
+  cuádriceps:     { zone: "quads",      range: [10, 20] },
+  aductores:      { zone: "quads",      range: [8,  16] },
+  isquiotibiales: { zone: "hamstrings", range: [8,  16] },
+  femorales:      { zone: "hamstrings", range: [8,  16] },
+  gluteos:        { zone: "glutes",     range: [8,  16] },
+  glúteos:        { zone: "glutes",     range: [8,  16] },
+  pantorrillas:   { zone: "calves",     range: [8,  16] },
+  gemelos:        { zone: "calves",     range: [8,  16] },
+  soleo:          { zone: "soleus",     range: [6,  14] },
+  sóleo:          { zone: "soleus",     range: [6,  14] },
 }
 
 function normalizeMuscle(muscle: string) {
@@ -124,16 +147,25 @@ function statusClass(status: MuscleStatus) {
 }
 
 const MUSCLE_ZONE_IMAGE: Record<MuscleZone, string> = {
-  shoulders:  "1.png",   // Deltoides lateral
-  chest:      "2.png",   // Pectorales
-  quads:      "3.png",   // Cuádriceps + Aductores
-  back:       "12.png",  // Dorsal ancho
-  core:       "5.png",   // Recto abdominal + Oblicuos
-  hamstrings: "6.png",   // Isquiotibiales
-  biceps:     "7.png",   // Bíceps + Braquiorradial
-  calves:     "8.png",   // Gemelos
-  glutes:     "9.png",   // Glúteo mayor
-  triceps:    "10.png",  // Tríceps
+  shoulders:   "1.png",   // Deltoides lateral
+  chest:       "2.png",   // Pectorales
+  triceps:     "3.png",   // Tríceps
+  core:        "5.png",   // Abdominales
+  obliques:    "6.png",   // Oblicuos
+  front_delts: "7.png",   // Deltoides anterior
+  calves:      "8.png",   // Gemelos
+  back:        "10.png",  // Dorsal ancho
+  traps:       "11.png",  // Trapecio
+  quads:       "14.png",  // Cuádriceps + Aductores
+  biceps:      "16.png",  // Bíceps
+  rhomboids:   "20.png",  // Romboides + Espalda media
+  hamstrings:  "22.png",  // Isquiotibiales + Glúteos
+  lower_back:  "23.png",  // Lumbar / Erector espinal
+  soleus:      "24.png",  // Sóleo + Gemelos
+  serratus:    "25.png",  // Serratos + Oblicuos
+  pec_minor:   "26.png",  // Pectoral menor
+  rear_delts:  "27.png",  // Deltoides posterior
+  glutes:      "28.png",  // Glúteos
 }
 
 function MuscleIcon({ zone, className }: { zone: MuscleZone; className?: string }) {
