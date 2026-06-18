@@ -210,7 +210,7 @@ BEGIN
     ('peso muerto unilateral',       3, 10, NULL, 120, NULL,                         27),
     ('buenos días',                 3, 10, NULL,  90, NULL,                         28)
   ) AS t(name, s, r, rm, rest, note, ord)
-  JOIN (SELECT MIN(id) AS id, lower(name) AS lname FROM exercises GROUP BY lower(name)) e
+  JOIN (SELECT DISTINCT ON (lower(name)) id, lower(name) AS lname FROM exercises ORDER BY lower(name), id) e
     ON e.lname = lower(t.name)
   ON CONFLICT (day_id, order_index) DO NOTHING;
 
@@ -249,7 +249,7 @@ BEGIN
     ('posterior parado',              3, 10, NULL,  60, NULL,                         26),
     ('posterior en banco',            3, 10, NULL,  60, NULL,                         27)
   ) AS t(name, s, r, rm, rest, note, ord)
-  JOIN (SELECT MIN(id) AS id, lower(name) AS lname FROM exercises GROUP BY lower(name)) e
+  JOIN (SELECT DISTINCT ON (lower(name)) id, lower(name) AS lname FROM exercises ORDER BY lower(name), id) e
     ON e.lname = lower(t.name)
   ON CONFLICT (day_id, order_index) DO NOTHING;
 
@@ -276,7 +276,7 @@ BEGIN
     ('svend press',                   5, 10, NULL,  60, NULL,                          13),
     ('press con mancuerna pecho',     3, 10, NULL,  90, NULL,                          14)
   ) AS t(name, s, r, rm, rest, note, ord)
-  JOIN (SELECT MIN(id) AS id, lower(name) AS lname FROM exercises GROUP BY lower(name)) e
+  JOIN (SELECT DISTINCT ON (lower(name)) id, lower(name) AS lname FROM exercises ORDER BY lower(name), id) e
     ON e.lname = lower(t.name)
   ON CONFLICT (day_id, order_index) DO NOTHING;
 
@@ -316,7 +316,7 @@ BEGIN
     ('tríceps en polea con soga',     3, 10, NULL, 60, NULL,                           26),
     ('extensión de tríceps 1 brazo', 3, 10, NULL, 60, NULL,                           27)
   ) AS t(name, s, r, rm, rest, note, ord)
-  JOIN (SELECT MIN(id) AS id, lower(name) AS lname FROM exercises GROUP BY lower(name)) e
+  JOIN (SELECT DISTINCT ON (lower(name)) id, lower(name) AS lname FROM exercises ORDER BY lower(name), id) e
     ON e.lname = lower(t.name)
   ON CONFLICT (day_id, order_index) DO NOTHING;
 
@@ -345,7 +345,7 @@ BEGIN
     ('bicicleta',                       3, 10, NULL, 60, NULL,                   15),
     ('abdominales en declinado',        3, 10, NULL, 60, NULL,                   16)
   ) AS t(name, s, r, rm, rest, note, ord)
-  JOIN (SELECT MIN(id) AS id, lower(name) AS lname FROM exercises GROUP BY lower(name)) e
+  JOIN (SELECT DISTINCT ON (lower(name)) id, lower(name) AS lname FROM exercises ORDER BY lower(name), id) e
     ON e.lname = lower(t.name)
   ON CONFLICT (day_id, order_index) DO NOTHING;
 
