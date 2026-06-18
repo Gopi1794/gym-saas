@@ -484,13 +484,11 @@ export default async function DashboardPage() {
       {/* Member extras: peso, calendario, PRs */}
       {p?.role === "member" && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <MonthlyTrainingCalendar
-              sessionDates={monthSessionDates}
-              year={todayDate.getFullYear()}
-              month={todayDate.getMonth()}
-            />
-          </div>
+          <MonthlyTrainingCalendar
+            sessionDates={monthSessionDates}
+            year={todayDate.getFullYear()}
+            month={todayDate.getMonth()}
+          />
           <PersonalRecordsCard records={personalRecords} />
         </>
       )}

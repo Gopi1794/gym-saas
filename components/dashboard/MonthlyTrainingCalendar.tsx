@@ -31,7 +31,7 @@ export default function MonthlyTrainingCalendar({
       : -1
 
   return (
-    <div className="rounded-2xl border border-zinc-200 dark:border-white/[6%] bg-white dark:bg-zinc-900/50 p-4">
+    <div className="rounded-2xl border border-zinc-200 dark:border-white/[6%] bg-white dark:bg-zinc-900/50 p-4 max-w-sm">
       <div className="mb-3 flex items-center gap-2">
         <Calendar className="h-4 w-4 text-brand-500" />
         <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
