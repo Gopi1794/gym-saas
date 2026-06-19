@@ -41,6 +41,9 @@ export default function OwnerRegisterForm() {
   const [alreadyExists, setAlreadyExists] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const turnstileRef = useRef<TurnstileInstance>(null)
+  const [otpStep, setOtpStep] = useState(false)
+  const [otp, setOtp] = useState("")
+  const [otpError, setOtpError] = useState<string | null>(null)
 
   function set<K extends keyof FormData>(key: K, value: FormData[K]) {
     setData((d) => ({ ...d, [key]: value }))
@@ -115,8 +118,67 @@ export default function OwnerRegisterForm() {
       return
     }
 
-    setSuccess(true)
     setLoading(false)
+    setOtpStep(true)
+  }
+
+  async function handleVerifyOtp() {
+    if (otp.length !== 6) { setOtpError("Ingresá el código de 6 dígitos"); return }
+    setLoading(true)
+    setOtpError(null)
+    const { error } = await supabase.auth.verifyOtp({
+      email: data.email,
+      token: otp,
+      type: "signup",
+    })
+    if (error) {
+      setOtpError("Código incorrecto o expirado. Revisá tu email.")
+      setLoading(false)
+      return
+    }
+    setLoading(false)
+    router.push("/onboarding/pago")
+  }
+
+  if (otpStep) {
+    return (
+      <div className="w-full max-w-md space-y-6">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-brand-700/40 bg-brand-950/60">
+            <span className="text-2xl">✉️</span>
+          </div>
+          <h2 className="font-display text-2xl text-zinc-50">Verificá tu email</h2>
+          <p className="mt-2 text-sm text-zinc-400">
+            Mandamos un código de 6 dígitos a <span className="font-medium text-zinc-200">{data.email}</span>
+          </p>
+        </div>
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={6}
+          placeholder="000000"
+          value={otp}
+          onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "")); setOtpError(null) }}
+          className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-4 text-center text-3xl font-bold tracking-[0.5em] text-zinc-50 placeholder-zinc-600 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+        />
+        {otpError && <p className="text-center text-sm text-red-400">{otpError}</p>}
+        <button
+          type="button"
+          onClick={handleVerifyOtp}
+          disabled={loading || otp.length !== 6}
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-700 py-4 text-base font-bold text-white shadow-[0_0_30px_rgba(213,0,0,0.3)] disabled:opacity-60"
+        >
+          {loading ? <><span className="animate-spin">⏳</span> Verificando…</> : "Verificar y continuar al pago"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOtpStep(false)}
+          className="flex w-full items-center justify-center gap-1.5 py-2 text-sm text-zinc-500 hover:text-zinc-300"
+        >
+          ← Volver y corregir email
+        </button>
+      </div>
+    )
   }
 
   if (alreadyExists) {
