@@ -13,8 +13,8 @@ interface MpNotification {
 function verifyMpSignature(req: NextRequest, rawBody: string): boolean {
   const secret = process.env.MP_WEBHOOK_SECRET
   if (!secret) {
-    console.warn("[mp/webhook] MP_WEBHOOK_SECRET no configurado — omitiendo verificación de firma")
-    return true
+    console.error("[mp/webhook] MP_WEBHOOK_SECRET no configurado — rechazando request")
+    return false
   }
 
   const xSignature = req.headers.get("x-signature") ?? ""
@@ -65,10 +65,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  const gymIdFromQuery = req.nextUrl.searchParams.get("gym_id") ?? undefined
-
   try {
-    await processPayment(notification.data.id, notification.data.external_reference, gymIdFromQuery)
+    await processPayment(notification.data.id, notification.data.external_reference)
   } catch (err) {
     console.error("[mp/webhook] error processing payment:", notification.data.id, err)
   }
@@ -145,7 +143,7 @@ async function finalizePayment(
   }
 }
 
-async function processPayment(paymentId: string, externalRef?: string, gymIdOverride?: string) {
+async function processPayment(paymentId: string, externalRef?: string) {
   const admin = createAdminClient()
 
   const { data: existing } = await admin
@@ -161,7 +159,7 @@ async function processPayment(paymentId: string, externalRef?: string, gymIdOver
 
   const parts = externalRef?.split("__") ?? []
   const memberId = parts[0]
-  const gymId = parts[1] ?? gymIdOverride
+  const gymId = parts[1]
   const membershipType = parts[2] as "basic" | "premium" | "vip" | undefined
 
   if (!gymId) {
