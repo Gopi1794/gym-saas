@@ -10,17 +10,15 @@ interface MpNotification {
   }
 }
 
-function verifyMpSignature(req: NextRequest, rawBody: string): boolean {
-  const secret = process.env.MP_WEBHOOK_SECRET
-  if (!secret) {
-    console.error("[mp/webhook] MP_WEBHOOK_SECRET no configurado — rechazando request")
-    return false
-  }
+async function getGymWebhookSecret(gymId: string): Promise<string | null> {
+  const admin = createAdminClient()
+  const { data } = await admin.rpc("get_mp_webhook_secret_for_webhook", { p_gym_id: gymId })
+  return data ?? null
+}
 
+function verifyMpSignature(req: NextRequest, rawBody: string, secret: string): boolean {
   const xSignature = req.headers.get("x-signature") ?? ""
   const xRequestId = req.headers.get("x-request-id") ?? ""
-
-  console.log(`[mp/webhook] x-signature: "${xSignature.slice(0, 40)}..." x-request-id: "${xRequestId}"`)
 
   const parts = Object.fromEntries(xSignature.split(",").map(p => p.split("=")))
   const ts = parts["ts"]
@@ -39,17 +37,29 @@ function verifyMpSignature(req: NextRequest, rawBody: string): boolean {
 
   const template = `id:${dataId};request-id:${xRequestId};ts:${ts}`
   const expected = createHmac("sha256", secret).update(template).digest("hex")
-
-  console.log(`[mp/webhook] template: "${template}"`)
-  console.log(`[mp/webhook] expected: ${expected.slice(0, 16)}... received: ${v1?.slice(0, 16)}...`)
-
   return expected === v1
 }
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
 
-  if (!verifyMpSignature(req, rawBody)) {
+  // gym_id desde query string — el owner configura su webhook URL como:
+  // https://voltia.com/api/mp/webhook?gym_id=SU_GYM_ID
+  // Se usa SOLO para buscar el secret. El gym_id real del pago siempre
+  // viene de external_reference (firmado por MP).
+  const gymIdFromQuery = req.nextUrl.searchParams.get("gym_id")
+  if (!gymIdFromQuery) {
+    console.warn("[mp/webhook] gym_id ausente en query string")
+    return NextResponse.json({ error: "Missing gym_id" }, { status: 400 })
+  }
+
+  const secret = await getGymWebhookSecret(gymIdFromQuery)
+  if (!secret) {
+    console.error(`[mp/webhook] webhook secret no configurado para gym: ${gymIdFromQuery}`)
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 401 })
+  }
+
+  if (!verifyMpSignature(req, rawBody, secret)) {
     console.warn("[mp/webhook] firma inválida — request rechazado")
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
   }
@@ -109,7 +119,6 @@ async function finalizePayment(
 
   console.log(`[mp/webhook] payment ${paymentId} finalized — member ${memberId} extended ${durationDays} days`)
 
-  // Notificar al admin del gym
   try {
     const { data: member } = await admin
       .from("profiles")
@@ -163,7 +172,7 @@ async function processPayment(paymentId: string, externalRef?: string) {
   const membershipType = parts[2] as "basic" | "premium" | "vip" | undefined
 
   if (!gymId) {
-    console.warn("[mp/webhook] missing gym_id, skipping:", paymentId)
+    console.warn("[mp/webhook] gym_id ausente en external_reference, skipping:", paymentId)
     return
   }
 
@@ -188,7 +197,6 @@ async function processPayment(paymentId: string, externalRef?: string) {
   }
 
   if (!memberId) {
-    // external_reference not in notification body — extract from the payment object
     const preParts = (payment.external_reference as string | undefined)?.split("__") ?? []
     const resolvedMemberId = preParts[0]
     const resolvedGymId = preParts[1] ?? gymId

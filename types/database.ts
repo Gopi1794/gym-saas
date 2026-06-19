@@ -510,6 +510,18 @@ export interface Database {
         Args: { p_gym_id: string }
         Returns: string | null
       }
+      set_gym_mp_webhook_secret: {
+        Args: { p_gym_id: string; p_secret: string }
+        Returns: void
+      }
+      get_mp_webhook_secret_for_webhook: {
+        Args: { p_gym_id: string }
+        Returns: string | null
+      }
+      get_gym_mp_webhook_secret_configured: {
+        Args: { p_gym_id: string }
+        Returns: boolean
+      }
     }
     Enums: Record<never, never>
   }

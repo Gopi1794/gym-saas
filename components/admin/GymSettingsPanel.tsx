@@ -4,7 +4,7 @@ import { CheckCircle2, AlertCircle, Loader2, Eye, EyeOff, Lock, ShieldCheck, X }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { saveMpToken } from "@/app/actions/gym-settings";
+import { saveMpToken, saveMpWebhookSecret } from "@/app/actions/gym-settings";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -18,6 +18,11 @@ export default function GymSettingsPanel() {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ ok?: boolean; error?: string } | null>(null);
+
+  const [webhookSecret, setWebhookSecret] = useState("");
+  const [showSecret, setShowSecret] = useState(false);
+  const [webhookLoading, setWebhookLoading] = useState(false);
+  const [webhookResult, setWebhookResult] = useState<{ ok?: boolean; error?: string } | null>(null);
 
   const supabase = createClient();
   const router = useRouter();
@@ -50,6 +55,16 @@ export default function GymSettingsPanel() {
     setResult(res.error ? { error: res.error } : { ok: true });
     if (!res.error) { setToken(""); setUnlocked(false); }
     setLoading(false);
+  }
+
+  async function handleWebhookSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setWebhookLoading(true);
+    setWebhookResult(null);
+    const res = await saveMpWebhookSecret(webhookSecret);
+    setWebhookResult(res.error ? { error: res.error } : { ok: true });
+    if (!res.error) { setWebhookSecret(""); setUnlocked(false); }
+    setWebhookLoading(false);
   }
 
   return (
@@ -156,6 +171,67 @@ export default function GymSettingsPanel() {
             </form>
           </div>
         </section>
+
+      {/* Webhook Secret */}
+      <section className="rounded-lg border border-[#ffec20] overflow-hidden">
+        <div className="bg-[#ffec20] px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold text-zinc-900">Webhook Secret</h2>
+            {unlocked && <ShieldCheck className="h-4 w-4 text-emerald-700" />}
+          </div>
+          <img src="/MP_RGB_HANDSHAKE_pluma_horizontal.svg" alt="Mercado Pago" className="h-12 brightness-0" />
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4 space-y-1.5 text-sm text-zinc-400">
+            <p className="font-medium text-zinc-300">¿Cómo obtenerlo?</p>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>Entrá a tu cuenta de Mercado Pago → Tus integraciones</li>
+              <li>Configurá la URL del webhook como:<br />
+                <code className="text-xs text-brand-400 break-all">https://voltia.app/api/mp/webhook?gym_id=TU_GYM_ID</code>
+              </li>
+              <li>MP te muestra un <strong className="text-zinc-200">Webhook Secret</strong> — copialo acá</li>
+            </ol>
+          </div>
+          <form onSubmit={handleWebhookSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="mp-webhook-secret">Webhook Secret</Label>
+              <div className="relative">
+                <Input
+                  id="mp-webhook-secret"
+                  type={showSecret ? "text" : "password"}
+                  placeholder="tu-webhook-secret"
+                  value={webhookSecret}
+                  onChange={(e) => setWebhookSecret(e.target.value)}
+                  className="pr-10 font-mono text-sm"
+                  disabled={!unlocked}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSecret((s) => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-zinc-800 transition-colors cursor-pointer"
+                  aria-label={showSecret ? "Ocultar secret" : "Mostrar secret"}
+                >
+                  {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            {webhookResult?.ok && (
+              <p className="flex items-center gap-2 text-sm text-emerald-400">
+                <CheckCircle2 className="h-4 w-4" /> Secret guardado correctamente.
+              </p>
+            )}
+            {webhookResult?.error && (
+              <p className="flex items-center gap-2 text-sm text-red-400">
+                <AlertCircle className="h-4 w-4" /> {webhookResult.error}
+              </p>
+            )}
+            <Button type="submit" disabled={webhookLoading || !webhookSecret.trim() || !unlocked}>
+              {webhookLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Guardar secret
+            </Button>
+          </form>
+        </div>
+      </section>
       </div>
     </>
   );
