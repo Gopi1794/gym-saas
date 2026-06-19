@@ -21,7 +21,7 @@ export default function InviteLink({ inviteCode }: Props) {
 
   async function handleCopy() {
     const link = `${window.location.origin}/register?gym=${inviteCode}`
-    const message = `Te estoy invitando a unirte a GYMFLOW 💪\nRegistrate con este link y quedás conectado directo al gym:\n${link}`
+    const message = `Te estoy invitando a unirte a VOLTIA 💪\nRegistrate con este link y quedás conectado directo al gym:\n${link}`
     await navigator.clipboard.writeText(message)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)

@@ -125,7 +125,7 @@ const MEDALS: Medal[] = [
     image: "/medallas/medalla_hierro.png",
     condition: "Medalla inicial",
     description:
-      "Tu primera marca dentro de GymFlow. Arrancaste el camino, ahora toca sostenerlo.",
+      "Tu primera marca dentro de Voltia. Arrancaste el camino, ahora toca sostenerlo.",
   },
   {
     id: "cardio",

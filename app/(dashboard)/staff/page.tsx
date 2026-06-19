@@ -21,7 +21,7 @@ const STAFF_STEPS: Step[] = [
 ]
 
 export const dynamic = "force-dynamic"
-export const metadata: Metadata = { title: "Staff | GymFlow" }
+export const metadata: Metadata = { title: "Staff | Voltia" }
 
 export default async function StaffPage() {
   const supabase = createClient()

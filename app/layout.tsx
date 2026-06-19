@@ -9,20 +9,20 @@ const bebas  = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font
 
 export const metadata: Metadata = {
   title: {
-    default: "GymFlow — The gym OS built for growth",
-    template: "%s | GymFlow",
+    default: "Voltia — The gym OS built for growth",
+    template: "%s | Voltia",
   },
   description:
     "Manage members, track check-ins with QR codes, and build an exercise library — all in one modern platform.",
   openGraph: {
-    title: "GymFlow — The gym OS built for growth",
+    title: "Voltia — The gym OS built for growth",
     description: "Manage members, track check-ins with QR codes, and build an exercise library — all in one modern platform.",
-    siteName: "GymFlow",
+    siteName: "Voltia",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "GymFlow — The gym OS built for growth",
+    title: "Voltia — The gym OS built for growth",
     description: "Manage members, track check-ins with QR codes, and build an exercise library — all in one modern platform.",
   },
   other: {

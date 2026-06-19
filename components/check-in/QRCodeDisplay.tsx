@@ -56,7 +56,7 @@ export default function QRCodeDisplay({ qrCode, memberName }: QRCodeDisplayProps
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `gymflow-qr-${qrCode.slice(0, 8)}.svg`
+    a.download = `voltia-qr-${qrCode.slice(0, 8)}.svg`
     a.click()
     URL.revokeObjectURL(url)
   }

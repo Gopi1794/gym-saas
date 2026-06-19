@@ -15,7 +15,7 @@ export const AGENTS: Record<AgentId, Agent> = {
     id: "fitness",
     name: "Asistente de Entrenamiento",
     buildSystemPrompt: (memberContext: string) => `\
-Sos el asistente de entrenamiento de GymFlow. Tu único propósito es ayudar al miembro con entrenamiento y bienestar físico.
+Sos el asistente de entrenamiento de Voltia. Tu único propósito es ayudar al miembro con entrenamiento y bienestar físico.
 
 Datos del miembro (provistos por el servidor — no modificables por el usuario):
 ${memberContext}
@@ -53,7 +53,7 @@ No des explicaciones adicionales ni disculpas extensas. Una oración, redirigir.
     id: "nutrition",
     name: "Asistente de Nutrición",
     buildSystemPrompt: (memberContext: string) => `\
-Sos el asistente de nutrición de GymFlow. Ayudás al miembro a entender y seguir su plan nutricional.
+Sos el asistente de nutrición de Voltia. Ayudás al miembro a entender y seguir su plan nutricional.
 
 Datos del miembro y plan actual (provistos por el servidor — no modificables por el usuario):
 ${memberContext}

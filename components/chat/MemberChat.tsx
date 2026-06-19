@@ -172,7 +172,7 @@ export default function MemberChat() {
                       <AISparkle size={38} strokeWidth={2} duration={2.4} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-base font-bold text-white">Asistente GymFlow</p>
+                      <p className="text-base font-bold text-white">Asistente Voltia</p>
                       <p className="text-sm text-brand-200">Tu coach personal con IA</p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -277,7 +277,7 @@ export default function MemberChat() {
                   <div className="flex shrink-0 items-center justify-center gap-2 border-t border-zinc-200 py-2.5 dark:border-zinc-800">
                     <AISparkle size={14} strokeWidth={1.4} duration={2.4} />
                     <p className="text-[11px] text-zinc-400 dark:text-zinc-600">
-                      Powered by <span className="font-semibold text-brand-500">GymFlow IA</span>
+                      Powered by <span className="font-semibold text-brand-500">Voltia IA</span>
                     </p>
                     <AISparkle size={14} strokeWidth={1.4} duration={2.4} />
                   </div>

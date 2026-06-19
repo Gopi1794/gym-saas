@@ -60,7 +60,7 @@ export default function RenewMembershipCard({ expiresAt, currentType, plans = []
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: `Membresía ${plan.label} — GymFlow`,
+          title: `Membresía ${plan.label} — Voltia`,
           amount: plan.amount,
           membership_type: plan.key,
         }),

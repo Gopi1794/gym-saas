@@ -191,7 +191,7 @@ export default function LandingPage() {
         <div className="container">
           <div className="mb-16 text-center">
             <h2 className="mb-4 font-display text-4xl">
-              Gimnasios que ya crecen con GymFlow
+              Gimnasios que ya crecen con Voltia
             </h2>
             <p className="text-zinc-400">Más de 500 gimnasios confían en nosotros.</p>
           </div>
@@ -274,7 +274,7 @@ export default function LandingPage() {
             <GymFlowLogo size={18} textSize="text-lg" />
           </div>
           <p className="text-sm text-zinc-500">
-            © 2026 GymFlow. Todos los derechos reservados.
+            © 2026 Voltia. Todos los derechos reservados.
           </p>
         </div>
       </footer>

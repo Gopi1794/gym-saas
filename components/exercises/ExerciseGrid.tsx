@@ -107,7 +107,7 @@ export default function ExerciseGrid({
           <div className="relative z-10 flex min-h-[245px] items-stretch">
             <div className="flex-1 px-5 py-7 pr-4 sm:px-8 sm:py-9">
               <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.48em] !text-white">
-                GymFlow Training
+                Voltia Training
               </p>
               <h2 className="font-heading text-4xl font-normal uppercase leading-[0.95] tracking-wide !text-white sm:text-5xl">
                 Biblioteca

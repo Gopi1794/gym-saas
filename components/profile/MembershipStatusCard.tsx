@@ -137,7 +137,7 @@ export default function MembershipStatusCard({ membershipType, expiresAt, plans 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: `Membresía ${selectedPlan.label || PLAN_LABELS[selected]} — GymFlow`,
+          title: `Membresía ${selectedPlan.label || PLAN_LABELS[selected]} — Voltia`,
           amount: selectedPlan.price,
           membership_type: selected,
         }),

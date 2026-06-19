@@ -19,14 +19,14 @@ async function fetchGym(gymCode: string) {
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const gymCode = searchParams.gym
-  if (!gymCode) return { title: "Crear cuenta | GymFlow" }
+  if (!gymCode) return { title: "Crear cuenta | Voltia" }
 
   const gym = await fetchGym(gymCode)
   const gymName = gym?.name ?? "Tu gym"
   const image = gym?.logo_url ?? "/logo-vector.png"
 
   return {
-    title: `Únete a ${gymName} | GymFlow`,
+    title: `Únete a ${gymName} | Voltia`,
     description: `Registrate y empezá a entrenar en ${gymName}. Seguimiento de progreso, planes personalizados y más.`,
     openGraph: {
       title: `Únete a ${gymName}`,

@@ -10,7 +10,7 @@ const ADMIN_STEPS: Step[] = [
   {
     target: "body",
     placement: "center",
-    title: "¡Bienvenido a GymFlow! 👋",
+    title: "¡Bienvenido a Voltia! 👋",
     content: "Te mostramos las funciones clave de tu panel en menos de un minuto.",
   },
   {
@@ -37,7 +37,7 @@ const MEMBER_STEPS: Step[] = [
   {
     target: "body",
     placement: "center",
-    title: "¡Bienvenido a GymFlow! 💪",
+    title: "¡Bienvenido a Voltia! 💪",
     content: "Tu panel personal para seguir tus rutinas, progreso y logros.",
   },
   {

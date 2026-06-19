@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       items: [
         {
-          title: "GymFlow — Suscripción mensual",
+          title: "Voltia — Suscripción mensual",
           quantity: 1,
           unit_price: 30000,
           currency_id: "ARS",

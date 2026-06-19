@@ -11,7 +11,7 @@ interface PageTourProps {
 }
 
 export default function PageTour({ tourKey, steps }: PageTourProps) {
-  const storageKey = `gymflow_tour_${tourKey}`
+  const storageKey = `voltia_tour_${tourKey}`
   const [run, setRun] = useState(false)
   const [seen, setSeen] = useState(true)
 
