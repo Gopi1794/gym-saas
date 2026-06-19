@@ -1,10 +1,45 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createHmac } from "crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+function verifySignature(req: NextRequest, rawBody: string): boolean {
+  const secret = process.env.MP_SAAS_WEBHOOK_SECRET
+  if (!secret) {
+    console.error("[saas-webhook] MP_SAAS_WEBHOOK_SECRET no configurado — rechazando request")
+    return false
+  }
+
+  const xSignature = req.headers.get("x-signature") ?? ""
+  const xRequestId = req.headers.get("x-request-id") ?? ""
+
+  const parts = Object.fromEntries(xSignature.split(",").map(p => p.split("=")))
+  const ts = parts["ts"]
+  const v1 = parts["v1"]
+  if (!ts || !v1) return false
+
+  let dataId: string
+  try {
+    dataId = JSON.parse(rawBody)?.data?.id ?? ""
+  } catch {
+    return false
+  }
+
+  const template = `id:${dataId};request-id:${xRequestId};ts:${ts}`
+  const expected = createHmac("sha256", secret).update(template).digest("hex")
+  return expected === v1
+}
+
 export async function POST(req: NextRequest) {
+  const rawBody = await req.text()
+
+  if (!verifySignature(req, rawBody)) {
+    console.warn("[saas-webhook] firma inválida — request rechazado")
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
+  }
+
   let body: { type?: string; data?: { id?: string } }
   try {
-    body = await req.json()
+    body = JSON.parse(rawBody)
   } catch {
     return NextResponse.json({ ok: true })
   }
@@ -68,7 +103,6 @@ async function processSaasPayment(paymentId: string) {
     return
   }
 
-  // Obtener nombre del gym desde user metadata
   const { data: { user }, error: userError } = await admin.auth.admin.getUserById(userId)
   if (userError || !user) {
     console.error("[saas-webhook] usuario no encontrado:", userId)
@@ -77,7 +111,6 @@ async function processSaasPayment(paymentId: string) {
 
   const gymName: string = user.user_metadata?.pending_gym_name ?? "Mi Gimnasio"
 
-  // Crear el gym
   const { error } = await admin.rpc("create_gym_for_owner" as never, {
     p_user_id: userId,
     p_gym_name: gymName,
