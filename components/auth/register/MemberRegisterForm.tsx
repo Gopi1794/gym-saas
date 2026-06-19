@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, User, Calendar, Activity, Heart } from "lucide-react"
@@ -9,6 +9,8 @@ import LottiePlayer from "@/components/ui/lottie-player"
 import { cn } from "@/lib/utils"
 import RegisterShell from "./RegisterShell"
 import { inputCls, labelCls, FieldError, Pill } from "./shared"
+import { Turnstile } from "@marsidev/react-turnstile"
+import type { TurnstileInstance } from "@marsidev/react-turnstile"
 
 type Gender = "male" | "female" | "other"
 type Goal = "lose_weight" | "gain_muscle" | "performance" | "maintain"
@@ -56,6 +58,8 @@ export default function MemberRegisterForm({ gymCode, gymName }: Props) {
   const [otpStep, setOtpStep] = useState(false)
   const [otp, setOtp] = useState("")
   const [otpError, setOtpError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const turnstileRef = useRef<TurnstileInstance>(null)
 
   function set<K extends keyof FormData>(key: K, value: FormData[K]) {
     setData((d) => ({ ...d, [key]: value }))
@@ -100,6 +104,10 @@ export default function MemberRegisterForm({ gymCode, gymName }: Props) {
 
   async function handleSubmit() {
     if (!validate()) return
+    if (!captchaToken) {
+      setServerError("Completá la verificación de seguridad.")
+      return
+    }
     setLoading(true)
     setServerError(null)
 
@@ -107,6 +115,7 @@ export default function MemberRegisterForm({ gymCode, gymName }: Props) {
       email: data.email,
       password: data.password,
       options: {
+        captchaToken,
         data: {
           full_name: data.fullName,
           gender: data.gender,
@@ -116,6 +125,8 @@ export default function MemberRegisterForm({ gymCode, gymName }: Props) {
     })
 
     if (error) {
+      turnstileRef.current?.reset()
+      setCaptchaToken(null)
       setServerError(error.message)
       setLoading(false)
       return
@@ -333,6 +344,13 @@ export default function MemberRegisterForm({ gymCode, gymName }: Props) {
 
       {step === 3 && (
         <>
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+            onSuccess={setCaptchaToken}
+            onExpire={() => setCaptchaToken(null)}
+            options={{ theme: "dark", language: "es" }}
+          />
           <div>
             <label className={labelCls}>¿Con qué frecuencia entrenás ahora?</label>
             <Pill

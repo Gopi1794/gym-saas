@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, User, Building2 } from "lucide-react"
@@ -9,6 +9,8 @@ import LottiePlayer from "@/components/ui/lottie-player"
 import { cn } from "@/lib/utils"
 import RegisterShell from "./RegisterShell"
 import { inputCls, labelCls, FieldError } from "./shared"
+import { Turnstile } from "@marsidev/react-turnstile"
+import type { TurnstileInstance } from "@marsidev/react-turnstile"
 
 type FormData = {
   fullName: string
@@ -37,6 +39,8 @@ export default function OwnerRegisterForm() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [alreadyExists, setAlreadyExists] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const turnstileRef = useRef<TurnstileInstance>(null)
 
   function set<K extends keyof FormData>(key: K, value: FormData[K]) {
     setData((d) => ({ ...d, [key]: value }))
@@ -70,6 +74,10 @@ export default function OwnerRegisterForm() {
 
   async function handleSubmit() {
     if (!validate()) return
+    if (!captchaToken) {
+      setServerError("Completá la verificación de seguridad.")
+      return
+    }
     setLoading(true)
     setServerError(null)
 
@@ -77,6 +85,7 @@ export default function OwnerRegisterForm() {
       email: data.email,
       password: data.password,
       options: {
+        captchaToken,
         data: {
           full_name: data.fullName,
           pending_gym_name: data.gymName,
@@ -85,6 +94,8 @@ export default function OwnerRegisterForm() {
     })
 
     if (error) {
+      turnstileRef.current?.reset()
+      setCaptchaToken(null)
       const isAlreadyRegistered =
         error.message.toLowerCase().includes("already registered") ||
         error.message.toLowerCase().includes("already exists") ||
@@ -197,20 +208,29 @@ export default function OwnerRegisterForm() {
       )}
 
       {step === 1 && (
-        <div>
-          <label htmlFor="gymName" className={labelCls}>Nombre del gimnasio</label>
-          <input
-            id="gymName"
-            type="text"
-            placeholder="Ej: Iron Gym, FitZone..."
-            value={data.gymName}
-            onChange={(e) => set("gymName", e.target.value)}
-            className={cn(inputCls, errors.gymName && "border-red-500/60")}
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="gymName" className={labelCls}>Nombre del gimnasio</label>
+            <input
+              id="gymName"
+              type="text"
+              placeholder="Ej: Iron Gym, FitZone..."
+              value={data.gymName}
+              onChange={(e) => set("gymName", e.target.value)}
+              className={cn(inputCls, errors.gymName && "border-red-500/60")}
+            />
+            <FieldError msg={errors.gymName} />
+            <p className="mt-3 text-sm text-zinc-500">
+              Este es el nombre que verán tus miembros al unirse.
+            </p>
+          </div>
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+            onSuccess={setCaptchaToken}
+            onExpire={() => setCaptchaToken(null)}
+            options={{ theme: "dark", language: "es" }}
           />
-          <FieldError msg={errors.gymName} />
-          <p className="mt-3 text-sm text-zinc-500">
-            Este es el nombre que verán tus miembros al unirse.
-          </p>
         </div>
       )}
     </RegisterShell>
