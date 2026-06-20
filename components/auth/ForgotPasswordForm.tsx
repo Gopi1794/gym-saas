@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Alert } from "@/components/ui/alert"
 import { createClient } from "@/lib/supabase/client"
 import { Loader2, ArrowLeft, MailCheck } from "lucide-react"
+import { Turnstile } from "@marsidev/react-turnstile"
+import type { TurnstileInstance } from "@marsidev/react-turnstile"
 
 export default function ForgotPasswordForm() {
   const supabase = createClient()
@@ -15,18 +17,26 @@ export default function ForgotPasswordForm() {
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const turnstileRef = useRef<TurnstileInstance>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!captchaToken) {
+      setError("Completá la verificación de seguridad.")
+      return
+    }
     setLoading(true)
     setError(null)
 
     const redirectTo = `${window.location.origin}/reset-password`
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo, captchaToken })
 
     if (error) {
       setError("No pudimos enviar el email. Verificá la dirección e intentá de nuevo.")
+      turnstileRef.current?.reset()
+      setCaptchaToken(null)
       setLoading(false)
       return
     }
@@ -91,10 +101,18 @@ export default function ForgotPasswordForm() {
           />
         </div>
 
+        <Turnstile
+          ref={turnstileRef}
+          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+          onSuccess={setCaptchaToken}
+          onExpire={() => setCaptchaToken(null)}
+          options={{ theme: "dark", language: "es" }}
+        />
+
         <Button
           type="submit"
           className="w-full bg-brand-700 text-white hover:bg-brand-600 active:bg-brand-800 transition-colors font-semibold"
-          disabled={loading || !email}
+          disabled={loading || !email || !captchaToken}
         >
           {loading ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando…</>
