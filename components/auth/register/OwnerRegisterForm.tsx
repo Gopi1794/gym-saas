@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, User, Building2 } from "lucide-react"
@@ -44,6 +44,39 @@ export default function OwnerRegisterForm() {
   const [otpStep, setOtpStep] = useState(false)
   const [otp, setOtp] = useState("")
   const [otpError, setOtpError] = useState<string | null>(null)
+  const [countdown, setCountdown] = useState(600)
+  const [resending, setResending] = useState(false)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (!otpStep) return
+    setCountdown(600)
+    countdownRef.current = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) { clearInterval(countdownRef.current!); return 0 }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(countdownRef.current!)
+  }, [otpStep])
+
+  async function handleResend() {
+    setResending(true)
+    setOtpError(null)
+    await supabase.auth.resend({ type: "signup", email: data.email })
+    setCountdown(600)
+    countdownRef.current = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) { clearInterval(countdownRef.current!); return 0 }
+        return c - 1
+      })
+    }, 1000)
+    setResending(false)
+  }
+
+  function formatCountdown(s: number) {
+    return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
+  }
 
   function set<K extends keyof FormData>(key: K, value: FormData[K]) {
     setData((d) => ({ ...d, [key]: value }))
@@ -149,9 +182,11 @@ export default function OwnerRegisterForm() {
           </div>
           <h2 className="font-display text-2xl text-zinc-50">Verificá tu email</h2>
           <p className="mt-2 text-sm text-zinc-400">
-            Mandamos un código de 6 dígitos a <span className="font-medium text-zinc-200">{data.email}</span>
+            Mandamos un código de 6 dígitos a{" "}
+            <span className="font-medium text-zinc-200">{data.email}</span>
           </p>
         </div>
+
         <input
           type="text"
           inputMode="numeric"
@@ -161,7 +196,30 @@ export default function OwnerRegisterForm() {
           onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "")); setOtpError(null) }}
           className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-4 text-center text-3xl font-bold tracking-[0.5em] text-zinc-50 placeholder-zinc-600 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
         />
+
         {otpError && <p className="text-center text-sm text-red-400">{otpError}</p>}
+
+        {/* Countdown */}
+        <div className="text-center">
+          {countdown > 0 ? (
+            <p className="text-sm text-zinc-500">
+              El código expira en{" "}
+              <span className={cn("font-mono font-bold", countdown <= 60 ? "text-red-400" : "text-zinc-300")}>
+                {formatCountdown(countdown)}
+              </span>
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resending}
+              className="text-sm font-medium text-brand-500 hover:text-brand-400 transition-colors disabled:opacity-50"
+            >
+              {resending ? "Reenviando…" : "Reenviar código"}
+            </button>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={handleVerifyOtp}
@@ -170,6 +228,7 @@ export default function OwnerRegisterForm() {
         >
           {loading ? <><span className="animate-spin">⏳</span> Verificando…</> : "Verificar y continuar al pago"}
         </button>
+
         <button
           type="button"
           onClick={() => setOtpStep(false)}
