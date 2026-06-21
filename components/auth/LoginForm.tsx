@@ -9,30 +9,41 @@ import { Label } from "@/components/ui/label"
 import { Alert } from "@/components/ui/alert"
 import { createClient } from "@/lib/supabase/client"
 import { Loader2, Eye, EyeOff } from "lucide-react"
+import { Turnstile } from "@marsidev/react-turnstile"
+import type { TurnstileInstance } from "@marsidev/react-turnstile"
 
 export default function LoginForm() {
   const router = useRouter()
   const supabase = createClient()
   const emailRef = useRef<HTMLInputElement>(null)
+  const turnstileRef = useRef<TurnstileInstance>(null)
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!captchaToken) {
+      setError("Completá la verificación de seguridad.")
+      return
+    }
     setLoading(true)
     setError(null)
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: { captchaToken },
     })
 
     if (error) {
       setError(error.message)
+      turnstileRef.current?.reset()
+      setCaptchaToken(null)
       setLoading(false)
       emailRef.current?.focus()
       return
@@ -107,10 +118,18 @@ export default function LoginForm() {
           </div>
         </div>
 
+        <Turnstile
+          ref={turnstileRef}
+          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+          onSuccess={setCaptchaToken}
+          onExpire={() => setCaptchaToken(null)}
+          options={{ theme: "auto", language: "es" }}
+        />
+
         <Button
           type="submit"
           className="w-full bg-brand-700 text-white hover:bg-brand-600 active:bg-brand-800 transition-colors font-semibold"
-          disabled={loading}
+          disabled={loading || !captchaToken}
         >
           {loading ? (
             <>
