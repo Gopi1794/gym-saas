@@ -42,8 +42,8 @@ export default async function DashboardLayout({
           {role === "member" && <MobileNav role={role} />}
         </div>
       </div>
-      {role === "member" && <MemberChat />}
-      {(role === "admin" || role === "trainer") && <TrainerChat />}
+      {role === "member" && profile?.gym_id && <MemberChat />}
+      {(role === "admin" || role === "trainer") && profile?.gym_id && <TrainerChat />}
     </div>
   )
 }

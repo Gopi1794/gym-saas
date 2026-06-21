@@ -43,7 +43,7 @@ export default function SaasPaymentPage() {
           </div>
 
           <div className="flex items-end gap-1 mb-6">
-            <span className="text-4xl font-bold text-zinc-50">$30.000</span>
+            <span className="text-4xl font-bold text-zinc-50">$100</span>
             <span className="mb-1 text-zinc-500">/mes</span>
           </div>
 
