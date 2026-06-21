@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
         {
           title: "Voltia — Suscripción mensual",
           quantity: 1,
-          unit_price: 30000,
+          unit_price: 100,
           currency_id: "ARS",
         },
       ],
