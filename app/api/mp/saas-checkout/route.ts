@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
       },
       ...(!isLocalhost && { auto_return: "approved" }),
       external_reference: externalRef,
-      notification_url: `${appUrl}/api/mp/saas-webhook`,
     }),
   })
 
