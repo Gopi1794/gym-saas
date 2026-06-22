@@ -507,10 +507,10 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
 type StatColor = "red" | "orange" | "cyan" | "emerald"
 
 const COLOR_MAP: Record<StatColor, { bg: string; icon: string; value: string; border: string }> = {
-  red: { bg: "bg-brand-700/10", icon: "text-brand-500", value: "text-brand-400", border: "border-brand-700/25" },
-  orange: { bg: "bg-orange-500/10", icon: "text-orange-400", value: "text-orange-300", border: "border-orange-500/25" },
-  cyan: { bg: "bg-cyan-500/10", icon: "text-cyan-400", value: "text-cyan-300", border: "border-cyan-500/25" },
-  emerald: { bg: "bg-emerald-500/10", icon: "text-emerald-400", value: "text-emerald-300", border: "border-emerald-500/25" },
+  red: { bg: "bg-zinc-900", icon: "text-brand-500", value: "text-brand-400", border: "border-brand-700/40" },
+  orange: { bg: "bg-zinc-900", icon: "text-orange-400", value: "text-orange-300", border: "border-orange-500/40" },
+  cyan: { bg: "bg-zinc-900", icon: "text-cyan-400", value: "text-cyan-300", border: "border-cyan-500/40" },
+  emerald: { bg: "bg-zinc-900", icon: "text-emerald-400", value: "text-emerald-300", border: "border-emerald-500/40" },
 }
 
 function StatCard({

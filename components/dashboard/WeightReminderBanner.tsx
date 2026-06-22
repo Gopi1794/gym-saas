@@ -36,8 +36,7 @@ export default function WeightReminderBanner({ daysSinceLastLog }: Props) {
   }
 
   return (
-    <div className="animate-border-glow-blue relative overflow-hidden rounded-2xl border border-blue-500/20 bg-blue-500/[0.06] px-4 py-3">
-      <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
+    <div className="relative rounded-2xl border border-blue-500/30 bg-zinc-900 px-4 py-3">
 
       <div className="flex flex-wrap items-center gap-3">
         <Scale className="h-4 w-4 shrink-0 text-blue-400" />
