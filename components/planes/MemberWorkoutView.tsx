@@ -250,72 +250,54 @@ function DayDetail({
         </div>
       )}
 
-      {/* Exercise list — card grid */}
-      <div className="grid grid-cols-3 gap-2.5">
-        {exercises.map((pe, index) => (
-          <div
-            key={pe.id}
-            className="relative rounded-2xl bg-zinc-900 border border-brand-700/50"
-          >
-            {/* Number badge */}
-            <span className="absolute right-2.5 top-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-brand-700 text-[11px] font-bold text-white shadow-lg">
-              {index + 1}
-            </span>
-
-            {/* Image */}
-            <div className="h-20 w-full overflow-hidden rounded-t-2xl bg-zinc-800">
-              {pe.exercises.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={pe.exercises.image_url}
-                  alt={pe.exercises.name}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <Dumbbell className="h-8 w-8 text-zinc-600" />
-                </div>
+      {/* Exercise list */}
+      <div className="border border-zinc-800 rounded-2xl">
+        {exercises.map((pe, index) => {
+          const repsLabel = pe.duration_seconds != null
+            ? `${pe.duration_seconds}s`
+            : pe.reps_max != null
+              ? `${pe.reps}–${pe.reps_max}`
+              : String(pe.reps)
+          const repsType = pe.duration_seconds != null ? "tiempo" : "reps"
+          const isLast = index === exercises.length - 1
+          return (
+            <div
+              key={pe.id}
+              className={cn(
+                "flex items-center gap-4 px-4 py-3.5",
+                !isLast && "border-b border-zinc-800"
               )}
-            </div>
+            >
+              {/* Number */}
+              <span className="font-display text-2xl leading-none text-brand-600 w-7 shrink-0 text-center">
+                {String(index + 1).padStart(2, "0")}
+              </span>
 
-            {/* Content */}
-            <div className="p-3 pt-2">
-              <p className="font-heading text-sm uppercase tracking-wide text-zinc-100 leading-tight line-clamp-2">
+              {/* Name */}
+              <p className="flex-1 font-heading text-sm uppercase tracking-wide text-zinc-100 leading-tight">
                 {pe.exercises.name}
               </p>
 
               {/* Stats */}
-              <div className="mt-2.5 flex items-center gap-2">
-                <div className="flex flex-col items-center">
-                  <span className="text-sm font-bold text-zinc-100">
-                    {pe.sets}
-                  </span>
-                  <span className="text-[10px] text-zinc-500">series</span>
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-right">
+                  <p className="text-sm font-bold text-zinc-100 tabular-nums">{pe.sets}<span className="text-zinc-500 font-normal text-xs ml-0.5">s</span></p>
+                  <p className="text-[10px] text-zinc-600">series</p>
                 </div>
-                <div className="h-6 w-px bg-white/10" />
-                <div className="flex flex-col items-center">
-                  <span className="text-sm font-bold text-zinc-100">
-                    {pe.duration_seconds != null
-                      ? `${pe.duration_seconds}s`
-                      : pe.reps_max != null
-                        ? `${pe.reps}–${pe.reps_max}`
-                        : pe.reps}
-                  </span>
-                  <span className="text-[10px] text-zinc-500">
-                    {pe.duration_seconds != null ? "tiempo" : "reps"}
-                  </span>
+                <div className="h-6 w-px bg-zinc-800" />
+                <div className="text-right">
+                  <p className="text-sm font-bold text-zinc-100 tabular-nums">{repsLabel}</p>
+                  <p className="text-[10px] text-zinc-600">{repsType}</p>
                 </div>
-                <div className="h-6 w-px bg-white/10" />
-                <div className="flex flex-col items-center">
-                  <span className="text-sm font-bold text-zinc-100">
-                    {pe.rest_seconds}s
-                  </span>
-                  <span className="text-[10px] text-zinc-500">descanso</span>
+                <div className="h-6 w-px bg-zinc-800" />
+                <div className="text-right">
+                  <p className="text-sm font-bold text-zinc-100 tabular-nums">{pe.rest_seconds}<span className="text-zinc-500 font-normal text-xs ml-0.5">s</span></p>
+                  <p className="text-[10px] text-zinc-600">desc.</p>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* CTA */}
