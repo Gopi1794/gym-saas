@@ -5,14 +5,14 @@ import { useTheme } from "next-themes"
 import * as echarts from "echarts/core"
 import { BarChart, LineChart, PieChart } from "echarts/charts"
 import { GridComponent, TooltipComponent } from "echarts/components"
-import { CanvasRenderer } from "echarts/renderers"
+import { SVGRenderer } from "echarts/renderers"
 import { Flame, TrendingUp, Dumbbell, CalendarDays } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ExerciseProgressionSection } from "./ExerciseProgressionSection"
 import type { ExerciseHistory } from "@/app/actions/exercise-maxes"
 
 // Register ECharts modules once at module level
-echarts.use([BarChart, LineChart, PieChart, GridComponent, TooltipComponent, CanvasRenderer])
+echarts.use([BarChart, LineChart, PieChart, GridComponent, TooltipComponent, SVGRenderer])
 
 export type SessionRecord = {
   id: string
@@ -155,7 +155,7 @@ function WeeklyBarChart({ weeks, weekMap, thisWeekKey, isDark = true }: WeeklyBa
     const el = containerRef.current
     if (!el) return
 
-    const chart = echarts.init(el, null, { renderer: "canvas" })
+    const chart = echarts.init(el, null, { renderer: "svg" })
     chartRef.current = chart
     chart.setOption(option as any)
 
@@ -269,7 +269,7 @@ function WeeklyLoadChart({ weeks, exerciseMap, sessionMap, isDark = true }: Week
     const el = containerRef.current
     if (!el) return
 
-    const chart = echarts.init(el, null, { renderer: "canvas" })
+    const chart = echarts.init(el, null, { renderer: "svg" })
     chartRef.current = chart
     chart.setOption(option as any)
 
@@ -354,7 +354,7 @@ function WeekdayDonutChart({ weekdayMap, isDark = true }: WeekdayDonutChartProps
     const el = containerRef.current
     if (!el) return
 
-    const chart = echarts.init(el, null, { renderer: "canvas" })
+    const chart = echarts.init(el, null, { renderer: "svg" })
     chartRef.current = chart
     chart.setOption(option as any)
 
