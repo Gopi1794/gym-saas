@@ -439,7 +439,7 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
       </div>
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-        <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900/60 p-5">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900 p-5">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-brand-500">
             Últimas 12 semanas
           </p>
@@ -447,7 +447,7 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
           <WeeklyBarChart weeks={weeks} weekMap={weekMap} thisWeekKey={thisWeekKey} isDark={isDark} />
         </div>
 
-        <div className="min-w-0 overflow-hidden rounded-2xl border border-cyan-500/20 bg-zinc-900/60 p-5">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-cyan-500/20 bg-zinc-900 p-5">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-400">
             Carga de trabajo
           </p>
@@ -458,7 +458,7 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
 
       <ExerciseProgressionSection history={exerciseHistory} />
 
-      <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900/60 p-5">
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900 p-5">
         <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-brand-500">
           Ritmo semanal
         </p>
@@ -466,7 +466,7 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
         <WeekdayDonutChart weekdayMap={weekdayMap} isDark={isDark} />
       </div>
 
-      <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900/60 p-5">
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900 p-5">
         <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-brand-500">
           Historial
         </p>

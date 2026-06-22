@@ -52,7 +52,7 @@ export function ExerciseDetailModal({
       onClick={onClose}
     >
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/80" />
 
       {/* Sheet / Modal */}
       <div

@@ -39,7 +39,7 @@ export function ExerciseProgressCard({ exercise }: { exercise: ExerciseHistory }
     <>
       <button
         onClick={() => setOpen(true)}
-        className="group min-w-0 w-full overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 ease-out active:scale-[0.98] hover:border-white/[0.10] hover:bg-white/[0.05] text-left"
+        className="group min-w-0 w-full overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-200 ease-out active:scale-[0.98] hover:border-white/[0.10] hover:bg-zinc-800 text-left"
       >
         <div className="grid min-h-[132px] grid-cols-[1fr_1.45fr] gap-4 px-5 pb-3 pt-4">
           <div className="min-w-0">
