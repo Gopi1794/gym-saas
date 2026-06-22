@@ -32,6 +32,9 @@ function verifySignature(req: NextRequest, rawBody: string): boolean {
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
 
+  console.log("[saas-webhook] x-signature:", req.headers.get("x-signature"))
+  console.log("[saas-webhook] x-request-id:", req.headers.get("x-request-id"))
+
   if (!verifySignature(req, rawBody)) {
     console.warn("[saas-webhook] firma inválida — request rechazado")
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
