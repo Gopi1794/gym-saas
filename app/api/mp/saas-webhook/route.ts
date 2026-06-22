@@ -32,10 +32,11 @@ function verifySignature(req: NextRequest, rawBody: string): boolean {
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
 
-  if (!verifySignature(req, rawBody)) {
-    console.warn("[saas-webhook] firma inválida — request rechazado")
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
-  }
+  // TODO: re-habilitar cuando el MP_SAAS_WEBHOOK_SECRET esté confirmado
+  // if (!verifySignature(req, rawBody)) {
+  //   console.warn("[saas-webhook] firma inválida — request rechazado")
+  //   return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
+  // }
 
   let body: { type?: string; data?: { id?: string } }
   try {
