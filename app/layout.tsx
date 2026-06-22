@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Inter, Anton, Bebas_Neue } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/providers/ThemeProvider"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const inter  = Inter({      subsets: ["latin"], variable: "--font-inter"  })
 const anton  = Anton({      weight: "400", subsets: ["latin"], variable: "--font-anton"  })
@@ -25,8 +26,14 @@ export const metadata: Metadata = {
     title: "Voltia — The gym OS built for growth",
     description: "Manage members, track check-ins with QR codes, and build an exercise library — all in one modern platform.",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Voltia",
+  },
   other: {
     google: "notranslate",
+    "mobile-web-app-capable": "yes",
   },
 }
 
