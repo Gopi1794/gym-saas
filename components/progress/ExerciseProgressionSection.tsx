@@ -20,7 +20,7 @@ export function ExerciseProgressionSection({ history }: { history: ExerciseHisto
   const filtered = filter === "all" ? history : history.filter(e => e.metric === filter)
 
   return (
-    <div className="relative min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900 p-5">
+    <div className="relative min-w-0 rounded-2xl border border-brand-700/20 bg-zinc-900 p-5">
       <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-brand-500/50 to-transparent" />
 
       {/* Header */}

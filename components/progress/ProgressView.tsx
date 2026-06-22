@@ -174,7 +174,7 @@ function WeeklyBarChart({ weeks, weekMap, thisWeekKey, isDark = true }: WeeklyBa
     chartRef.current?.setOption(option as any, { notMerge: false })
   }, [option])
 
-  return <div ref={containerRef} className="min-w-0 max-w-full overflow-hidden" style={{ width: "100%", height: 168 }} />
+  return <div ref={containerRef} className="min-w-0 max-w-full" style={{ width: "100%", height: 168 }} />
 }
 
 interface WeeklyLoadChartProps {
@@ -288,7 +288,7 @@ function WeeklyLoadChart({ weeks, exerciseMap, sessionMap, isDark = true }: Week
     chartRef.current?.setOption(option as any, { notMerge: false })
   }, [option])
 
-  return <div ref={containerRef} className="min-w-0 max-w-full overflow-hidden" style={{ width: "100%", height: 190 }} />
+  return <div ref={containerRef} className="min-w-0 max-w-full overflow-hidden" style={{ width: "100%", height: 190, overflow: "visible" }} />
 }
 
 interface WeekdayDonutChartProps {
@@ -373,7 +373,7 @@ function WeekdayDonutChart({ weekdayMap, isDark = true }: WeekdayDonutChartProps
     chartRef.current?.setOption(option as any, { notMerge: false })
   }, [option])
 
-  return <div ref={containerRef} className="min-w-0 max-w-full overflow-hidden" style={{ width: "100%", height: 190 }} />
+  return <div ref={containerRef} className="min-w-0 max-w-full overflow-hidden" style={{ width: "100%", height: 190, overflow: "visible" }} />
 }
 
 export default function ProgressView({ sessions, trainingDays, exerciseHistory }: Props) {
@@ -430,7 +430,7 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
       : "0"
 
   return (
-    <div className="w-full max-w-full space-y-6 overflow-hidden">
+    <div className="w-full max-w-full space-y-6">
       <div className="grid min-w-0 grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-4">
         <StatCard icon={Dumbbell} color="red" label="Total sesiones" value={totalCount} />
         <StatCard icon={Flame} color="orange" label="Racha (semanas)" value={streak} />
@@ -439,7 +439,7 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
       </div>
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-        <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900 p-5">
+        <div className="min-w-0 rounded-2xl border border-brand-700/20 bg-zinc-900 p-5">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-brand-500">
             Últimas 12 semanas
           </p>
@@ -447,7 +447,7 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
           <WeeklyBarChart weeks={weeks} weekMap={weekMap} thisWeekKey={thisWeekKey} isDark={isDark} />
         </div>
 
-        <div className="min-w-0 overflow-hidden rounded-2xl border border-cyan-500/20 bg-zinc-900 p-5">
+        <div className="min-w-0 rounded-2xl border border-cyan-500/20 bg-zinc-900 p-5">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-cyan-400">
             Carga de trabajo
           </p>
@@ -458,7 +458,7 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
 
       <ExerciseProgressionSection history={exerciseHistory} />
 
-      <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900 p-5">
+      <div className="min-w-0 rounded-2xl border border-brand-700/20 bg-zinc-900 p-5">
         <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-brand-500">
           Ritmo semanal
         </p>
@@ -466,7 +466,7 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
         <WeekdayDonutChart weekdayMap={weekdayMap} isDark={isDark} />
       </div>
 
-      <div className="min-w-0 overflow-hidden rounded-2xl border border-brand-700/20 bg-zinc-900 p-5">
+      <div className="min-w-0 rounded-2xl border border-brand-700/20 bg-zinc-900 p-5">
         <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-brand-500">
           Historial
         </p>
@@ -481,7 +481,7 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
             {sessions.slice(0, 20).map((s) => (
               <div
                 key={s.id}
-                className="flex items-center justify-between rounded-xl bg-zinc-800/50 px-4 py-3"
+                className="flex items-center justify-between border-b border-zinc-800 px-1 py-3 last:border-0"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-700/20">
