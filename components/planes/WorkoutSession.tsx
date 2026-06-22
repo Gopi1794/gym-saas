@@ -7,6 +7,8 @@ import {
   Dumbbell,
   SkipForward,
   Timer,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { completeWorkoutSession } from "@/app/actions/workout-sessions";
@@ -188,6 +190,8 @@ export default function WorkoutSession({
   // Per-set tracking
   const [collectedSets, setCollectedSets] = useState<SessionSet[]>(() => loadSaved("collectedSets", []));
   const [currentWeight, setCurrentWeight] = useState("");
+  const [exerciseWeight, setExerciseWeight] = useState(""); // carries over between sets of same exercise
+  const [actualReps, setActualReps] = useState(0); // set after current is defined
   const [cardioElapsed, setCardioElapsed] = useState(0);
   const [currentDistance, setCurrentDistance] = useState("");
   const [currentSpeed, setCurrentSpeed] = useState("");
@@ -217,6 +221,22 @@ export default function WorkoutSession({
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({ exerciseIdx, currentSet, phase, collectedSets, restEndsAt, restTotal }))
     } catch { /* ignore */ }
   }, [SESSION_KEY, exerciseIdx, currentSet, phase, collectedSets, restEndsAt, restTotal])
+
+  // Reset actualReps and pre-fill weight when exercise or set changes
+  useEffect(() => {
+    setActualReps(currentReps)
+  }, [exerciseIdx, currentSet, currentReps])
+
+  // Pre-fill weight from previous set of same exercise
+  useEffect(() => {
+    if (exerciseWeight !== "") setCurrentWeight(exerciseWeight)
+  }, [currentSet]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear carried weight when moving to a new exercise
+  useEffect(() => {
+    setExerciseWeight("")
+    setCurrentWeight("")
+  }, [exerciseIdx])
 
   // Reset duration countdown when exercise/set changes
   useEffect(() => {
@@ -309,7 +329,9 @@ export default function WorkoutSession({
       exercise_name: current.exercises.name,
       category: current.exercises.category,
       set_number: currentSet,
-      reps: !isCardio && !isDuration ? currentReps : undefined,
+      reps: !isCardio && !isDuration ? actualReps : undefined,
+      actual_reps: !isCardio && !isDuration ? actualReps : undefined,
+      planned_reps: !isCardio && !isDuration ? currentReps : undefined,
       weight_kg:
         isStrengthLike && !isDuration && currentWeight !== ""
           ? parseFloat(currentWeight)
@@ -321,7 +343,8 @@ export default function WorkoutSession({
       calories_burned: calories,
     };
     setCollectedSets((prev) => [...prev, setData]);
-    setCurrentWeight("");
+    // Carry weight over to next set; reset only on new exercise (handled by useEffect)
+    if (currentWeight !== "") setExerciseWeight(currentWeight)
     setCurrentDistance("");
     setCurrentSpeed("");
     setCurrentResistance("");
@@ -544,16 +567,35 @@ export default function WorkoutSession({
             </span>
           </div>
         ) : (
-          <div className="flex items-baseline gap-3">
-            <span
-              className="font-display text-8xl tabular-nums text-zinc-50 leading-none"
-              style={{ textShadow: "0 0 40px rgba(213,0,0,0.4)" }}
-            >
-              {currentRepsMax != null ? `${currentReps}–${currentRepsMax}` : currentReps}
-            </span>
-            <span className="font-heading text-2xl text-zinc-500 pb-1">
-              reps
-            </span>
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-5">
+              <button
+                onClick={() => setActualReps((n) => Math.max(0, n - 1))}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 active:scale-95 transition-transform"
+              >
+                <Minus className="h-5 w-5" />
+              </button>
+              <div className="flex items-baseline gap-2">
+                <span
+                  className="font-display text-8xl tabular-nums text-zinc-50 leading-none"
+                  style={{ textShadow: "0 0 40px rgba(213,0,0,0.4)" }}
+                >
+                  {actualReps}
+                </span>
+                <span className="font-heading text-2xl text-zinc-500 pb-1">reps</span>
+              </div>
+              <button
+                onClick={() => setActualReps((n) => n + 1)}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 active:scale-95 transition-transform"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
+            {currentReps !== actualReps && (
+              <span className="text-xs text-zinc-600">
+                Plan: {currentRepsMax != null ? `${currentReps}–${currentRepsMax}` : currentReps} reps
+              </span>
+            )}
           </div>
         )}
 
@@ -682,9 +724,15 @@ export default function WorkoutSession({
 
       {/* CTA */}
       <div className="relative z-10 px-5 pb-10 pt-2 space-y-3">
+        {isStrengthLike && !isDuration && currentWeight === "" && (
+          <p className="text-center text-xs text-brand-500 font-medium">
+            Ingresá el peso para continuar
+          </p>
+        )}
         <button
           onClick={handleSetDone}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-700 py-5 text-base font-bold text-white transition-all hover:bg-brand-700 active:scale-[0.97]"
+          disabled={isStrengthLike && !isDuration && currentWeight === ""}
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-700 py-5 text-base font-bold text-white transition-all hover:bg-brand-700 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
           style={{
             boxShadow: "0 0 40px rgba(213,0,0,0.4), 0 8px 24px rgba(0,0,0,0.4)",
             transition:

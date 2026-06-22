@@ -58,6 +58,8 @@ export type SessionSet = {
   category: string
   set_number: number
   reps?: number
+  actual_reps?: number
+  planned_reps?: number
   weight_kg?: number
   duration_seconds?: number
   distance_meters?: number

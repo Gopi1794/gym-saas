@@ -36,6 +36,8 @@ type PlanRow = {
 
 type CheckInRow = { id: string; checked_in_at: string; checked_out_at: string | null; method: "qr" | "manual" }
 type PaymentRow = { id: string; amount: number; status: string; created_at: string; mp_payment_id: string | null }
+type SessionSetRow = { exercise_name: string; set_number: number; actual_reps: number | null; planned_reps: number | null; reps: number | null; weight_kg: number | null }
+type SessionRow = { id: string; day_name: string; completed_at: string; exercises_count: number; workout_session_sets: SessionSetRow[] }
 
 const GOAL_LABELS: Record<string, string> = {
   lose_weight: "Bajar de peso",
@@ -100,6 +102,7 @@ export default async function MemberDetailPage({ params }: Props) {
     { count: totalCheckIns },
     { data: recentPayments },
     { data: gymTrainers },
+    { data: recentSessions },
   ] = await Promise.all([
     supabase.from("workout_plans" as never).select(planSelect)
       .eq("assigned_to", params.id).eq("is_template", false)
@@ -122,6 +125,12 @@ export default async function MemberDetailPage({ params }: Props) {
     supabase.from("profiles").select("id, full_name, avatar_url")
       .eq("gym_id", gymId).eq("role", "trainer")
       .order("full_name") as unknown as Promise<{ data: { id: string; full_name: string | null; avatar_url: string | null }[] | null }>,
+
+    supabase.from("workout_sessions" as never)
+      .select("id, day_name, completed_at, exercises_count, workout_session_sets(exercise_name, set_number, actual_reps, planned_reps, reps, weight_kg)")
+      .eq("user_id", params.id)
+      .order("completed_at", { ascending: false })
+      .limit(5) as unknown as Promise<{ data: SessionRow[] | null }>,
   ])
 
   const memberName = member.full_name ?? "Miembro"
@@ -295,6 +304,66 @@ export default async function MemberDetailPage({ params }: Props) {
           </ul>
         )}
       </div>
+
+      {/* Workout history */}
+      {recentSessions && recentSessions.length > 0 && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Historial de entrenamientos</h2>
+            <p className="text-sm text-muted-foreground">Últimas sesiones — real vs planificado</p>
+          </div>
+          <div className="space-y-3">
+            {recentSessions.map((session) => {
+              const byExercise = session.workout_session_sets.reduce<Record<string, SessionSetRow[]>>((acc, s) => {
+                if (!acc[s.exercise_name]) acc[s.exercise_name] = []
+                acc[s.exercise_name].push(s)
+                return acc
+              }, {})
+              return (
+                <div key={session.id} className="rounded-2xl border border-border bg-card p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-foreground capitalize">{session.day_name}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(session.completed_at)}</p>
+                  </div>
+                  <div className="space-y-2">
+                    {Object.entries(byExercise).map(([exName, sets]) => {
+                      const anyDiff = sets.some(s => s.planned_reps != null && s.actual_reps != null && s.actual_reps !== s.planned_reps)
+                      return (
+                        <div key={exName} className="rounded-xl bg-muted/40 px-3 py-2">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <p className="text-xs font-medium text-foreground capitalize flex-1 truncate">{exName}</p>
+                            {anyDiff && <span className="text-[10px] font-semibold text-amber-500 bg-amber-500/10 rounded-full px-2 py-0.5">modificado</span>}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {sets.sort((a, b) => a.set_number - b.set_number).map((s) => {
+                              const actual = s.actual_reps ?? s.reps
+                              const planned = s.planned_reps
+                              const diff = planned != null && actual != null && actual !== planned
+                              return (
+                                <div key={s.set_number} className={cn(
+                                  "flex items-center gap-1 rounded-lg px-2 py-1 text-xs",
+                                  diff ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted"
+                                )}>
+                                  <span className="text-muted-foreground">S{s.set_number}</span>
+                                  <span className={cn("font-semibold", diff ? "text-amber-500" : "text-foreground")}>
+                                    {actual ?? "—"}
+                                  </span>
+                                  {diff && <span className="text-muted-foreground">/{planned}</span>}
+                                  {s.weight_kg != null && <span className="text-muted-foreground ml-0.5">{s.weight_kg}kg</span>}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Workout plan */}
       <div className="space-y-4">
