@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server"
 import ProgressView, { type SessionRecord } from "@/components/progress/ProgressView"
 import PageTour from "@/components/onboarding/PageTour"
 import { getExerciseHistory } from "@/app/actions/exercise-maxes"
+import WeightChart from "@/components/nutrition/WeightChart"
+import { getWeightHistory } from "@/app/actions/nutrition-tracking"
 import type { Step } from "react-joyride"
 
 const PROGRESS_STEPS: Step[] = [
@@ -55,6 +57,7 @@ export default async function ProgressPage() {
     .maybeSingle() as unknown as Promise<{ data: { id: string } | null }>)
 
   const exerciseHistory = await getExerciseHistory(user!.id)
+  const weightHistory = await getWeightHistory(user!.id)
 
   let trainingDays = 0
   if (plan) {
@@ -75,6 +78,8 @@ export default async function ProgressPage() {
         </div>
         <PageTour tourKey="progress" steps={PROGRESS_STEPS} />
       </div>
+
+      <WeightChart history={weightHistory} />
 
       <div data-tour="progress-content">
         <ProgressView
