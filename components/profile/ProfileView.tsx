@@ -273,7 +273,7 @@ export default function ProfileView({
   return (
     <div className="flex flex-col gap-6">
       {/* Profile card */}
-      <div className="relative overflow-hidden rounded-[2rem] border border-zinc-200 dark:border-white/10 bg-zinc-950/70 shadow-2xl shadow-black/30 backdrop-blur-xl">
+      <div className="relative overflow-hidden rounded-[2rem] border border-zinc-200 dark:border-white/10 bg-zinc-950 shadow-2xl shadow-black/30">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_28%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-500/70 to-transparent" />
 
@@ -471,7 +471,7 @@ export default function ProfileView({
             </div>
           </div>
 
-          <aside className="border-t border-zinc-200 dark:border-white/10 bg-zinc-950/55 p-5 sm:p-7 lg:border-l lg:border-t-0">
+          <aside className="border-t border-white/10 bg-zinc-950 p-5 sm:p-7 lg:border-l lg:border-t-0">
             <div className="mb-5 flex items-center justify-between">
               <GymFlowLogo size={18} textSize="text-base" />
               <button
@@ -860,9 +860,9 @@ export default function ProfileView({
       </AnimatePresence>
 
       {/* Edit name */}
-      <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-900/50 p-5 backdrop-blur-md">
+      <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-5">
         <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm font-semibold text-zinc-200">Editar nombre</p>
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-200">Editar nombre</p>
           <button
             onClick={() => setEditing(!editing)}
             className="text-zinc-500 transition-colors hover:text-zinc-200"
@@ -922,7 +922,7 @@ export default function ProfileView({
             </Button>
           </div>
         ) : (
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
             {profile.full_name ?? "Sin nombre"} · {email}
             {profile.weight_kg && <span className="ml-2 text-zinc-500">· {profile.weight_kg}kg</span>}
           </p>
