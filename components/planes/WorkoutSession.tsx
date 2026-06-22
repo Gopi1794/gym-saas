@@ -170,8 +170,16 @@ export default function WorkoutSession({
   const [exerciseIdx, setExerciseIdx] = useState(() => loadSaved("exerciseIdx", 0));
   const [currentSet, setCurrentSet] = useState(() => loadSaved("currentSet", 1));
   const [phase, setPhase] = useState<Phase>(() => loadSaved<Phase>("phase", "exercising"));
-  const [restLeft, setRestLeft] = useState(0);
-  const [restTotal, setRestTotal] = useState(0);
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(() => loadSaved<number | null>("restEndsAt", null));
+  const [restLeft, setRestLeft] = useState(() => {
+    const savedPhase = loadSaved<Phase>("phase", "exercising")
+    const endsAt = loadSaved<number | null>("restEndsAt", null)
+    if (savedPhase === "resting" && endsAt) {
+      return Math.max(0, Math.floor((endsAt - Date.now()) / 1000))
+    }
+    return 0
+  });
+  const [restTotal, setRestTotal] = useState(() => loadSaved("restTotal", 0));
   const [restSkips, setRestSkips] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [sessionResult, setSessionResult] =
@@ -206,9 +214,9 @@ export default function WorkoutSession({
   // Persist progress so tab kills don't lose workout
   useEffect(() => {
     try {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ exerciseIdx, currentSet, phase, collectedSets }))
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ exerciseIdx, currentSet, phase, collectedSets, restEndsAt, restTotal }))
     } catch { /* ignore */ }
-  }, [SESSION_KEY, exerciseIdx, currentSet, phase, collectedSets])
+  }, [SESSION_KEY, exerciseIdx, currentSet, phase, collectedSets, restEndsAt, restTotal])
 
   // Reset duration countdown when exercise/set changes
   useEffect(() => {
@@ -324,6 +332,8 @@ export default function WorkoutSession({
       return;
     }
     const rest = current.rest_seconds;
+    const endsAt = Date.now() + rest * 1000
+    setRestEndsAt(endsAt);
     setRestTotal(rest);
     setRestLeft(rest);
     setPhase("resting");
