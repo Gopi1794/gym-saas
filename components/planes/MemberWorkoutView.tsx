@@ -255,7 +255,7 @@ function DayDetail({
         {exercises.map((pe, index) => (
           <div
             key={pe.id}
-            className="relative overflow-hidden rounded-2xl bg-zinc-900 border border-brand-700/50"
+            className="relative rounded-2xl bg-zinc-900 border border-brand-700/50"
           >
             {/* Number badge */}
             <span className="absolute right-2.5 top-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-brand-700 text-[11px] font-bold text-white shadow-lg">
@@ -263,7 +263,7 @@ function DayDetail({
             </span>
 
             {/* Image */}
-            <div className="h-20 w-full bg-zinc-800">
+            <div className="h-20 w-full overflow-hidden rounded-t-2xl bg-zinc-800">
               {pe.exercises.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
