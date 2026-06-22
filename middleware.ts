@@ -5,7 +5,7 @@ const PUBLIC_PATHS = ["/", "/login", "/register", "/forgot-password", "/reset-pa
 const PUBLIC_PREFIXES = ["/api/"]
 const ONBOARDING_PAGO = "/onboarding/pago"
 const PAYWALL_PATH = "/pagos/renovar"
-const PAYWALL_EXEMPT = [ONBOARDING_PAGO, PAYWALL_PATH, "/pagos/success", "/pagos/failure", "/pagos/pending"]
+const PAYWALL_EXEMPT = [ONBOARDING_PAGO, PAYWALL_PATH, "/pagos/success", "/pagos/failure", "/pagos/pending", "/saas-admin/activate"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
