@@ -262,11 +262,8 @@ function DayDetail({
               {index + 1}
             </span>
 
-            {/* Image — aspect ratio 1408×768, max-height acotado a la mitad */}
-            <div
-              className="relative w-full overflow-hidden bg-zinc-800"
-              style={{ aspectRatio: "1408/768", maxHeight: "190px" }}
-            >
+            {/* Image */}
+            <div className="h-20 w-full bg-zinc-800">
               {pe.exercises.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -279,7 +276,6 @@ function DayDetail({
                   <Dumbbell className="h-8 w-8 text-zinc-600" />
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/20 to-transparent" />
             </div>
 
             {/* Content */}
