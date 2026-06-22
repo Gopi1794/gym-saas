@@ -17,14 +17,14 @@ const ITEMS_BY_ROLE: Record<string, { href: string; label: string; icon: React.E
   admin: [
     { href: "/dashboard",     label: "Inicio",        icon: LayoutDashboard },
     { href: "/personas",      label: "Personas",      icon: Users },
-    { href: "/entrenamiento", label: "Ejercicios",    icon: Dumbbell },
+    { href: "/nutricion",     label: "Nutrición",     icon: Apple },
     { href: "/check-in",      label: "Check-in",      icon: QrCode },
     { href: "/profile",       label: "Perfil",        icon: User },
   ],
   trainer: [
     { href: "/dashboard",     label: "Inicio",        icon: LayoutDashboard },
     { href: "/personas",      label: "Personas",      icon: Users },
-    { href: "/entrenamiento", label: "Ejercicios",    icon: Dumbbell },
+    { href: "/nutricion",     label: "Nutrición",     icon: Apple },
     { href: "/check-in",      label: "Check-in",      icon: QrCode },
     { href: "/profile",       label: "Perfil",        icon: User },
   ],
