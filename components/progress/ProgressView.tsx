@@ -116,36 +116,25 @@ function WeekdayBars({ weekdayMap }: { weekdayMap: Map<number, number> }) {
   )
 }
 
-// ── Stat card ──────────────────────────────────────────────────────────
-type StatColor = "red" | "orange" | "cyan" | "emerald"
-
-const COLOR_MAP: Record<StatColor, { icon: string; value: string; border: string }> = {
-  red:     { icon: "text-brand-500",   value: "text-brand-400",   border: "border-brand-700/40"   },
-  orange:  { icon: "text-orange-400",  value: "text-orange-300",  border: "border-orange-500/40"  },
-  cyan:    { icon: "text-cyan-400",    value: "text-cyan-300",    border: "border-cyan-500/40"    },
-  emerald: { icon: "text-emerald-400", value: "text-emerald-300", border: "border-emerald-500/40" },
-}
-
-function StatCard({
-  icon: Icon, color, label, value, suffix,
+// ── Stats row (single container, no individual borders) ────────────────
+function StatItem({
+  icon: Icon, iconClass, valueClass, label, value, suffix,
 }: {
   icon: React.ElementType
-  color: StatColor
+  iconClass: string
+  valueClass: string
   label: string
   value: number | string
   suffix?: string
 }) {
-  const c = COLOR_MAP[color]
   return (
-    <div className={cn("min-w-0 rounded-2xl border bg-zinc-900 p-4", c.border)}>
-      <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-800">
-        <Icon className={cn("h-4 w-4", c.icon)} />
-      </div>
-      <p className={cn("text-2xl font-black tabular-nums leading-none", c.value)}>
+    <div className="flex flex-1 flex-col items-center gap-1 px-2 py-4 text-center">
+      <Icon className={cn("mb-1 h-4 w-4", iconClass)} />
+      <p className={cn("text-2xl font-black tabular-nums leading-none", valueClass)}>
         {value}
-        {suffix && <span className="ml-1 text-sm font-medium text-zinc-500">{suffix}</span>}
+        {suffix && <span className="ml-0.5 text-xs font-medium text-zinc-500">{suffix}</span>}
       </p>
-      <p className="mt-1.5 text-xs text-zinc-500">{label}</p>
+      <p className="text-[10px] text-zinc-500">{label}</p>
     </div>
   )
 }
@@ -201,11 +190,11 @@ export default function ProgressView({ sessions, trainingDays, exerciseHistory }
   return (
     <div className="w-full max-w-full space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard icon={Dumbbell}     color="red"     label="Total sesiones"  value={totalCount} />
-        <StatCard icon={Flame}        color="orange"  label="Racha (semanas)" value={streak} />
-        <StatCard icon={CalendarDays} color="cyan"    label="Esta semana"     value={thisWeekCount} suffix={`/ ${trainingDays}`} />
-        <StatCard icon={TrendingUp}   color="emerald" label="Prom. semanal"   value={avgPerWeek} />
+      <div className="flex rounded-2xl border border-zinc-800 bg-zinc-900 divide-x divide-zinc-800">
+        <StatItem icon={Dumbbell}     iconClass="text-brand-500"   valueClass="text-brand-400"   label="Sesiones"  value={totalCount} />
+        <StatItem icon={Flame}        iconClass="text-orange-400"  valueClass="text-orange-300"  label="Racha sem." value={streak} />
+        <StatItem icon={CalendarDays} iconClass="text-cyan-400"    valueClass="text-cyan-300"    label="Esta sem." value={thisWeekCount} suffix={`/${trainingDays}`} />
+        <StatItem icon={TrendingUp}   iconClass="text-emerald-400" valueClass="text-emerald-300" label="Prom. sem." value={avgPerWeek} />
       </div>
 
       {/* Últimas 12 semanas */}
