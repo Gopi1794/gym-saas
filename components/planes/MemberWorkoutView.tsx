@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -339,6 +339,8 @@ type ActiveWorkout = {
   dayOfWeek: number;
 };
 
+const STORAGE_KEY = "voltia_active_workout"
+
 export default function MemberWorkoutView({
   plan,
   days,
@@ -353,6 +355,19 @@ export default function MemberWorkoutView({
   const [selectedDow, setSelectedDow] = useState<number | null>(null);
   const [activeWorkout, setActiveWorkout] = useState<ActiveWorkout | null>(null);
   const [showMachineScanner, setShowMachineScanner] = useState(false);
+
+  // Restore workout state if browser tab was killed (e.g. user switched to WhatsApp)
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY)
+      if (!saved) return
+      const { dayOfWeek, dayName } = JSON.parse(saved) as { dayOfWeek: number; dayName: string }
+      const day = days.find(d => d.day_of_week === dayOfWeek)
+      if (!day) return
+      const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
+      setActiveWorkout({ exercises: sorted, dayName, dayOfWeek })
+    } catch { /* ignore */ }
+  }, [days])
 
   const todayDow = (new Date().getDay() + 6) % 7;
 
@@ -371,6 +386,7 @@ export default function MemberWorkoutView({
         userWeightKg={weightKg}
         exerciseMaxes={exerciseMaxes}
         onClose={() => {
+          sessionStorage.removeItem(STORAGE_KEY)
           setActiveWorkout(null);
           setSelectedDow(null);
           router.refresh();
@@ -390,13 +406,11 @@ export default function MemberWorkoutView({
           day={day}
           gender={gender}
           onBack={() => setSelectedDow(null)}
-          onStart={() =>
-            setActiveWorkout({
-              exercises: sorted,
-              dayName: DAY_NAMES[day.day_of_week],
-              dayOfWeek: day.day_of_week,
-            })
-          }
+          onStart={() => {
+            const workout = { exercises: sorted, dayName: DAY_NAMES[day.day_of_week], dayOfWeek: day.day_of_week }
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ dayOfWeek: workout.dayOfWeek, dayName: workout.dayName }))
+            setActiveWorkout(workout)
+          }}
         />
       );
     }
@@ -425,7 +439,9 @@ export default function MemberWorkoutView({
           onStartExercise={(exerciseId) => {
             if (todayDay) {
               const sorted = [...todayDay.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
-              setActiveWorkout({ exercises: sorted, dayName: DAY_NAMES[todayDow], dayOfWeek: todayDow })
+              const workout = { exercises: sorted, dayName: DAY_NAMES[todayDow], dayOfWeek: todayDow }
+              sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ dayOfWeek: workout.dayOfWeek, dayName: workout.dayName }))
+              setActiveWorkout(workout)
             }
           }}
           onClose={() => { setShowMachineScanner(false); router.refresh() }}

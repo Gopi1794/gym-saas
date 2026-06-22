@@ -156,9 +156,20 @@ export default function WorkoutSession({
     return ao !== bo ? ao - bo : a.order_index - b.order_index;
   });
 
-  const [exerciseIdx, setExerciseIdx] = useState(0);
-  const [currentSet, setCurrentSet] = useState(1);
-  const [phase, setPhase] = useState<Phase>("exercising");
+  const SESSION_KEY = `voltia_session_${planId}_${dayOfWeek}`
+
+  function loadSaved<T>(field: string, fallback: T): T {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY)
+      if (!raw) return fallback
+      const parsed = JSON.parse(raw)
+      return field in parsed ? parsed[field] : fallback
+    } catch { return fallback }
+  }
+
+  const [exerciseIdx, setExerciseIdx] = useState(() => loadSaved("exerciseIdx", 0));
+  const [currentSet, setCurrentSet] = useState(() => loadSaved("currentSet", 1));
+  const [phase, setPhase] = useState<Phase>(() => loadSaved<Phase>("phase", "exercising"));
   const [restLeft, setRestLeft] = useState(0);
   const [restTotal, setRestTotal] = useState(0);
   const [restSkips, setRestSkips] = useState(0);
@@ -167,7 +178,7 @@ export default function WorkoutSession({
     useState<CompleteSessionResult | null>(null);
 
   // Per-set tracking
-  const [collectedSets, setCollectedSets] = useState<SessionSet[]>([]);
+  const [collectedSets, setCollectedSets] = useState<SessionSet[]>(() => loadSaved("collectedSets", []));
   const [currentWeight, setCurrentWeight] = useState("");
   const [cardioElapsed, setCardioElapsed] = useState(0);
   const [currentDistance, setCurrentDistance] = useState("");
@@ -191,6 +202,13 @@ export default function WorkoutSession({
   const isDuration = currentDuration != null;
 
   const [durationLeft, setDurationLeft] = useState<number>(currentDuration ?? 0);
+
+  // Persist progress so tab kills don't lose workout
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ exerciseIdx, currentSet, phase, collectedSets }))
+    } catch { /* ignore */ }
+  }, [SESSION_KEY, exerciseIdx, currentSet, phase, collectedSets])
 
   // Reset duration countdown when exercise/set changes
   useEffect(() => {
@@ -216,6 +234,8 @@ export default function WorkoutSession({
   useEffect(() => {
     if (phase !== "finished" || savedRef.current) return;
     savedRef.current = true;
+
+    try { sessionStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
 
     async function finish() {
       setCompleting(true);
