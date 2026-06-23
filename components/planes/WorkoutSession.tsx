@@ -217,6 +217,7 @@ export default function WorkoutSession({
   const isDuration = currentDuration != null;
 
   const [durationLeft, setDurationLeft] = useState<number>(currentDuration ?? 0);
+  const [durationStarted, setDurationStarted] = useState(false);
 
   // Persist progress so tab kills don't lose workout
   useEffect(() => {
@@ -241,18 +242,19 @@ export default function WorkoutSession({
     setCurrentWeight("")
   }, [exerciseIdx])
 
-  // Reset duration countdown when exercise/set changes
+  // Reset duration countdown and started flag when exercise/set changes
   useEffect(() => {
     setDurationLeft(currentDuration ?? 0);
+    setDurationStarted(false);
   }, [exerciseIdx, currentSet, currentDuration]);
 
-  // Duration countdown timer
+  // Duration countdown timer — only runs after user taps Iniciar
   useEffect(() => {
-    if (phase !== "exercising" || !isDuration) return;
+    if (phase !== "exercising" || !isDuration || !durationStarted) return;
     if (durationLeft <= 0) return;
     const t = setInterval(() => setDurationLeft((n) => Math.max(0, n - 1)), 1000);
     return () => clearInterval(t);
-  }, [phase, isDuration, durationLeft]);
+  }, [phase, isDuration, durationStarted, durationLeft]);
 
   // Cardio elapsed timer — counts up while exercising
   useEffect(() => {
@@ -551,22 +553,32 @@ export default function WorkoutSession({
 
         {/* Reps / cardio timer / duration countdown */}
         {isDuration ? (
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-3">
             <div className="flex items-center gap-2">
               <Timer className="h-5 w-5 text-brand-500" />
               <span className="font-heading text-sm tracking-widest text-zinc-500">
-                Cuenta regresiva
+                {durationStarted ? "Cuenta regresiva" : "Listo para iniciar"}
               </span>
             </div>
             <span
               className={cn(
                 "font-display text-7xl tabular-nums leading-none",
-                durationLeft <= 5 ? "text-brand-500" : "text-zinc-50"
+                durationLeft <= 5 && durationStarted ? "text-brand-500" : "text-zinc-50"
               )}
               style={{ textShadow: "0 0 40px rgba(213,0,0,0.4)" }}
             >
               {String(Math.floor(durationLeft / 60)).padStart(2, "0")}:{String(durationLeft % 60).padStart(2, "0")}
             </span>
+            {!durationStarted && (
+              <button
+                onClick={() => setDurationStarted(true)}
+                className="flex items-center gap-2 rounded-full bg-brand-700 px-8 py-3 text-sm font-bold text-white active:scale-95 transition-transform"
+                style={{ boxShadow: "0 0 24px rgba(213,0,0,0.4)" }}
+              >
+                <Timer className="h-4 w-4" />
+                Iniciar
+              </button>
+            )}
           </div>
         ) : isCardio ? (
           <div className="flex flex-col items-center gap-1">
@@ -741,14 +753,14 @@ export default function WorkoutSession({
 
       {/* CTA */}
       <div className="relative z-10 px-5 pb-10 pt-2 space-y-3">
-        {isStrengthLike && !isDuration && currentWeight === "" && (
+        {isStrengthLike && !isDuration && currentWeight === "" && !!exerciseMaxes[current.exercises.id] && (
           <p className="text-center text-xs text-brand-500 font-medium">
             Ingresá el peso para continuar
           </p>
         )}
         <button
           onClick={handleSetDone}
-          disabled={isStrengthLike && !isDuration && currentWeight === ""}
+          disabled={isStrengthLike && !isDuration && currentWeight === "" && !!exerciseMaxes[current.exercises.id]}
           className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-700 py-5 text-base font-bold text-white transition-all hover:bg-brand-700 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
           style={{
             boxShadow: "0 0 40px rgba(213,0,0,0.4), 0 8px 24px rgba(0,0,0,0.4)",

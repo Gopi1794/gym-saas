@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -334,9 +334,10 @@ export default function MemberWorkoutView({
   const [selectedDow, setSelectedDow] = useState<number | null>(null);
   const [activeWorkout, setActiveWorkout] = useState<ActiveWorkout | null>(null);
   const [activeDraft, setActiveDraft] = useState<WorkoutDraft | null>(null);
-  // Draft pending user decision (resume vs discard)
   const [pendingDraft, setPendingDraft] = useState<WorkoutDraft | null>(null);
   const [showMachineScanner, setShowMachineScanner] = useState(false);
+  // Prevents showing resume banner right after completing a workout
+  const justFinishedRef = useRef(false);
 
   useEffect(() => {
     // sessionStorage → auto-restore (same browser session, tab killed momentarily)
@@ -354,6 +355,8 @@ export default function MemberWorkoutView({
     } catch { /* ignore */ }
 
     // DB draft → show banner, user decides (cross-session recovery)
+    // Skip if we just finished a workout this session
+    if (justFinishedRef.current) return
     loadWorkoutDraft(plan.id).then((draft) => {
       if (!draft) return
       const day = days.find(d => d.day_of_week === draft.day_of_week)
@@ -379,9 +382,11 @@ export default function MemberWorkoutView({
         exerciseMaxes={exerciseMaxes}
         initialDraft={activeDraft}
         onClose={() => {
+          justFinishedRef.current = true
           sessionStorage.removeItem(STORAGE_KEY)
           setActiveWorkout(null);
           setActiveDraft(null);
+          setPendingDraft(null);
           setSelectedDow(null);
           router.refresh();
         }}
@@ -442,8 +447,8 @@ export default function MemberWorkoutView({
   return (
     <div className="space-y-6 pb-6">
       {pendingDraft && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 px-4 py-3.5">
-          <p className="text-sm font-semibold text-amber-300">
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 px-4 py-3.5">
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
             Tenés un entrenamiento sin terminar
           </p>
           <p className="mt-0.5 text-xs text-zinc-500">
@@ -452,13 +457,13 @@ export default function MemberWorkoutView({
           <div className="mt-3 flex gap-2">
             <button
               onClick={handleResumeDraft}
-              className="flex-1 rounded-xl bg-amber-500/15 border border-amber-500/30 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/25 transition-colors"
+              className="flex-1 rounded-xl bg-amber-500/15 border border-amber-500/30 py-2 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-500/25 transition-colors"
             >
               Continuar
             </button>
             <button
               onClick={handleDiscardDraft}
-              className="flex-1 rounded-xl bg-zinc-800 border border-zinc-700 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-700 transition-colors"
+              className="flex-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
             >
               Descartar
             </button>
