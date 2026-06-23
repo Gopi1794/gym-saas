@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { selectAgent, AGENTS } from "@/lib/chat/agents"
 import { getMemberNutritionPlan } from "@/app/actions/nutrition"
-import { getMealLogsForDate } from "@/app/actions/nutrition-tracking"
+import { getMealLogsForDate, getQuickLogTotalsForDate } from "@/app/actions/nutrition-tracking"
 
 const anthropic = new Anthropic()
 
@@ -64,15 +64,20 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 4. Parsear y limitar historial ──────────────────────────────────────────
-  const body = await req.json() as { messages: { role: "user" | "assistant"; content: string }[] }
+  const body = await req.json() as {
+    messages: { role: "user" | "assistant"; content: string }[]
+    image?: { data: string; mediaType: string } | null
+  }
   const messages = body.messages.slice(-HISTORY_LIMIT)
+  const image = body.image ?? null
 
   if (!messages.length) {
     return new Response("Bad Request", { status: 400 })
   }
 
   // ── 5. Routing multi-agente ─────────────────────────────────────────────────
-  const agentId = selectAgent(messages)
+  // Si hay imagen forzamos el agente de nutrición
+  const agentId = image ? "nutrition" : selectAgent(messages)
   const agent   = AGENTS[agentId]
 
   // ── 5b. Contexto nutricional (solo si agente = nutrition) ───────────────────
@@ -84,10 +89,14 @@ export async function POST(req: NextRequest) {
     if (!plan) {
       nutritionContext = "\n\nESTADO NUTRICIONAL: El miembro no tiene plan nutricional asignado. El trainer puede crearle uno."
     } else {
-      const mealLogs = await getMealLogsForDate(user.id, today)
+      const [mealLogs, quickTotals] = await Promise.all([
+        getMealLogsForDate(user.id, today),
+        getQuickLogTotalsForDate(user.id, today),
+      ])
 
       // Valores de foods son por 100g → ratio = actual_grams / 100
-      let totalCal = 0, totalProt = 0, totalCarbs = 0, totalFat = 0
+      let totalCal = quickTotals.calories, totalProt = quickTotals.protein
+      let totalCarbs = quickTotals.carbs, totalFat = quickTotals.fat
       for (const log of mealLogs) {
         const meal = plan.nutrition_meals?.find(m => m.id === log.meal_id)
         if (!meal) continue
@@ -162,12 +171,36 @@ COMIDAS DEL PLAN: ${mealNames}`
       })
   }
 
-  // ── 8. Llamada a Claude con streaming ───────────────────────────────────────
+  // ── 8. Construir mensajes para Claude (multimodal si hay imagen) ─────────────
+  type ApiMessage =
+    | { role: "user" | "assistant"; content: string }
+    | { role: "user"; content: ({ type: "image"; source: { type: "base64"; media_type: string; data: string } } | { type: "text"; text: string })[] }
+
+  const apiMessages: ApiMessage[] = messages.map((m, i) => {
+    if (i === messages.length - 1 && m.role === "user" && image) {
+      return {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
+          { type: "text", text: m.content || "¿Qué alimentos ves en esta foto y cuántas calorías tiene?" },
+        ],
+      }
+    }
+    return m
+  })
+
+  const photoInstruction = image
+    ? "\n\nCUANDO EL USUARIO MANDE UNA FOTO DE COMIDA: analizá el plato e incluí al FINAL de tu respuesta (después del texto) este bloque exacto con tus estimaciones:\n[FOOD_LOG]{\"description\":\"nombre del plato\",\"calories\":0,\"protein\":0,\"carbs\":0,\"fat\":0}[/FOOD_LOG]\nUnidades: calories en kcal, protein/carbs/fat en gramos enteros. Si no podés identificar la comida claramente, omití el bloque."
+    : ""
+
+  const finalSystemPrompt = systemPrompt + photoInstruction
+
+  // ── 9. Llamada a Claude con streaming ───────────────────────────────────────
   const stream = anthropic.messages.stream({
     model:      "claude-haiku-4-5-20251001",
     max_tokens: 1024,
-    system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-    messages,
+    system: [{ type: "text", text: finalSystemPrompt, cache_control: { type: "ephemeral" } }],
+    messages: apiMessages as never,
   })
 
   // ── 9. Stream al cliente + log de la respuesta del asistente ─────────────────

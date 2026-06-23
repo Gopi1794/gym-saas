@@ -2,14 +2,65 @@
 
 import { useState, useRef, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { MessageCircle, X, Send, Loader2, Dumbbell, Apple, Target } from "lucide-react"
+import { MessageCircle, X, Send, Loader2, Dumbbell, Apple, Target, Camera, CheckCircle2, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AISparkle } from "./AISparkle"
+import { saveQuickLogEntry } from "@/app/actions/nutrition-tracking"
+
+type FoodLog = {
+  description: string
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+}
 
 type Message = {
   id: string
   role: "user" | "assistant"
   content: string
+  imageUrl?: string
+  foodLog?: FoodLog
+  foodLogSaved?: boolean
+}
+
+async function compressImage(file: File): Promise<{ data: string; mediaType: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const MAX = 1024
+      let { width, height } = img
+      if (width > MAX || height > MAX) {
+        if (width > height) { height = Math.round(height * MAX / width); width = MAX }
+        else { width = Math.round(width * MAX / height); height = MAX }
+      }
+      const canvas = document.createElement("canvas")
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext("2d")!.drawImage(img, 0, 0, width, height)
+      URL.revokeObjectURL(url)
+      const data = canvas.toDataURL("image/jpeg", 0.8).split(",")[1]
+      resolve({ data, mediaType: "image/jpeg" })
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
+
+function parseFoodLog(text: string): FoodLog | null {
+  const match = text.match(/\[FOOD_LOG\]([\s\S]*?)\[\/FOOD_LOG\]/)
+  if (!match) return null
+  try {
+    const raw = JSON.parse(match[1]) as { description: string; calories: number; protein: number; carbs: number; fat: number }
+    return { description: raw.description, calories: raw.calories, protein: raw.protein, carbs: raw.carbs, fat: raw.fat }
+  } catch {
+    return null
+  }
+}
+
+function stripFoodLog(text: string): string {
+  return text.replace(/\[FOOD_LOG\][\s\S]*?\[\/FOOD_LOG\]/, "").trim()
 }
 
 const QUICK_ACTIONS = [
@@ -48,8 +99,10 @@ export default function MemberChat() {
   ])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
+  const [pendingImage, setPendingImage] = useState<{ data: string; mediaType: string; previewUrl: string } | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const hasUserMessages = messages.some((m) => m.role === "user")
 
@@ -61,14 +114,32 @@ export default function MemberChat() {
     if (open) setTimeout(() => inputRef.current?.focus(), 100)
   }, [open])
 
-  async function sendMessage(text = input.trim()) {
-    if (!text || streaming) return
+  async function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ""
+    const previewUrl = URL.createObjectURL(file)
+    const compressed = await compressImage(file)
+    setPendingImage({ ...compressed, previewUrl })
+    inputRef.current?.focus()
+  }
 
-    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: text }
+  async function sendMessage(text = input.trim()) {
+    if ((!text && !pendingImage) || streaming) return
+
+    const imageUrl = pendingImage?.previewUrl
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: text || "📷 Foto de comida",
+      imageUrl,
+    }
     const assistantId = crypto.randomUUID()
 
     setMessages((prev) => [...prev, userMsg, { id: assistantId, role: "assistant", content: "" }])
     setInput("")
+    const imageToSend = pendingImage ? { data: pendingImage.data, mediaType: pendingImage.mediaType } : null
+    setPendingImage(null)
     setStreaming(true)
 
     try {
@@ -79,7 +150,7 @@ export default function MemberChat() {
       const res = await fetch("/api/chat/member", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history, image: imageToSend }),
       })
 
       if (!res.ok || !res.body) throw new Error("Error en la respuesta")
@@ -92,8 +163,10 @@ export default function MemberChat() {
         const { done, value } = await reader.read()
         if (done) break
         accumulated += decoder.decode(value, { stream: true })
+        const foodLog = parseFoodLog(accumulated)
+        const displayContent = stripFoodLog(accumulated)
         setMessages((prev) =>
-          prev.map((m) => m.id === assistantId ? { ...m, content: accumulated } : m)
+          prev.map((m) => m.id === assistantId ? { ...m, content: displayContent, foodLog: foodLog ?? undefined } : m)
         )
       }
     } catch {
@@ -104,6 +177,21 @@ export default function MemberChat() {
       )
     } finally {
       setStreaming(false)
+    }
+  }
+
+  async function handleSaveFoodLog(msgId: string, foodLog: FoodLog) {
+    try {
+      await saveQuickLogEntry({
+        description: foodLog.description,
+        calories: foodLog.calories,
+        protein_g: foodLog.protein,
+        carbs_g: foodLog.carbs,
+        fat_g: foodLog.fat,
+      })
+      setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, foodLogSaved: true } : m))
+    } catch {
+      // silently ignore — user can retry from nutrición page
     }
   }
 
@@ -193,28 +281,77 @@ export default function MemberChat() {
                   <div className="min-h-0 flex-1 overflow-y-auto p-5">
                     <div className="space-y-4">
                       {messages.map((m) => (
-                        <div
-                          key={m.id}
-                          className={cn("flex gap-3", m.role === "user" ? "justify-end" : "justify-start")}
-                        >
+                        <div key={m.id} className={cn("flex gap-3", m.role === "user" ? "justify-end" : "justify-start")}>
                           {m.role === "assistant" && (
                             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
                               <AISparkle size={24} strokeWidth={1.8} duration={2.4} />
                             </div>
                           )}
-                          <div
-                            className={cn(
-                              "max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
-                              m.role === "user"
-                                ? "rounded-br-sm bg-brand-700 text-white"
-                                : "rounded-bl-sm bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
+                          <div className="max-w-[78%] space-y-2">
+                            {/* Imagen adjunta (mensajes del usuario) */}
+                            {m.imageUrl && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={m.imageUrl}
+                                alt="Foto de comida"
+                                className="rounded-2xl rounded-br-sm w-full object-cover max-h-48"
+                              />
                             )}
-                          >
-                            {m.content || (
-                              <span className="flex items-center gap-1.5 text-zinc-400 dark:text-zinc-500">
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                                Escribiendo…
-                              </span>
+                            {/* Burbuja de texto */}
+                            {(m.content || !m.imageUrl) && (
+                              <div className={cn(
+                                "rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                                m.role === "user"
+                                  ? "rounded-br-sm bg-brand-700 text-white"
+                                  : "rounded-bl-sm bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
+                              )}>
+                                {m.content || (
+                                  <span className="flex items-center gap-1.5 text-zinc-400 dark:text-zinc-500">
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    Escribiendo…
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {/* Card de confirmación de food log */}
+                            {m.foodLog && (
+                              <div className="rounded-2xl rounded-bl-sm border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/30 p-3 space-y-2">
+                                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 capitalize">
+                                  {m.foodLog.description}
+                                </p>
+                                <div className="flex gap-2 text-xs text-emerald-800 dark:text-emerald-300">
+                                  <span className="font-bold">{m.foodLog.calories} kcal</span>
+                                  <span className="text-emerald-600 dark:text-emerald-500">·</span>
+                                  <span>{m.foodLog.protein}g prot</span>
+                                  <span className="text-emerald-600 dark:text-emerald-500">·</span>
+                                  <span>{m.foodLog.carbs}g carbs</span>
+                                  <span className="text-emerald-600 dark:text-emerald-500">·</span>
+                                  <span>{m.foodLog.fat}g grasas</span>
+                                </div>
+                                {m.foodLogSaved ? (
+                                  <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    Registrado
+                                  </div>
+                                ) : (
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleSaveFoodLog(m.id, m.foodLog!)}
+                                      className="flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-white transition-colors"
+                                    >
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      Registrar
+                                    </button>
+                                    <button
+                                      onClick={() => setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, foodLog: undefined } : msg))}
+                                      className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-700 px-2.5 py-1 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                                    >
+                                      <XCircle className="h-3 w-3" />
+                                      Ignorar
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -249,27 +386,58 @@ export default function MemberChat() {
                   </div>
 
                   {/* Input */}
-                  <div className="shrink-0 border-t border-zinc-200 px-4 pb-3 pt-3 dark:border-zinc-800">
-                    <div className="flex items-center gap-3">
+                  <div className="shrink-0 border-t border-zinc-200 px-4 pb-3 pt-3 dark:border-zinc-800 space-y-2">
+                    {/* Preview de imagen pendiente */}
+                    {pendingImage && (
+                      <div className="relative w-20 h-20">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={pendingImage.previewUrl} alt="Vista previa" className="w-20 h-20 rounded-xl object-cover" />
+                        <button
+                          onClick={() => setPendingImage(null)}
+                          className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 text-white shadow"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      {/* File input oculto */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleImagePick}
+                      />
+                      {/* Botón cámara */}
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={streaming}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                        aria-label="Adjuntar foto de comida"
+                      >
+                        <Camera className="h-4 w-4" />
+                      </button>
                       <input
                         ref={inputRef}
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Escribe tu pregunta..."
+                        placeholder={pendingImage ? "Agregá un comentario (opcional)…" : "Escribe tu pregunta..."}
                         disabled={streaming}
                         className="flex-1 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/40 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500"
                       />
                       <button
                         onClick={() => sendMessage()}
-                        disabled={!input.trim() || streaming}
+                        disabled={(!input.trim() && !pendingImage) || streaming}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-700 text-white shadow-[0_0_16px_rgba(213,0,0,0.4)] transition-all hover:bg-brand-600 disabled:opacity-40 disabled:shadow-none"
                       >
                         {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       </button>
                     </div>
-                    <p className="mt-2 text-center text-[11px] text-zinc-400 dark:text-zinc-600">
-                      Presiona Enter para enviar · Shift + Enter para nueva línea
+                    <p className="text-center text-[11px] text-zinc-400 dark:text-zinc-600">
+                      Presiona Enter para enviar · 📷 para registrar comidas
                     </p>
                   </div>
 

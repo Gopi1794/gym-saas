@@ -268,6 +268,64 @@ export async function getAdherenceReport(gymId: string): Promise<AdherenceEntry[
   }).sort((a, b) => a.days_logged - b.days_logged)
 }
 
+// ── Quick log entries (foto → registro rápido) ─────────────────
+
+export type QuickLogEntry = {
+  description: string
+  calories: number
+  protein_g: number
+  carbs_g: number
+  fat_g: number
+  logged_at?: string
+}
+
+export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<void> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Not authenticated")
+
+  const { data: profile } = await supabase
+    .from("profiles").select("gym_id").eq("id", user.id).single()
+
+  const today = new Date().toISOString().split("T")[0]
+
+  await supabase.from("quick_log_entries" as never).insert({
+    user_id: user.id,
+    gym_id: (profile as { gym_id: string | null } | null)?.gym_id ?? null,
+    description: entry.description,
+    calories: entry.calories,
+    protein_g: entry.protein_g,
+    carbs_g: entry.carbs_g,
+    fat_g: entry.fat_g,
+    logged_at: entry.logged_at ?? today,
+  } as never)
+
+  revalidatePath("/nutricion")
+}
+
+export async function getQuickLogTotalsForDate(
+  userId: string,
+  date: string
+): Promise<{ calories: number; protein: number; carbs: number; fat: number }> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from("quick_log_entries" as never)
+    .select("calories, protein_g, carbs_g, fat_g")
+    .eq("user_id", userId)
+    .eq("logged_at", date)
+
+  if (!data) return { calories: 0, protein: 0, carbs: 0, fat: 0 }
+
+  let calories = 0, protein = 0, carbs = 0, fat = 0
+  for (const row of data as { calories: number; protein_g: number; carbs_g: number; fat_g: number }[]) {
+    calories += row.calories
+    protein  += Number(row.protein_g)
+    carbs    += Number(row.carbs_g)
+    fat      += Number(row.fat_g)
+  }
+  return { calories: Math.round(calories), protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat) }
+}
+
 export async function getWeightHistory(memberId: string, days = 90): Promise<WeightLog[]> {
   const supabase = createClient()
   const since = new Date(Date.now() - days * 86400000).toISOString().split("T")[0]
