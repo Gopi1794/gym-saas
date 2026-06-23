@@ -14,6 +14,7 @@ import CreatePlanForMember from "@/components/members/CreatePlanForMember"
 import MemberPhysicalEdit from "@/components/members/MemberPhysicalEdit"
 import MemberMembershipEdit from "@/components/members/MemberMembershipEdit"
 import MemberTrainerEdit from "@/components/members/MemberTrainerEdit"
+import MemberWorkoutInsights from "@/components/members/MemberWorkoutInsights"
 import { cn } from "@/lib/utils"
 
 interface Props { params: { id: string } }
@@ -306,64 +307,124 @@ export default async function MemberDetailPage({ params }: Props) {
       </div>
 
       {/* Workout history */}
-      {recentSessions && recentSessions.length > 0 && (
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Historial de entrenamientos</h2>
-            <p className="text-sm text-muted-foreground">Últimas sesiones — real vs planificado</p>
-          </div>
-          <div className="space-y-3">
-            {recentSessions.map((session) => {
-              const byExercise = session.workout_session_sets.reduce<Record<string, SessionSetRow[]>>((acc, s) => {
-                if (!acc[s.exercise_name]) acc[s.exercise_name] = []
-                acc[s.exercise_name].push(s)
-                return acc
-              }, {})
-              return (
-                <div key={session.id} className="rounded-2xl border border-border bg-card p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-foreground capitalize">{session.day_name}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(session.completed_at)}</p>
-                  </div>
-                  <div className="space-y-2">
-                    {Object.entries(byExercise).map(([exName, sets]) => {
-                      const anyDiff = sets.some(s => s.planned_reps != null && s.actual_reps != null && s.actual_reps !== s.planned_reps)
-                      return (
-                        <div key={exName} className="rounded-xl bg-muted/40 px-3 py-2">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <p className="text-xs font-medium text-foreground capitalize flex-1 truncate">{exName}</p>
-                            {anyDiff && <span className="text-[10px] font-semibold text-amber-500 bg-amber-500/10 rounded-full px-2 py-0.5">modificado</span>}
+      {recentSessions && recentSessions.length > 0 && (() => {
+        // Compute per-session metrics server-side
+        const sessionsWithMetrics = recentSessions.map(session => {
+          let totalPlanned = 0, totalActual = 0, totalVolume = 0
+          for (const s of session.workout_session_sets) {
+            const actual = s.actual_reps ?? s.reps
+            if (s.planned_reps != null) totalPlanned += s.planned_reps
+            if (actual != null) {
+              totalActual += actual
+              if (s.weight_kg != null) totalVolume += actual * s.weight_kg
+            }
+          }
+          const adherence = totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : null
+          return { session, adherence, totalVolume: Math.round(totalVolume) }
+        })
+
+        // Map to InsightSession format for AI component
+        const insightSessions = recentSessions.map(s => ({
+          day_name: s.day_name,
+          completed_at: s.completed_at,
+          sets: s.workout_session_sets.map(set => ({
+            exercise_name: set.exercise_name,
+            set_number: set.set_number,
+            actual_reps: set.actual_reps ?? set.reps,
+            planned_reps: set.planned_reps,
+            weight_kg: set.weight_kg,
+          })),
+        }))
+
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Historial de entrenamientos</h2>
+                <p className="text-sm text-muted-foreground">Últimas {recentSessions.length} sesiones</p>
+              </div>
+            </div>
+
+            <MemberWorkoutInsights
+              sessions={insightSessions}
+              member={{ goal: member.goal, training_frequency: member.training_frequency }}
+            />
+
+            <div className="space-y-3">
+              {sessionsWithMetrics.map(({ session, adherence, totalVolume }) => {
+                const adherenceCls = adherence == null ? "" :
+                  adherence >= 90 ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10" :
+                  adherence >= 70 ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10" :
+                  "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10"
+
+                const byExercise = session.workout_session_sets.reduce<Record<string, SessionSetRow[]>>((acc, s) => {
+                  if (!acc[s.exercise_name]) acc[s.exercise_name] = []
+                  acc[s.exercise_name].push(s)
+                  return acc
+                }, {})
+
+                return (
+                  <div key={session.id} className="rounded-2xl border border-border bg-card p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="font-semibold text-foreground capitalize truncate">{session.day_name}</p>
+                        <p className="text-xs text-muted-foreground shrink-0">{formatDate(session.completed_at)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {totalVolume > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {totalVolume >= 1000
+                              ? `${(totalVolume / 1000).toFixed(1)}t`
+                              : `${totalVolume}kg`} vol.
+                          </span>
+                        )}
+                        {adherence != null && (
+                          <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", adherenceCls)}>
+                            {adherence}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {Object.entries(byExercise).map(([exName, sets]) => {
+                        const anyDiff = sets.some(s => s.planned_reps != null && (s.actual_reps ?? s.reps) != null && (s.actual_reps ?? s.reps) !== s.planned_reps)
+                        return (
+                          <div key={exName} className="rounded-xl bg-muted/40 px-3 py-2">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <p className="text-xs font-medium text-foreground capitalize flex-1 truncate">{exName}</p>
+                              {anyDiff && <span className="text-[10px] font-semibold text-amber-500 bg-amber-500/10 rounded-full px-2 py-0.5">modificado</span>}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {sets.sort((a, b) => a.set_number - b.set_number).map((s) => {
+                                const actual = s.actual_reps ?? s.reps
+                                const planned = s.planned_reps
+                                const diff = planned != null && actual != null && actual !== planned
+                                return (
+                                  <div key={s.set_number} className={cn(
+                                    "flex items-center gap-1 rounded-lg px-2 py-1 text-xs",
+                                    diff ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted"
+                                  )}>
+                                    <span className="text-muted-foreground">S{s.set_number}</span>
+                                    <span className={cn("font-semibold", diff ? "text-amber-500" : "text-foreground")}>
+                                      {actual ?? "—"}
+                                    </span>
+                                    {diff && <span className="text-muted-foreground">/{planned}</span>}
+                                    {s.weight_kg != null && <span className="text-muted-foreground ml-0.5">{s.weight_kg}kg</span>}
+                                  </div>
+                                )
+                              })}
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {sets.sort((a, b) => a.set_number - b.set_number).map((s) => {
-                              const actual = s.actual_reps ?? s.reps
-                              const planned = s.planned_reps
-                              const diff = planned != null && actual != null && actual !== planned
-                              return (
-                                <div key={s.set_number} className={cn(
-                                  "flex items-center gap-1 rounded-lg px-2 py-1 text-xs",
-                                  diff ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted"
-                                )}>
-                                  <span className="text-muted-foreground">S{s.set_number}</span>
-                                  <span className={cn("font-semibold", diff ? "text-amber-500" : "text-foreground")}>
-                                    {actual ?? "—"}
-                                  </span>
-                                  {diff && <span className="text-muted-foreground">/{planned}</span>}
-                                  {s.weight_kg != null && <span className="text-muted-foreground ml-0.5">{s.weight_kg}kg</span>}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Workout plan */}
       <div className="space-y-4">
