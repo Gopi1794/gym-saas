@@ -303,6 +303,18 @@ export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<void> {
   revalidatePath("/nutricion")
 }
 
+export async function getQuickLogsForDate(userId: string, date: string): Promise<QuickLogEntry[]> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from("quick_log_entries" as never)
+    .select("description, calories, protein_g, carbs_g, fat_g, logged_at")
+    .eq("user_id", userId)
+    .eq("logged_at", date)
+    .order("created_at", { ascending: false })
+
+  return (data ?? []) as unknown as QuickLogEntry[]
+}
+
 export async function getQuickLogTotalsForDate(
   userId: string,
   date: string

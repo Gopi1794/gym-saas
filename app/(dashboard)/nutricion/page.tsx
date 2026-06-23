@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getNutritionPlans, getMemberNutritionPlan, getFoods } from "@/app/actions/nutrition"
 import { todayAR } from "@/lib/date-ar"
-import { getMealLogsForDate, getWaterToday, getNutritionStreak, getAdherenceReport, getWeightHistory } from "@/app/actions/nutrition-tracking"
+import { getMealLogsForDate, getWaterToday, getNutritionStreak, getAdherenceReport, getWeightHistory, getQuickLogsForDate } from "@/app/actions/nutrition-tracking"
 import TabSwitcher from "@/components/ui/TabSwitcher"
 import NutritionPlansPanel from "@/components/nutrition/NutritionPlansPanel"
 import MemberNutritionView from "@/components/nutrition/MemberNutritionView"
@@ -35,11 +35,12 @@ export default async function NutricionPage({
 
   // ── Miembro: vista directa sin tabs ──
   if (role === "member") {
-    const [plan, waterGlasses, streak, weightHistory] = await Promise.all([
+    const [plan, waterGlasses, streak, weightHistory, quickLogs] = await Promise.all([
       getMemberNutritionPlan(user!.id),
       getWaterToday(user!.id),
       getNutritionStreak(user!.id),
       getWeightHistory(user!.id, 60),
+      getQuickLogsForDate(user!.id, today),
     ])
     const mealLogs = plan ? await getMealLogsForDate(user!.id, today) : []
     return (
@@ -50,6 +51,7 @@ export default async function NutricionPage({
         streak={streak}
         today={today}
         weightHistory={weightHistory}
+        quickLogs={quickLogs}
       />
     )
   }

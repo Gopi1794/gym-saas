@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Apple, CheckCircle2, Circle, Droplets, Plus, Minus, Flame, TrendingDown, X } from "lucide-react"
+import { Apple, CheckCircle2, Circle, Droplets, Plus, Minus, Flame, TrendingDown, X, Camera } from "lucide-react"
 import type { NutritionPlan, Meal } from "@/app/actions/nutrition"
-import type { MealLog, WeightLog } from "@/app/actions/nutrition-tracking"
+import type { MealLog, WeightLog, QuickLogEntry } from "@/app/actions/nutrition-tracking"
 import { calcMacros } from "@/lib/nutrition"
 import { logMealWithItems, removeMealLog, setWaterToday } from "@/app/actions/nutrition-tracking"
 import { showToast } from "nextjs-toast-notify"
@@ -17,6 +17,7 @@ interface Props {
   streak: number
   today: string
   weightHistory: WeightLog[]
+  quickLogs: QuickLogEntry[]
 }
 
 const GOAL_LABELS: Record<string, string> = {
@@ -323,7 +324,7 @@ function MealCard({ meal, mealLog, today }: { meal: Meal; mealLog: MealLog | nul
 }
 
 // ── Main component ────────────────────────────────────────────
-export default function MemberNutritionView({ plan, mealLogs, waterGlasses, streak, today, weightHistory }: Props) {
+export default function MemberNutritionView({ plan, mealLogs, waterGlasses, streak, today, weightHistory, quickLogs }: Props) {
   if (!plan) {
     return (
       <div className="space-y-6">
@@ -368,7 +369,22 @@ export default function MemberNutritionView({ plan, mealLogs, waterGlasses, stre
     return acc
   }, { calories: 0, protein: 0, carbs: 0, fat: 0 })
 
-  const hasLogs = mealLogs.length > 0
+  // Add quick log totals (photo registrations)
+  const quickTotals = quickLogs.reduce(
+    (acc, q) => ({
+      calories: acc.calories + q.calories,
+      protein:  acc.protein  + Number(q.protein_g),
+      carbs:    acc.carbs    + Number(q.carbs_g),
+      fat:      acc.fat      + Number(q.fat_g),
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  )
+  consumed.calories += quickTotals.calories
+  consumed.protein  += quickTotals.protein
+  consumed.carbs    += quickTotals.carbs
+  consumed.fat      += quickTotals.fat
+
+  const hasLogs = mealLogs.length > 0 || quickLogs.length > 0
 
   return (
     <div className="space-y-5">
@@ -432,6 +448,29 @@ export default function MemberNutritionView({ plan, mealLogs, waterGlasses, stre
           )}
         </div>
       </div>
+
+      {/* Quick logs (photo registrations) */}
+      {quickLogs.length > 0 && (
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+            <Camera className="h-3.5 w-3.5" />
+            Registrado por foto
+          </p>
+          <div className="space-y-2">
+            {quickLogs.map((q, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+                <p className="text-sm text-zinc-700 dark:text-zinc-300 capitalize flex-1 truncate">{q.description}</p>
+                <div className="flex items-center gap-3 shrink-0 text-xs text-zinc-500">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-50">{q.calories} kcal</span>
+                  <span>{Math.round(Number(q.protein_g))}g prot</span>
+                  <span className="hidden sm:inline">{Math.round(Number(q.carbs_g))}g carb</span>
+                  <span className="hidden sm:inline">{Math.round(Number(q.fat_g))}g gras</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Weight */}
       <WeightChart history={weightHistory} />
