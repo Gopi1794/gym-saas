@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { completeWorkoutSession } from "@/app/actions/workout-sessions";
 import { insertExerciseMax } from "@/app/actions/exercise-maxes";
+import { saveWorkoutDraft, deleteWorkoutDraft, type WorkoutDraft } from "@/app/actions/workout-draft";
 import type { CompleteSessionResult, SessionSet } from "@/lib/achievements/types";
 import WorkoutResults from "@/components/planes/WorkoutResults";
 import RestTimerKnob from "@/components/ui/rest-timer-knob";
@@ -67,6 +68,7 @@ interface Props {
   planId: string;
   userWeightKg?: number | null;
   exerciseMaxes?: Record<string, number>;
+  initialDraft?: WorkoutDraft | null;
   onClose: () => void;
 }
 
@@ -150,6 +152,7 @@ export default function WorkoutSession({
   planId,
   userWeightKg,
   exerciseMaxes = {},
+  initialDraft,
   onClose,
 }: Props) {
   const sortedExercises = [...exercises].sort((a, b) => {
@@ -169,26 +172,26 @@ export default function WorkoutSession({
     } catch { return fallback }
   }
 
-  const [exerciseIdx, setExerciseIdx] = useState(() => loadSaved("exerciseIdx", 0));
-  const [currentSet, setCurrentSet] = useState(() => loadSaved("currentSet", 1));
-  const [phase, setPhase] = useState<Phase>(() => loadSaved<Phase>("phase", "exercising"));
-  const [restEndsAt, setRestEndsAt] = useState<number | null>(() => loadSaved<number | null>("restEndsAt", null));
+  const [exerciseIdx, setExerciseIdx] = useState(() => initialDraft?.exercise_idx ?? loadSaved("exerciseIdx", 0));
+  const [currentSet, setCurrentSet] = useState(() => initialDraft?.current_set ?? loadSaved("currentSet", 1));
+  const [phase, setPhase] = useState<Phase>(() => (initialDraft?.phase as Phase) ?? loadSaved<Phase>("phase", "exercising"));
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(() => initialDraft?.rest_ends_at ?? loadSaved<number | null>("restEndsAt", null));
   const [restLeft, setRestLeft] = useState(() => {
-    const savedPhase = loadSaved<Phase>("phase", "exercising")
-    const endsAt = loadSaved<number | null>("restEndsAt", null)
+    const savedPhase = (initialDraft?.phase as Phase) ?? loadSaved<Phase>("phase", "exercising")
+    const endsAt = initialDraft?.rest_ends_at ?? loadSaved<number | null>("restEndsAt", null)
     if (savedPhase === "resting" && endsAt) {
       return Math.max(0, Math.floor((endsAt - Date.now()) / 1000))
     }
     return 0
   });
-  const [restTotal, setRestTotal] = useState(() => loadSaved("restTotal", 0));
+  const [restTotal, setRestTotal] = useState(() => initialDraft?.rest_total ?? loadSaved("restTotal", 0));
   const [restSkips, setRestSkips] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [sessionResult, setSessionResult] =
     useState<CompleteSessionResult | null>(null);
 
   // Per-set tracking
-  const [collectedSets, setCollectedSets] = useState<SessionSet[]>(() => loadSaved("collectedSets", []));
+  const [collectedSets, setCollectedSets] = useState<SessionSet[]>(() => initialDraft?.collected_sets ?? loadSaved("collectedSets", []));
   const [currentWeight, setCurrentWeight] = useState("");
   const [exerciseWeight, setExerciseWeight] = useState(""); // carries over between sets of same exercise
   const [actualReps, setActualReps] = useState(0); // set after current is defined
@@ -264,6 +267,7 @@ export default function WorkoutSession({
     savedRef.current = true;
 
     try { sessionStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
+    deleteWorkoutDraft(planId, dayOfWeek).catch(() => {})
 
     async function finish() {
       setCompleting(true);
@@ -360,6 +364,19 @@ export default function WorkoutSession({
     setRestTotal(rest);
     setRestLeft(rest);
     setPhase("resting");
+
+    // Persist to DB so user can resume if they close the app
+    saveWorkoutDraft({
+      plan_id: planId,
+      day_of_week: dayOfWeek,
+      day_name: dayName,
+      exercise_idx: exerciseIdx,
+      current_set: currentSet,
+      phase: "resting",
+      collected_sets: [...collectedSets, setData],
+      rest_ends_at: endsAt,
+      rest_total: rest,
+    }).catch(() => {})
   }
 
   // ── Finished sub-states ──

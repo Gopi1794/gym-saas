@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import MachineScanner from "@/components/machines/MachineScanner";
 import { cn } from "@/lib/utils";
+import { loadWorkoutDraft, type WorkoutDraft } from "@/app/actions/workout-draft";
 import WorkoutSession from "./WorkoutSession";
 
 const DAY_NAMES = [
@@ -332,20 +333,44 @@ export default function MemberWorkoutView({
   const router = useRouter();
   const [selectedDow, setSelectedDow] = useState<number | null>(null);
   const [activeWorkout, setActiveWorkout] = useState<ActiveWorkout | null>(null);
+  const [activeDraft, setActiveDraft] = useState<WorkoutDraft | null>(null);
   const [showMachineScanner, setShowMachineScanner] = useState(false);
 
-  // Restore workout state if browser tab was killed (e.g. user switched to WhatsApp)
+  // Restore workout: DB draft takes priority over sessionStorage
   useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem(STORAGE_KEY)
-      if (!saved) return
-      const { dayOfWeek, dayName } = JSON.parse(saved) as { dayOfWeek: number; dayName: string }
-      const day = days.find(d => d.day_of_week === dayOfWeek)
-      if (!day) return
-      const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
-      setActiveWorkout({ exercises: sorted, dayName, dayOfWeek })
-    } catch { /* ignore */ }
-  }, [days])
+    loadWorkoutDraft(plan.id).then((draft) => {
+      if (draft) {
+        const day = days.find(d => d.day_of_week === draft.day_of_week)
+        if (day) {
+          const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
+          setActiveDraft(draft)
+          setActiveWorkout({ exercises: sorted, dayName: draft.day_name, dayOfWeek: draft.day_of_week })
+          return
+        }
+      }
+      // Fallback: sessionStorage (tab kill recovery)
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEY)
+        if (!saved) return
+        const { dayOfWeek, dayName } = JSON.parse(saved) as { dayOfWeek: number; dayName: string }
+        const day = days.find(d => d.day_of_week === dayOfWeek)
+        if (!day) return
+        const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
+        setActiveWorkout({ exercises: sorted, dayName, dayOfWeek })
+      } catch { /* ignore */ }
+    }).catch(() => {
+      // loadWorkoutDraft failed — try sessionStorage fallback
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEY)
+        if (!saved) return
+        const { dayOfWeek, dayName } = JSON.parse(saved) as { dayOfWeek: number; dayName: string }
+        const day = days.find(d => d.day_of_week === dayOfWeek)
+        if (!day) return
+        const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
+        setActiveWorkout({ exercises: sorted, dayName, dayOfWeek })
+      } catch { /* ignore */ }
+    })
+  }, [days, plan.id])
 
   const todayDow = (new Date().getDay() + 6) % 7;
 
@@ -363,9 +388,11 @@ export default function MemberWorkoutView({
         planId={plan.id}
         userWeightKg={weightKg}
         exerciseMaxes={exerciseMaxes}
+        initialDraft={activeDraft}
         onClose={() => {
           sessionStorage.removeItem(STORAGE_KEY)
           setActiveWorkout(null);
+          setActiveDraft(null);
           setSelectedDow(null);
           router.refresh();
         }}
