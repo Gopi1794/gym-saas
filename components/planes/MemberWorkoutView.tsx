@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import MachineScanner from "@/components/machines/MachineScanner";
 import { cn } from "@/lib/utils";
-import { loadWorkoutDraft, type WorkoutDraft } from "@/app/actions/workout-draft";
+import { loadWorkoutDraft, deleteWorkoutDraft, type WorkoutDraft } from "@/app/actions/workout-draft";
 import WorkoutSession from "./WorkoutSession";
 
 const DAY_NAMES = [
@@ -334,42 +334,31 @@ export default function MemberWorkoutView({
   const [selectedDow, setSelectedDow] = useState<number | null>(null);
   const [activeWorkout, setActiveWorkout] = useState<ActiveWorkout | null>(null);
   const [activeDraft, setActiveDraft] = useState<WorkoutDraft | null>(null);
+  // Draft pending user decision (resume vs discard)
+  const [pendingDraft, setPendingDraft] = useState<WorkoutDraft | null>(null);
   const [showMachineScanner, setShowMachineScanner] = useState(false);
 
-  // Restore workout: DB draft takes priority over sessionStorage
   useEffect(() => {
-    loadWorkoutDraft(plan.id).then((draft) => {
-      if (draft) {
-        const day = days.find(d => d.day_of_week === draft.day_of_week)
+    // sessionStorage → auto-restore (same browser session, tab killed momentarily)
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const { dayOfWeek, dayName } = JSON.parse(saved) as { dayOfWeek: number; dayName: string }
+        const day = days.find(d => d.day_of_week === dayOfWeek)
         if (day) {
           const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
-          setActiveDraft(draft)
-          setActiveWorkout({ exercises: sorted, dayName: draft.day_name, dayOfWeek: draft.day_of_week })
-          return
+          setActiveWorkout({ exercises: sorted, dayName, dayOfWeek })
+          return // sessionStorage found, skip DB check
         }
       }
-      // Fallback: sessionStorage (tab kill recovery)
-      try {
-        const saved = sessionStorage.getItem(STORAGE_KEY)
-        if (!saved) return
-        const { dayOfWeek, dayName } = JSON.parse(saved) as { dayOfWeek: number; dayName: string }
-        const day = days.find(d => d.day_of_week === dayOfWeek)
-        if (!day) return
-        const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
-        setActiveWorkout({ exercises: sorted, dayName, dayOfWeek })
-      } catch { /* ignore */ }
-    }).catch(() => {
-      // loadWorkoutDraft failed — try sessionStorage fallback
-      try {
-        const saved = sessionStorage.getItem(STORAGE_KEY)
-        if (!saved) return
-        const { dayOfWeek, dayName } = JSON.parse(saved) as { dayOfWeek: number; dayName: string }
-        const day = days.find(d => d.day_of_week === dayOfWeek)
-        if (!day) return
-        const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
-        setActiveWorkout({ exercises: sorted, dayName, dayOfWeek })
-      } catch { /* ignore */ }
-    })
+    } catch { /* ignore */ }
+
+    // DB draft → show banner, user decides (cross-session recovery)
+    loadWorkoutDraft(plan.id).then((draft) => {
+      if (!draft) return
+      const day = days.find(d => d.day_of_week === draft.day_of_week)
+      if (day) setPendingDraft(draft)
+    }).catch(() => {})
   }, [days, plan.id])
 
   const todayDow = (new Date().getDay() + 6) % 7;
@@ -434,8 +423,48 @@ export default function MemberWorkoutView({
 
   const todayDay = days.find((d) => d.day_of_week === todayDow);
 
+  function handleResumeDraft() {
+    if (!pendingDraft) return
+    const day = days.find(d => d.day_of_week === pendingDraft.day_of_week)
+    if (!day) return
+    const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
+    setActiveDraft(pendingDraft)
+    setActiveWorkout({ exercises: sorted, dayName: pendingDraft.day_name, dayOfWeek: pendingDraft.day_of_week })
+    setPendingDraft(null)
+  }
+
+  function handleDiscardDraft() {
+    if (!pendingDraft) return
+    deleteWorkoutDraft(pendingDraft.plan_id, pendingDraft.day_of_week).catch(() => {})
+    setPendingDraft(null)
+  }
+
   return (
     <div className="space-y-6 pb-6">
+      {pendingDraft && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 px-4 py-3.5">
+          <p className="text-sm font-semibold text-amber-300">
+            Tenés un entrenamiento sin terminar
+          </p>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            {pendingDraft.day_name} · Serie {pendingDraft.current_set} del ejercicio {pendingDraft.exercise_idx + 1}
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={handleResumeDraft}
+              className="flex-1 rounded-xl bg-amber-500/15 border border-amber-500/30 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/25 transition-colors"
+            >
+              Continuar
+            </button>
+            <button
+              onClick={handleDiscardDraft}
+              className="flex-1 rounded-xl bg-zinc-800 border border-zinc-700 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-700 transition-colors"
+            >
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
       {showMachineScanner && (
         <MachineScanner
           userId={userId}
