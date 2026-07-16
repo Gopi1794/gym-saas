@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 const PUBLIC_PATHS = ["/", "/login", "/register", "/forgot-password", "/reset-password"]
-const PUBLIC_PREFIXES = ["/api/"]
+const PUBLIC_PREFIXES = ["/api/", "/.well-known/"]
 const ONBOARDING_PAGO = "/onboarding/pago"
 const PAYWALL_PATH = "/pagos/renovar"
 const PAYWALL_EXEMPT = [ONBOARDING_PAGO, PAYWALL_PATH, "/pagos/success", "/pagos/failure", "/pagos/pending", "/saas-admin/activate"]
