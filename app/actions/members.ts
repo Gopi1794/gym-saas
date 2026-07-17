@@ -79,15 +79,22 @@ export async function updateMemberMembership(input: MemberMembershipInput) {
     return { error: "Miembro no pertenece a tu gym" }
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("profiles")
     .update({
       membership_type: input.membershipType,
       membership_expires_at: input.membershipExpiresAt,
     } as never)
     .eq("id", input.memberId)
+    .select("id")
 
   if (error) return { error: error.message }
+
+  // Si RLS bloqueó el update, Supabase no tira error pero tampoco devuelve filas.
+  // Sin esta guarda, se podía registrar el pago sin haber extendido la membresía.
+  if (!updated || updated.length === 0) {
+    return { error: "No se pudo actualizar la membresía (sin permiso o el socio no existe)" }
+  }
 
   // Registrar pago en efectivo (RLS admin_insert_payments lo permite)
   const { data: plan } = await supabase
