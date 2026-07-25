@@ -244,7 +244,7 @@ export default function TrainerPlanesView({ trainerId, gymId, memberPlans, templ
               <>
                 <p className="font-medium text-zinc-400">Ningún miembro tiene un plan todavía</p>
                 <p className="mt-1 text-sm text-zinc-600">
-                  Usá <span className="text-zinc-400">"Nuevo plan"</span> para crear uno y asignarlo a un miembro
+                  Usá <span className="text-zinc-400">&quot;Nuevo plan&quot;</span> para crear uno y asignarlo a un miembro
                 </p>
               </>
             ) : (
@@ -259,7 +259,7 @@ export default function TrainerPlanesView({ trainerId, gymId, memberPlans, templ
         </div>
       ) : activePlans.length === 0 ? (
         <p className="py-10 text-center text-sm text-zinc-500">
-          Ningún plan coincide con <span className="text-zinc-300">"{search}"</span>
+          Ningún plan coincide con <span className="text-zinc-300">&quot;{search}&quot;</span>
         </p>
       ) : viewMode === "grid" ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
