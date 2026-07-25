@@ -207,7 +207,7 @@ export default function LandingPage() {
                     <Star key={i} className="h-4 w-4 fill-brand-500 text-brand-500" />
                   ))}
                 </div>
-                <p className="flex-1 text-sm leading-relaxed text-zinc-300">"{t.quote}"</p>
+                <p className="flex-1 text-sm leading-relaxed text-zinc-300">&quot;{t.quote}&quot;</p>
                 <div className="flex items-center gap-3 border-t border-white/5 pt-4">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-700/20 text-sm font-bold text-brand-400">
                     {t.initials}
