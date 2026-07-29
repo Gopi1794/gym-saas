@@ -10,9 +10,10 @@ interface Props {
   memberId: string
   initialWeight: number | null
   initialHeight: number | null
+  hasActiveNutritionPlan: boolean
 }
 
-export default function MemberPhysicalEdit({ memberId, initialWeight, initialHeight }: Props) {
+export default function MemberPhysicalEdit({ memberId, initialWeight, initialHeight, hasActiveNutritionPlan }: Props) {
   const [editing, setEditing] = useState(false)
   const [weight, setWeight] = useState(initialWeight?.toString() ?? "")
   const [height, setHeight] = useState(initialHeight?.toString() ?? "")
@@ -134,6 +135,14 @@ export default function MemberPhysicalEdit({ memberId, initialWeight, initialHei
                 <span className="font-semibold text-zinc-300">
                   {(parseFloat(weight) / Math.pow(parseInt(height) / 100, 2)).toFixed(1)}
                 </span>
+              </p>
+            )}
+
+            {hasActiveNutritionPlan && (
+              <p className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5 text-xs text-amber-400">
+                El objetivo nutricional del plan se calculó con el peso y la altura actuales.
+                Si los cambiás, el objetivo del plan queda desactualizado — te lo vamos a
+                avisar en el editor del plan.
               </p>
             )}
 

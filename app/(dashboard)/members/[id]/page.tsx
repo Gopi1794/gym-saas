@@ -104,6 +104,7 @@ export default async function MemberDetailPage({ params }: Props) {
     { data: recentPayments },
     { data: gymTrainers },
     { data: recentSessions },
+    { count: activeNutritionPlanCount },
   ] = await Promise.all([
     supabase.from("workout_plans" as never).select(planSelect)
       .eq("assigned_to", params.id).eq("is_template", false)
@@ -132,6 +133,9 @@ export default async function MemberDetailPage({ params }: Props) {
       .eq("user_id", params.id)
       .order("completed_at", { ascending: false })
       .limit(5) as unknown as Promise<{ data: SessionRow[] | null }>,
+
+    supabase.from("nutrition_plans" as never).select("id", { count: "exact", head: true })
+      .eq("member_id", params.id).eq("is_active", true),
   ])
 
   const memberName = member.full_name ?? "Miembro"
@@ -217,6 +221,7 @@ export default async function MemberDetailPage({ params }: Props) {
           memberId={params.id}
           initialWeight={member.weight_kg}
           initialHeight={member.height_cm}
+          hasActiveNutritionPlan={(activeNutritionPlanCount ?? 0) > 0}
         />
       </div>
 

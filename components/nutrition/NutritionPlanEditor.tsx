@@ -14,13 +14,23 @@ import {
 } from "@/app/actions/nutrition"
 import { searchUSDA } from "@/app/actions/usda"
 import type { USDAResult } from "@/app/actions/usda"
-import { calcMacros } from "@/lib/nutrition"
+import { calcMacros, calcPlanMacros, calcNutritionTargets } from "@/lib/nutrition"
 import type { NutritionPlan, Meal, MealItem, Food } from "@/app/actions/nutrition"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog"
 
-interface Props { plan: NutritionPlan; foods: Food[]; userId: string; initialFavorites: string[] }
+type MemberProfileForTargets = {
+  weight_kg: number | null
+  height_cm: number | null
+  date_of_birth: string | null
+  gender: "male" | "female" | "other" | null
+  training_frequency: "never" | "1-2" | "3-4" | "5+" | null
+}
+
+interface Props { plan: NutritionPlan; foods: Food[]; userId: string; initialFavorites: string[]; memberProfile: MemberProfileForTargets | null }
+
+const CALORIE_MISMATCH_THRESHOLD = 0.10
 
 // ── Goal labels ─────────────────────────────────────────────────
 const GOAL_LABELS: Record<string, string> = {
@@ -597,7 +607,7 @@ function MealDetail({ meal, mealIdx, items, foods, onDelete, onItemsChange }: {
 }
 
 // ── Main component ──────────────────────────────────────────────
-export default function NutritionPlanEditor({ plan, foods, userId, initialFavorites }: Props) {
+export default function NutritionPlanEditor({ plan, foods, userId, initialFavorites, memberProfile }: Props) {
   const [, startTransition] = useTransition()
   const [meals, setMeals] = useState<Meal[]>(plan.nutrition_meals ?? [])
   const [isActive, setIsActive] = useState(plan.is_active)
@@ -698,6 +708,44 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
   const allItems = Object.values(mealItems).flat()
   const totals = calcMacros(allItems)
 
+  const liveMeals: Meal[] = meals.map(m => ({ ...m, nutrition_meal_items: mealItems[m.id] ?? [] }))
+  const planTotals = calcPlanMacros(liveMeals)
+  const nutritionTargets = memberProfile ? calcNutritionTargets(memberProfile, plan.goal) : null
+
+  const nutritionWarnings: string[] = []
+
+  // Chequeo 1: ¿el objetivo guardado en el plan sigue siendo válido con los datos actuales del socio?
+  if (!nutritionTargets) {
+    const missing: string[] = []
+    if (memberProfile) {
+      if (!memberProfile.weight_kg) missing.push("peso")
+      if (!memberProfile.height_cm) missing.push("altura")
+      if (!memberProfile.date_of_birth) missing.push("fecha de nacimiento")
+    }
+    nutritionWarnings.push(
+      missing.length > 0
+        ? `Faltan datos del socio para calcular el objetivo: ${missing.join(", ")}.`
+        : "No se pudo calcular el objetivo nutricional a partir de los datos del socio."
+    )
+  } else if (plan.target_calories) {
+    const staleDiff = (plan.target_calories - nutritionTargets.calories) / nutritionTargets.calories
+    if (Math.abs(staleDiff) > CALORIE_MISMATCH_THRESHOLD) {
+      nutritionWarnings.push(
+        `El objetivo del plan (${plan.target_calories.toLocaleString("es-AR")} kcal) se calculó con datos anteriores. Con el peso actual del socio serían ${nutritionTargets.calories.toLocaleString("es-AR")} kcal.`
+      )
+    }
+  }
+
+  // Chequeo 2: ¿lo que suman las comidas cargadas llega al objetivo guardado del plan?
+  if (plan.target_calories && planTotals.calories > 0) {
+    const mealsDiff = (planTotals.calories - plan.target_calories) / plan.target_calories
+    if (Math.abs(mealsDiff) > CALORIE_MISMATCH_THRESHOLD) {
+      nutritionWarnings.push(
+        `Las comidas suman ${Math.round(planTotals.calories).toLocaleString("es-AR")} kcal contra el objetivo de ${plan.target_calories.toLocaleString("es-AR")} kcal del plan.`
+      )
+    }
+  }
+
   function handleAddMeal() {
     startTransition(async () => {
       const name = `Comida ${meals.length + 1}`
@@ -792,6 +840,16 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
 
   return (
     <div className="flex flex-col gap-4">
+
+      {nutritionWarnings.length > 0 && (
+        <div className="space-y-2">
+          {nutritionWarnings.map((msg, i) => (
+            <div key={i} className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
+              {msg}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Active badge + stats bar ───────────────────────── */}
       <div className="flex items-center justify-between">
