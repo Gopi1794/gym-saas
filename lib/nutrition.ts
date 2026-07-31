@@ -113,3 +113,38 @@ export function calcNutritionTargets(
 
   return { calories: targetCalories, protein, carbs, fat }
 }
+
+export const CALORIE_MISMATCH_THRESHOLD = 0.10
+
+export function missingTargetFields(
+  profile: { weight_kg: number | null; height_cm: number | null; date_of_birth: string | null } | null
+): string[] {
+  return [
+    !profile?.weight_kg && "peso",
+    !profile?.height_cm && "altura",
+    !profile?.date_of_birth && "fecha de nacimiento",
+  ].filter(Boolean) as string[]
+}
+
+export const NUTRITION_GOALS = [
+  { value: "volumen",          label: "Volumen",               hint: "+12%" },
+  { value: "rendimiento",      label: "Rendimiento deportivo",  hint: "+8%" },
+  { value: "mantenimiento",    label: "Mantenimiento",          hint: null },
+  { value: "recomposicion",    label: "Recomposición",          hint: "proteína alta" },
+  { value: "perdida_moderada", label: "Pérdida moderada",       hint: "−10%" },
+  { value: "definicion",       label: "Definición",             hint: "−18%" },
+] as const
+
+// Para el select del formulario de creación — el % ayuda a decidir
+export const NUTRITION_GOAL_OPTIONS: { value: NutritionPlan["goal"]; label: string }[] = NUTRITION_GOALS.map(g => ({
+  value: g.value,
+  label: g.hint ? `${g.label} (${g.hint})` : g.label,
+}))
+
+// Para mostrar en cualquier lugar de solo lectura (editor, panel de adherencia,
+// vista del socio) — sin el %. Mostrarle a un socio que su plan es un déficit
+// del 18% es una decisión de producto aparte, no algo que se hereda gratis
+// de esta constante.
+export const NUTRITION_GOAL_LABELS: Partial<Record<NutritionPlan["goal"], string>> = Object.fromEntries(
+  NUTRITION_GOALS.map(g => [g.value, g.label])
+)

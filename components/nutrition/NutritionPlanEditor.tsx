@@ -1,33 +1,36 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import {
   Plus, Trash2, X, Search, Sun, Moon, Coffee, Utensils, Cake,
   Copy, Pencil, Check, Clock, Upload, RotateCcw, MoreVertical,
 } from "lucide-react"
-import { showToast } from "nextjs-toast-notify"
+import { sileo } from "sileo"
 import {
   addMeal, updateMeal, deleteMeal,
   addMealItem, updateMealItem, deleteMealItem,
   updateNutritionPlan, createFood,
   addFoodFavorite, removeFoodFavorite,
+  recalculateNutritionPlanTargets,
 } from "@/app/actions/nutrition"
 import { searchUSDA } from "@/app/actions/usda"
 import type { USDAResult } from "@/app/actions/usda"
-import { calcMacros } from "@/lib/nutrition"
+import { calcMacros, calcPlanMacros, calcNutritionTargets, missingTargetFields, CALORIE_MISMATCH_THRESHOLD, NUTRITION_GOAL_LABELS as GOAL_LABELS } from "@/lib/nutrition"
 import type { NutritionPlan, Meal, MealItem, Food } from "@/app/actions/nutrition"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog"
 
-interface Props { plan: NutritionPlan; foods: Food[]; userId: string; initialFavorites: string[] }
-
-// ── Goal labels ─────────────────────────────────────────────────
-const GOAL_LABELS: Record<string, string> = {
-  volumen: "Volumen", definicion: "Definición", mantenimiento: "Mantenimiento",
-  recomposicion: "Recomposición", rendimiento: "Rendimiento deportivo",
-  perdida_moderada: "Pérdida moderada", otro: "Otro",
+type MemberProfileForTargets = {
+  weight_kg: number | null
+  height_cm: number | null
+  date_of_birth: string | null
+  gender: "male" | "female" | "other" | null
+  training_frequency: "never" | "1-2" | "3-4" | "5+" | null
 }
+
+interface Props { plan: NutritionPlan; foods: Food[]; userId: string; initialFavorites: string[]; memberProfile: MemberProfileForTargets | null }
 
 // ── Liquid orb colors per meal slot ────────────────────────────
 const ORBS = ["#fbbf24", "#fb923c", "#60a5fa", "#f472b6", "#818cf8"]
@@ -597,13 +600,16 @@ function MealDetail({ meal, mealIdx, items, foods, onDelete, onItemsChange }: {
 }
 
 // ── Main component ──────────────────────────────────────────────
-export default function NutritionPlanEditor({ plan, foods, userId, initialFavorites }: Props) {
+export default function NutritionPlanEditor({ plan, foods, userId, initialFavorites, memberProfile }: Props) {
+  const router = useRouter()
   const [, startTransition] = useTransition()
   const [meals, setMeals] = useState<Meal[]>(plan.nutrition_meals ?? [])
   const [isActive, setIsActive] = useState(plan.is_active)
   const [activeMealId, setActiveMealId] = useState<string | null>(meals[0]?.id ?? null)
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null)
   const [clearingPlan, setClearingPlan] = useState(false)
+  const [confirmingRecalculate, setConfirmingRecalculate] = useState(false)
+  const [isRecalculating, setIsRecalculating] = useState(false)
 
   // Per-meal item state (kept in sync with MealDetail via onItemsChange)
   const [mealItems, setMealItems] = useState<Record<string, MealItem[]>>(
@@ -683,8 +689,8 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
         })
         setLocalFoods(prev => [...prev, created])
         setUsdaImported(prev => new Set([...prev, food.fdcId]))
-        showToast.success(`${food.name} agregado`, { duration: 2000, position: "top-right" })
-      } catch { showToast.error("Error al importar", { duration: 2000, position: "top-right" }) }
+        sileo.success({ title: `${food.name} agregado`, description: "Ya está disponible en tu biblioteca de alimentos.", duration: 2000 })
+      } catch { sileo.error({ title: "Error al importar", description: "Verificá la conexión con USDA e intentá de nuevo.", duration: 2000 }) }
     })
   }
 
@@ -697,6 +703,41 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
 
   const allItems = Object.values(mealItems).flat()
   const totals = calcMacros(allItems)
+
+  const liveMeals: Meal[] = meals.map(m => ({ ...m, nutrition_meal_items: mealItems[m.id] ?? [] }))
+  const planTotals = calcPlanMacros(liveMeals)
+  const nutritionTargets = memberProfile ? calcNutritionTargets(memberProfile, plan.goal) : null
+
+  const nutritionWarnings: string[] = []
+  let staleObjectiveWarning: { message: string; recalculatedCalories: number } | null = null
+
+  // Chequeo 1: ¿el objetivo guardado en el plan sigue siendo válido con los datos actuales del socio?
+  if (!nutritionTargets) {
+    const missing = missingTargetFields(memberProfile)
+    nutritionWarnings.push(
+      missing.length > 0
+        ? `Faltan datos del socio para calcular el objetivo: ${missing.join(", ")}.`
+        : "No se pudo calcular el objetivo nutricional a partir de los datos del socio."
+    )
+  } else if (plan.target_calories) {
+    const staleDiff = (plan.target_calories - nutritionTargets.calories) / nutritionTargets.calories
+    if (Math.abs(staleDiff) > CALORIE_MISMATCH_THRESHOLD) {
+      staleObjectiveWarning = {
+        message: `El objetivo del plan (${plan.target_calories.toLocaleString("es-AR")} kcal) se calculó con datos anteriores. Con el peso actual del socio serían ${nutritionTargets.calories.toLocaleString("es-AR")} kcal.`,
+        recalculatedCalories: nutritionTargets.calories,
+      }
+    }
+  }
+
+  // Chequeo 2: ¿lo que suman las comidas cargadas llega al objetivo guardado del plan?
+  if (plan.target_calories && planTotals.calories > 0) {
+    const mealsDiff = (planTotals.calories - plan.target_calories) / plan.target_calories
+    if (Math.abs(mealsDiff) > CALORIE_MISMATCH_THRESHOLD) {
+      nutritionWarnings.push(
+        `Las comidas suman ${Math.round(planTotals.calories).toLocaleString("es-AR")} kcal contra el objetivo de ${plan.target_calories.toLocaleString("es-AR")} kcal del plan.`
+      )
+    }
+  }
 
   function handleAddMeal() {
     startTransition(async () => {
@@ -720,9 +761,9 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
         setMeals(next)
         setMealItems(prev => { const p = { ...prev }; delete p[id]; return p })
         setActiveMealId(next[0]?.id ?? null)
-        showToast.success("Comida eliminada", { duration: 3000, position: "top-right", transition: "bounceIn" })
+        sileo.success({ title: "Comida eliminada", description: "Se borraron también los alimentos cargados.", duration: 3000 })
       } catch {
-        showToast.error("No se pudo eliminar", { duration: 4000, position: "top-right" })
+        sileo.error({ title: "No se pudo eliminar", description: "Intentá de nuevo en unos segundos.", duration: 4000 })
       }
     })
   }
@@ -733,9 +774,9 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
       try {
         await Promise.all(meals.map(m => deleteMeal(m.id)))
         setMeals([]); setMealItems({}); setActiveMealId(null)
-        showToast.success("Plan limpiado", { duration: 3000, position: "top-right" })
+        sileo.success({ title: "Plan limpiado", description: "Se eliminaron todas las comidas del plan.", duration: 3000 })
       } catch {
-        showToast.error("No se pudo limpiar el plan", { duration: 4000, position: "top-right" })
+        sileo.error({ title: "No se pudo limpiar el plan", description: "Intentá de nuevo en unos segundos.", duration: 4000 })
       }
     })
   }
@@ -746,6 +787,28 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
       await updateNutritionPlan(plan.id, { is_active: next })
       setIsActive(next)
     })
+  }
+
+  async function handleConfirmRecalculate() {
+    setIsRecalculating(true)
+    try {
+      const result = await recalculateNutritionPlanTargets(plan.id)
+      if ("error" in result) {
+        sileo.error({ title: "No se pudo actualizar el objetivo", description: result.error, duration: 4000 })
+        return
+      }
+      sileo.success({
+        title: "Objetivo actualizado",
+        description: `Nuevo objetivo: ${result.targets.calories.toLocaleString("es-AR")} kcal.`,
+        duration: 3000,
+      })
+      setConfirmingRecalculate(false)
+      router.refresh()
+    } catch {
+      sileo.error({ title: "No se pudo actualizar el objetivo", description: "Revisá tu conexión e intentá de nuevo.", duration: 4000 })
+    } finally {
+      setIsRecalculating(false)
+    }
   }
 
   function handleDuplicateMeal() {
@@ -763,9 +826,9 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
         setMeals(prev => [...prev, newMeal])
         setMealItems(prev => ({ ...prev, [newId]: copiedItems }))
         setActiveMealId(newId)
-        showToast.success("Comida duplicada", { duration: 2000, position: "top-right" })
+        sileo.success({ title: "Comida duplicada", description: "Se copiaron todos los alimentos de la comida original.", duration: 2000 })
       } catch {
-        showToast.error("No se pudo duplicar la comida", { duration: 3000, position: "top-right" })
+        sileo.error({ title: "No se pudo duplicar la comida", description: "Intentá de nuevo en unos segundos.", duration: 3000 })
       }
     })
   }
@@ -781,9 +844,9 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
         const item: MealItem = { id, meal_id: activeMealId, food_id: food.id, quantity_grams: grams, foods: food }
         setMealItems(prev => ({ ...prev, [activeMealId]: [...(prev[activeMealId] ?? []), item] }))
         setSelectedFood(null); setQuery(""); setSearchGrams(100)
-        showToast.success(`${food.name} agregado`, { duration: 2000, position: "top-right" })
+        sileo.success({ title: `${food.name} agregado`, description: "Se sumó a la comida seleccionada.", duration: 2000 })
       } catch {
-        showToast.error("No se pudo agregar el alimento", { duration: 4000, position: "top-right" })
+        sileo.error({ title: "No se pudo agregar el alimento", description: "Intentá de nuevo en unos segundos.", duration: 4000 })
       } finally {
         setAddingFood(false)
       }
@@ -792,6 +855,28 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
 
   return (
     <div className="flex flex-col gap-4">
+
+      {staleObjectiveWarning && (
+        <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
+          <p>{staleObjectiveWarning.message}</p>
+          <button
+            onClick={() => setConfirmingRecalculate(true)}
+            className="rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/30 transition-colors"
+          >
+            Actualizar objetivo a {staleObjectiveWarning.recalculatedCalories.toLocaleString("es-AR")} kcal
+          </button>
+        </div>
+      )}
+
+      {nutritionWarnings.length > 0 && (
+        <div className="space-y-2">
+          {nutritionWarnings.map((msg, i) => (
+            <div key={i} className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
+              {msg}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Active badge + stats bar ───────────────────────── */}
       <div className="flex items-center justify-between">
@@ -1073,6 +1158,36 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
           <div className="flex gap-3 pt-2">
             <button onClick={() => setClearingPlan(false)} className="flex-1 rounded-xl border border-zinc-700 py-2.5 text-sm font-medium text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition-colors">Cancelar</button>
             <button onClick={confirmClearPlan} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-500 transition-colors">Limpiar</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recalculate targets modal */}
+      <Dialog open={confirmingRecalculate} onOpenChange={open => { if (!open && !isRecalculating) setConfirmingRecalculate(false) }}>
+        <DialogContent className="sm:max-w-sm border-zinc-800 bg-zinc-900">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-50">¿Actualizar el objetivo del plan?</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              {staleObjectiveWarning && (
+                <>El objetivo va a pasar a {staleObjectiveWarning.recalculatedCalories.toLocaleString("es-AR")} kcal (proteínas, carbohidratos y grasas se recalculan con él). Las comidas cargadas no se tocan.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => setConfirmingRecalculate(false)}
+              disabled={isRecalculating}
+              className="flex-1 rounded-xl border border-zinc-700 py-2.5 text-sm font-medium text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 disabled:opacity-40 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleConfirmRecalculate}
+              disabled={isRecalculating}
+              className="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 transition-colors"
+            >
+              {isRecalculating ? "Actualizando…" : "Actualizar"}
+            </button>
           </div>
         </DialogContent>
       </Dialog>

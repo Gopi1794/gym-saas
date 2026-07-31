@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { startOfTodayAR } from "@/lib/date-ar"
 import { registerMemberCheckIn } from "@/app/actions/check-in"
-import { showToast } from "nextjs-toast-notify"
+import { sileo } from "sileo"
 import { Camera } from "lucide-react"
 
 interface QRScannerProps {
@@ -41,9 +41,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
       if (qrCode === `GYM_CHECKIN:${gymId}`) {
         if (userRole !== "trainer" && userRole !== "admin") {
           stopCamera()
-          showToast.error("Solo el staff puede fichar con el QR del establecimiento", {
-            duration: 3000, position: "top-right",
-          })
+          sileo.error({ title: "Solo el staff puede fichar con el QR del establecimiento", description: "Los socios escanean su propio QR, no el del gimnasio.", duration: 3000 })
           processingRef.current = false
           return
         }
@@ -62,9 +60,9 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
             .eq("id", existing.id)
           stopCamera()
           if (outErr) {
-            showToast.error(`Error al registrar salida: ${outErr.message}`, { duration: 3000, position: "top-right" })
+            sileo.error({ title: `Error al registrar salida: ${outErr.message}`, description: "Intentá de nuevo o avisá al administrador.", duration: 3000 })
           } else {
-            showToast.success("Salida fichada correctamente", { duration: 3000, position: "top-right", transition: "bounceIn" })
+            sileo.success({ title: "Salida fichada correctamente", description: "Se registró la hora de salida de hoy.", duration: 3000 })
             router.refresh()
           }
           processingRef.current = false
@@ -73,7 +71,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
 
         if (existing && existing.checked_out_at) {
           stopCamera()
-          showToast.error("Ya registraste entrada y salida hoy", { duration: 3000, position: "top-right" })
+          sileo.error({ title: "Ya registraste entrada y salida hoy", description: "Solo se permite un ciclo de entrada y salida por día.", duration: 3000 })
           processingRef.current = false
           return
         }
@@ -86,9 +84,9 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
         })
         stopCamera()
         if (insertErr) {
-          showToast.error(`Error al fichar: ${insertErr.message}`, { duration: 3000, position: "top-right" })
+          sileo.error({ title: `Error al fichar: ${insertErr.message}`, description: "Intentá de nuevo o avisá al administrador.", duration: 3000 })
         } else {
-          showToast.success("Entrada fichada correctamente", { duration: 3000, position: "top-right", transition: "bounceIn" })
+          sileo.success({ title: "Entrada fichada correctamente", description: "Se registró la hora de entrada de hoy.", duration: 3000 })
           router.refresh()
         }
         processingRef.current = false
@@ -107,12 +105,12 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
             : result.reason === "membership_expired"
               ? `La membresía de ${name} está vencida`
               : `Error al registrar: ${result.message ?? "error desconocido"}`
-        showToast.error(msg, { duration: 3500, position: "top-right" })
+        sileo.error({ title: msg, description: "Intentá de nuevo o avisá al administrador.", duration: 3500 })
       } else {
         const msg = result.action === "checkout"
           ? `${result.memberName} registró su salida`
           : `${result.memberName} registró su ingreso`
-        showToast.success(msg, { duration: 3000, position: "top-right", transition: "bounceIn" })
+        sileo.success({ title: msg, description: "Registro guardado correctamente.", duration: 3000 })
         router.refresh()
       }
 
@@ -152,7 +150,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
                 : !window.isSecureContext
                   ? "Se requiere HTTPS para acceder a la cámara."
                   : `Error de cámara: ${n2 || String(secondErr)}`
-            showToast.error(msg, { duration: 4000, position: "top-right" })
+            sileo.error({ title: msg, description: "Revisá los permisos de cámara del navegador.", duration: 4000 })
             setIsStarted(false)
           }
           return
@@ -167,7 +165,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
                 : !window.isSecureContext
                   ? "Se requiere HTTPS para acceder a la cámara."
                   : `Error de cámara: ${name || String(firstErr)}`
-        showToast.error(msg, { duration: 4000, position: "top-right" })
+        sileo.error({ title: msg, duration: 4000 })
         setIsStarted(false)
       }
     }

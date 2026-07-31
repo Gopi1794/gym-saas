@@ -4,11 +4,8 @@ import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/lib/utils"
 import type { AdherenceEntry } from "@/app/actions/nutrition-tracking"
-
-const GOAL_LABELS: Record<string, string> = {
-  volumen: "Volumen", definicion: "Definición", mantenimiento: "Mantenimiento",
-  recomposicion: "Recomposición", rendimiento: "Rendimiento", perdida_moderada: "Pérdida moderada", otro: "Otro",
-}
+import type { NutritionPlan } from "@/app/actions/nutrition"
+import { NUTRITION_GOAL_LABELS as GOAL_LABELS } from "@/lib/nutrition"
 
 function statusFor(days: number, lastLog: string | null) {
   if (days === 0 || !lastLog) return { label: "Sin registros", color: "bg-zinc-800 text-zinc-500" }
@@ -99,7 +96,7 @@ export default function NutritionAdherencePanel({ entries }: { entries: Adherenc
                       </Avatar>
                       <div>
                         <p className="text-sm font-medium text-zinc-100">{entry.member_name}</p>
-                        <p className="text-xs text-zinc-500">{GOAL_LABELS[entry.goal] ?? entry.goal}</p>
+                        <p className="text-xs text-zinc-500">{GOAL_LABELS[entry.goal as NutritionPlan["goal"]] ?? entry.goal}</p>
                       </div>
                     </div>
                   </td>

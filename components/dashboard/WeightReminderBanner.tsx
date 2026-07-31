@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { Scale, X } from "lucide-react"
 import { logWeight } from "@/app/actions/nutrition-tracking"
-import { showToast } from "nextjs-toast-notify"
+import { sileo } from "sileo"
 
 interface Props {
   daysSinceLastLog: number | null  // null = nunca registró
@@ -27,10 +27,10 @@ export default function WeightReminderBanner({ daysSinceLastLog }: Props) {
     startTransition(async () => {
       try {
         await logWeight(kg)
-        showToast.success(`Peso registrado: ${kg} kg`, { duration: 3000, position: "top-right", transition: "bounceIn" })
+        sileo.success({ title: `Peso registrado: ${kg} kg`, description: "Se guardó en tu historial de seguimiento.", duration: 3000 })
         setDismissed(true)
       } catch {
-        showToast.error("No se pudo registrar el peso", { duration: 4000, position: "top-right" })
+        sileo.error({ title: "No se pudo registrar el peso", description: "Intentá de nuevo en unos segundos.", duration: 4000 })
       }
     })
   }

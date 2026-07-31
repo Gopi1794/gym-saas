@@ -3,7 +3,7 @@ import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
-import { getNutritionPlan, getFoods, getFoodFavorites } from "@/app/actions/nutrition"
+import { getNutritionPlan, getFoods, getFoodFavorites, getMemberProfileForPlan } from "@/app/actions/nutrition"
 import NutritionPlanEditor from "@/components/nutrition/NutritionPlanEditor"
 
 export const metadata: Metadata = { title: "Editor de plan nutricional" }
@@ -29,6 +29,8 @@ export default async function NutricionPlanPage({ params }: { params: { id: stri
 
   if (!plan) notFound()
 
+  const memberProfile = await getMemberProfileForPlan(plan.member_id)
+
   return (
     <div className="space-y-6">
       <div>
@@ -41,7 +43,7 @@ export default async function NutricionPlanPage({ params }: { params: { id: stri
           {plan.profiles?.full_name ?? "Socio"} · {plan.goal}
         </p>
       </div>
-      <NutritionPlanEditor plan={plan} foods={foods} userId={user!.id} initialFavorites={favoriteIds} />
+      <NutritionPlanEditor plan={plan} foods={foods} userId={user!.id} initialFavorites={favoriteIds} memberProfile={memberProfile} />
     </div>
   )
 }

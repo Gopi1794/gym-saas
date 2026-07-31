@@ -4,10 +4,10 @@ import { useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Plus, Trash2, User, ChevronRight, Apple, Zap } from "lucide-react"
-import { showToast } from "nextjs-toast-notify"
+import { sileo } from "sileo"
 import { createNutritionPlan, deleteNutritionPlan, getMemberProfileForPlan } from "@/app/actions/nutrition"
 import type { NutritionPlan } from "@/app/actions/nutrition"
-import { calcNutritionTargets } from "@/lib/nutrition"
+import { calcNutritionTargets, missingTargetFields, NUTRITION_GOAL_OPTIONS, NUTRITION_GOAL_LABELS } from "@/lib/nutrition"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { getInitials } from "@/lib/utils"
@@ -20,14 +20,11 @@ interface Props {
   members: Member[]
 }
 
-const GOAL_LABELS: Record<string, string> = {
-  volumen: "Volumen",
-  definicion: "Definición",
-  mantenimiento: "Mantenimiento",
-  recomposicion: "Recomposición",
-  rendimiento: "Rendimiento deportivo",
-  perdida_moderada: "Pérdida moderada",
-  otro: "Otro",
+const MEMBER_GOAL_LABELS: Record<string, string> = {
+  lose_weight: "Perder peso",
+  gain_muscle: "Ganar músculo",
+  performance: "Rendimiento",
+  maintain: "Mantenerme",
 }
 
 const GOAL_COLORS: Record<string, string> = {
@@ -47,47 +44,51 @@ const GOAL_DESCRIPTIONS: Record<string, string> = {
   recomposicion: "Para perder grasa y ganar músculo a la vez. Ideal para nivel intermedio.",
   rendimiento: "Para atletas y deportistas que priorizan performance sobre estética.",
   perdida_moderada: "Déficit suave, ideal para principiantes o quienes toleran poco déficit.",
-  otro: "",
 }
-
-type Targets = { calories: number; protein: number; carbs: number; fat: number } | null
 
 export default function NutritionPlansPanel({ gymId, plans: initialPlans, members }: Props) {
   const router = useRouter()
   const [plans, setPlans] = useState(initialPlans)
   const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm] = useState({ memberId: "", name: "", goal: "mantenimiento" as NutritionPlan["goal"], notes: "" })
-  const [suggestedTargets, setSuggestedTargets] = useState<Targets>(null)
-  const [loadingTargets, setLoadingTargets] = useState(false)
+  const [form, setForm] = useState({ memberId: "", name: "", goal: "" as NutritionPlan["goal"] | "", notes: "" })
+  const [memberProfile, setMemberProfile] = useState<Awaited<ReturnType<typeof getMemberProfileForPlan>>>(null)
+  const [loadingProfile, setLoadingProfile] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null)
 
-  async function handleMemberOrGoalChange(memberId: string, goal: NutritionPlan["goal"]) {
-    if (!memberId) { setSuggestedTargets(null); return }
-    setLoadingTargets(true)
+  async function handleMemberChange(memberId: string) {
+    setForm(f => ({ ...f, memberId }))
+    setMemberProfile(null)
+    if (!memberId) return
+    setLoadingProfile(true)
     try {
       const profile = await getMemberProfileForPlan(memberId)
-      if (profile) {
-        setSuggestedTargets(calcNutritionTargets(profile, goal))
-      } else {
-        setSuggestedTargets(null)
-      }
+      setMemberProfile(profile)
     } finally {
-      setLoadingTargets(false)
+      setLoadingProfile(false)
     }
   }
 
+  const missingFields = missingTargetFields(memberProfile)
+
+  const suggestedTargets = memberProfile && form.goal ? calcNutritionTargets(memberProfile, form.goal) : null
+
   function handleCreate() {
-    if (!form.memberId || !form.name.trim()) return
+    if (!form.memberId || !form.name.trim() || !form.goal) return
+    const goal = form.goal
     startTransition(async () => {
       try {
-        const id = await createNutritionPlan(gymId, form.memberId, form.name, form.goal, form.notes || undefined, suggestedTargets)
-        showToast.success("Plan nutricional creado", { duration: 3000, position: "top-right", transition: "bounceIn" })
+        const result = await createNutritionPlan(gymId, form.memberId, form.name, goal, form.notes || undefined)
+        if ("error" in result) {
+          sileo.error({ title: "No se pudo crear el plan", description: result.error, duration: 4000 })
+          return
+        }
+        sileo.success({ title: "Plan nutricional creado", description: "Ya podés cargarle las comidas desde el editor.", duration: 3000 })
         setShowCreate(false)
-        router.push(`/nutricion/${id}`)
+        router.push(`/nutricion/${result.id}`)
         router.refresh()
       } catch {
-        showToast.error("No se pudo crear el plan", { duration: 4000, position: "top-right" })
+        sileo.error({ title: "No se pudo crear el plan", description: "Revisá tu conexión e intentá de nuevo.", duration: 4000 })
       }
     })
   }
@@ -104,9 +105,9 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
       try {
         await deleteNutritionPlan(id)
         setPlans(prev => prev.filter(p => p.id !== id))
-        showToast.success("Plan eliminado", { duration: 3000, position: "top-right", transition: "bounceIn" })
+        sileo.success({ title: "Plan eliminado", description: "El socio ya no tiene un plan nutricional activo.", duration: 3000 })
       } catch {
-        showToast.error("No se pudo eliminar el plan", { duration: 4000, position: "top-right" })
+        sileo.error({ title: "No se pudo eliminar el plan", description: "Intentá de nuevo en unos segundos.", duration: 4000 })
       }
     })
   }
@@ -144,7 +145,7 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-zinc-900 dark:text-zinc-50 truncate">{plan.name}</span>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${GOAL_COLORS[plan.goal]}`}>
-                    {GOAL_LABELS[plan.goal]}
+                    {NUTRITION_GOAL_LABELS[plan.goal] ?? plan.goal}
                   </span>
                   {!plan.is_active && (
                     <span className="rounded-full bg-zinc-500/15 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">Inactivo</span>
@@ -187,11 +188,7 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                 <label className="mb-1 block text-xs font-semibold text-zinc-500">Socio</label>
                 <select
                   value={form.memberId}
-                  onChange={e => {
-                    const id = e.target.value
-                    setForm(f => ({ ...f, memberId: id }))
-                    handleMemberOrGoalChange(id, form.goal)
-                  }}
+                  onChange={e => handleMemberChange(e.target.value)}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
                 >
                   <option value="">Seleccioná un socio…</option>
@@ -213,31 +210,44 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                 <label className="mb-1 block text-xs font-semibold text-zinc-500">Objetivo</label>
                 <select
                   value={form.goal}
-                  onChange={e => {
-                    const goal = e.target.value as NutritionPlan["goal"]
-                    setForm(f => ({ ...f, goal }))
-                    handleMemberOrGoalChange(form.memberId, goal)
-                  }}
+                  onChange={e => setForm(f => ({ ...f, goal: e.target.value as NutritionPlan["goal"] | "" }))}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
                 >
-                  <option value="mantenimiento">Mantenimiento</option>
-                  <option value="volumen">Volumen</option>
-                  <option value="definicion">Definición</option>
-                  <option value="recomposicion">Recomposición</option>
-                  <option value="rendimiento">Rendimiento deportivo</option>
-                  <option value="perdida_moderada">Pérdida moderada</option>
-                  <option value="otro">Otro</option>
+                  <option value="">Seleccioná un objetivo…</option>
+                  {NUTRITION_GOAL_OPTIONS.map(g => (
+                    <option key={g.value} value={g.value}>{g.label}</option>
+                  ))}
                 </select>
-                {GOAL_DESCRIPTIONS[form.goal] && (
+                {form.goal && GOAL_DESCRIPTIONS[form.goal] && (
                   <p className="mt-1.5 text-xs text-zinc-500">{GOAL_DESCRIPTIONS[form.goal]}</p>
                 )}
               </div>
 
-              {/* Auto-calculated targets */}
-              {loadingTargets && (
-                <p className="text-xs text-zinc-500 text-center py-2">Calculando targets…</p>
+              {loadingProfile && (
+                <p className="text-xs text-zinc-500 text-center py-2">Cargando datos del socio…</p>
               )}
-              {suggestedTargets && !loadingTargets && (
+
+              {!loadingProfile && memberProfile && (
+                <p className="text-xs text-zinc-500">
+                  {memberProfile.goal
+                    ? `El socio indicó: ${MEMBER_GOAL_LABELS[memberProfile.goal] ?? memberProfile.goal}`
+                    : "El socio no indicó objetivo."}
+                </p>
+              )}
+
+              {!loadingProfile && memberProfile && missingFields.length > 0 && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-400">
+                  <p>Faltan datos del socio para calcular el objetivo: {missingFields.join(", ")}.</p>
+                  <Link
+                    href={`/members/${form.memberId}`}
+                    className="mt-1.5 inline-block font-semibold underline hover:text-amber-300 transition-colors"
+                  >
+                    Completar datos del socio →
+                  </Link>
+                </div>
+              )}
+
+              {suggestedTargets && (
                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
                   <div className="mb-2 flex items-center gap-1.5">
                     <Zap className="h-3.5 w-3.5 text-emerald-400" />
@@ -263,9 +273,6 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                   </div>
                 </div>
               )}
-              {form.memberId && !suggestedTargets && !loadingTargets && (
-                <p className="text-xs text-zinc-500">No se pudieron calcular targets — el socio no tiene datos de peso/altura/edad/género completos.</p>
-              )}
 
               <div>
                 <label className="mb-1 block text-xs font-semibold text-zinc-500">Notas (opcional)</label>
@@ -285,7 +292,7 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
               </button>
               <button
                 onClick={handleCreate}
-                disabled={isPending || !form.memberId || !form.name.trim()}
+                disabled={isPending || !form.memberId || !form.name.trim() || !suggestedTargets || loadingProfile}
                 className="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 transition-colors"
               >
                 {isPending ? "Creando…" : "Crear plan"}

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { Plus, TrendingDown, TrendingUp, Minus } from "lucide-react"
-import { showToast } from "nextjs-toast-notify"
+import { sileo } from "sileo"
 import { logWeight } from "@/app/actions/nutrition-tracking"
 import type { WeightLog } from "@/app/actions/nutrition-tracking"
 
@@ -73,11 +73,11 @@ export default function WeightChart({ history, goalWeight }: Props) {
           return [...without, { id: crypto.randomUUID(), member_id: "", log_date: today, weight_kg: kg, notes: null }]
             .sort((a, b) => a.log_date.localeCompare(b.log_date))
         })
-        showToast.success(`Peso registrado: ${kg} kg`, { duration: 3000, position: "top-right", transition: "bounceIn" })
+        sileo.success({ title: `Peso registrado: ${kg} kg`, description: "Se guardó en tu historial de seguimiento.", duration: 3000 })
         setInput("")
         setShowAdd(false)
       } catch {
-        showToast.error("No se pudo registrar el peso", { duration: 4000, position: "top-right" })
+        sileo.error({ title: "No se pudo registrar el peso", description: "Intentá de nuevo en unos segundos.", duration: 4000 })
       }
     })
   }

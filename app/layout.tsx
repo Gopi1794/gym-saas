@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Inter, Anton, Bebas_Neue } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/providers/ThemeProvider"
+import { ToastProvider } from "@/components/providers/ToastProvider"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const inter  = Inter({      subsets: ["latin"], variable: "--font-inter"  })
@@ -46,6 +47,7 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning translate="no">
       <body className={`${inter.variable} ${anton.variable} ${bebas.variable} font-sans`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+          <ToastProvider />
           {children}
         </ThemeProvider>
       </body>

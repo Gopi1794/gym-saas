@@ -4,9 +4,9 @@ import { useState, useTransition } from "react"
 import { Apple, CheckCircle2, Circle, Droplets, Plus, Minus, Flame, TrendingDown, X, Camera } from "lucide-react"
 import type { NutritionPlan, Meal } from "@/app/actions/nutrition"
 import type { MealLog, WeightLog, QuickLogEntry } from "@/app/actions/nutrition-tracking"
-import { calcMacros } from "@/lib/nutrition"
+import { calcMacros, NUTRITION_GOAL_LABELS as GOAL_LABELS } from "@/lib/nutrition"
 import { logMealWithItems, removeMealLog, setWaterToday } from "@/app/actions/nutrition-tracking"
-import { showToast } from "nextjs-toast-notify"
+import { sileo } from "sileo"
 import WeightChart from "@/components/nutrition/WeightChart"
 import { MacroRing } from "@/components/nutrition/MacroRing"
 
@@ -18,16 +18,6 @@ interface Props {
   today: string
   weightHistory: WeightLog[]
   quickLogs: QuickLogEntry[]
-}
-
-const GOAL_LABELS: Record<string, string> = {
-  volumen: "Volumen",
-  definicion: "Definición",
-  mantenimiento: "Mantenimiento",
-  recomposicion: "Recomposición",
-  rendimiento: "Rendimiento deportivo",
-  perdida_moderada: "Pérdida moderada",
-  otro: "Otro",
 }
 
 
@@ -45,10 +35,10 @@ function WaterTracker({ initial }: { initial: number }) {
       try {
         await setWaterToday(next)
         if (next === TARGET && prev < TARGET)
-          showToast.success("¡Meta de agua alcanzada! 💧", { duration: 3000, position: "top-right", transition: "bounceIn" })
+          sileo.success({ title: "¡Meta de agua alcanzada! 💧", description: "Llegaste a tus 8 vasos de hoy.", duration: 3000 })
       } catch {
         setGlasses(prev)
-        showToast.error("No se pudo guardar el agua", { duration: 3000, position: "top-right" })
+        sileo.error({ title: "No se pudo guardar el agua", description: "Intentá de nuevo en unos segundos.", duration: 3000 })
       }
     })
   }
@@ -125,10 +115,10 @@ function MealLogModal({
     startSave(async () => {
       try {
         await logMealWithItems(meal.id, today, items)
-        showToast.success(`${meal.name} registrada ✓`, { duration: 2500, position: "top-right", transition: "bounceIn" })
+        sileo.success({ title: `${meal.name} registrada ✓`, description: "Sumada a tu resumen calórico de hoy.", duration: 2500 })
         onClose()
       } catch {
-        showToast.error("No se pudo guardar", { duration: 3000, position: "top-right" })
+        sileo.error({ title: "No se pudo guardar", description: "Intentá de nuevo en unos segundos.", duration: 3000 })
       }
     })
   }
@@ -137,10 +127,10 @@ function MealLogModal({
     startRemove(async () => {
       try {
         await removeMealLog(meal.id, today)
-        showToast.success(`${meal.name} desmarcada`, { duration: 2000, position: "top-right" })
+        sileo.success({ title: `${meal.name} desmarcada`, description: "Se sacó de tu resumen calórico de hoy.", duration: 2000 })
         onClose()
       } catch {
-        showToast.error("No se pudo desmarcar", { duration: 3000, position: "top-right" })
+        sileo.error({ title: "No se pudo desmarcar", description: "Intentá de nuevo en unos segundos.", duration: 3000 })
       }
     })
   }
