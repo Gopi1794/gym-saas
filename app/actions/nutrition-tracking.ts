@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { calcNutritionTargets, CALORIE_MISMATCH_THRESHOLD } from "@/lib/nutrition"
+import { getMemberProfileForPlan } from "@/app/actions/nutrition"
+import type { NutritionPlan } from "@/app/actions/nutrition"
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -194,10 +198,102 @@ export async function setWaterToday(glasses: number): Promise<void> {
 
 // ── Weight log ─────────────────────────────────────────────────
 
+async function notifyTrainerOfWeightDrift(
+  memberId: string,
+  plan: { id: string; gym_id: string; target_calories: number; goal: NutritionPlan["goal"] },
+  newProfile: {
+    weight_kg: number | null
+    height_cm: number | null
+    date_of_birth: string | null
+    gender: "male" | "female" | "other" | null
+    training_frequency: "never" | "1-2" | "3-4" | "5+" | null
+  },
+  oldWeight: number | null,
+  newWeight: number
+): Promise<void> {
+  const newTargets = calcNutritionTargets(newProfile, plan.goal)
+  if (!newTargets) return
+
+  const diff = Math.abs((plan.target_calories - newTargets.calories) / newTargets.calories)
+  if (diff <= CALORIE_MISMATCH_THRESHOLD) return
+
+  const supabase = createClient()
+  const { data: memberProfile } = await supabase
+    .from("profiles")
+    .select("trainer_id, full_name")
+    .eq("id", memberId)
+    .single() as unknown as { data: { trainer_id: string | null; full_name: string | null } | null }
+
+  const admin = createAdminClient()
+  let recipientIds: string[]
+
+  if (memberProfile?.trainer_id) {
+    recipientIds = [memberProfile.trainer_id]
+  } else {
+    const { data: admins } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("gym_id", plan.gym_id)
+      .eq("role", "admin")
+    recipientIds = (admins ?? []).map((a: { id: string }) => a.id)
+  }
+
+  if (recipientIds.length === 0) return
+
+  const dedupKey = `weight_drift:${plan.id}:${plan.target_calories}`
+  const memberName = memberProfile?.full_name ?? "un socio"
+
+  const { error } = await admin
+    .from("notifications" as never)
+    .upsert(
+      recipientIds.map(userId => ({
+        user_id: userId,
+        type: "weight_drift",
+        title: `Peso actualizado: ${memberName}`,
+        body: oldWeight != null
+          ? `Pasó de ${oldWeight} a ${newWeight} kg. El objetivo de su plan quedó desactualizado.`
+          : `Registró ${newWeight} kg. El objetivo de su plan quedó desactualizado.`,
+        metadata: {
+          plan_id: plan.id,
+          member_id: memberId,
+          old_weight: oldWeight,
+          new_weight: newWeight,
+          old_target: plan.target_calories,
+          new_target: newTargets.calories,
+        },
+        dedup_key: dedupKey,
+      })) as never,
+      { onConflict: "user_id,dedup_key", ignoreDuplicates: true }
+    )
+
+  if (error) {
+    console.error("No se pudo notificar el drift de peso:", error.message)
+  }
+}
+
 export async function logWeight(weightKg: number, notes?: string): Promise<void> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
+
+  // Plan primero: es el chequeo más barato, y la mayoría de los registros de
+  // peso no tienen un plan activo esperando este aviso. Evita un fetch de
+  // perfil de más en el camino más frecuente.
+  const { data: activePlan } = await supabase
+    .from("nutrition_plans" as never)
+    .select("id, gym_id, target_calories, goal")
+    .eq("member_id", user.id)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle() as unknown as {
+      data: { id: string; gym_id: string; target_calories: number | null; goal: NutritionPlan["goal"] } | null
+    }
+  const needsDriftCheck = !!activePlan?.target_calories
+
+  const profileBefore = needsDriftCheck ? await getMemberProfileForPlan(user.id) : null
+  const oldWeight = profileBefore?.weight_kg ?? null
+
   const today = new Date().toISOString().split("T")[0]
   await supabase
     .from("weight_logs" as never)
@@ -206,6 +302,20 @@ export async function logWeight(weightKg: number, notes?: string): Promise<void>
   await supabase.from("profiles").update({ weight_kg: weightKg }).eq("id", user.id)
   revalidatePath("/nutricion")
   revalidatePath("/progress")
+
+  if (activePlan && profileBefore) {
+    try {
+      await notifyTrainerOfWeightDrift(
+        user.id,
+        activePlan as { id: string; gym_id: string; target_calories: number; goal: NutritionPlan["goal"] },
+        { ...profileBefore, weight_kg: weightKg },
+        oldWeight,
+        weightKg
+      )
+    } catch (err) {
+      console.error("No se pudo notificar el drift de peso nutricional:", err)
+    }
+  }
 }
 
 // ── Adherence report (trainer view) ───────────────────────────

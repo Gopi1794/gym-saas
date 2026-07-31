@@ -2,8 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import {
-  ArrowLeft, Dumbbell, User, Phone, AlertTriangle,
-  Target, Calendar, Clock, QrCode, Hand, CheckCircle2,
+  ArrowLeft, Dumbbell, User, Clock, QrCode, Hand, CheckCircle2,
   XCircle, Zap, Activity, CreditCard,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -12,6 +11,7 @@ import { isMembershipActive } from "@/lib/utils"
 import PlanCard from "@/components/planes/PlanCard"
 import CreatePlanForMember from "@/components/members/CreatePlanForMember"
 import MemberPhysicalEdit from "@/components/members/MemberPhysicalEdit"
+import MemberContactEdit from "@/components/members/MemberContactEdit"
 import MemberMembershipEdit from "@/components/members/MemberMembershipEdit"
 import MemberTrainerEdit from "@/components/members/MemberTrainerEdit"
 import MemberWorkoutHistory from "@/components/members/MemberWorkoutHistory"
@@ -24,6 +24,7 @@ type MemberRow = {
   role: string; membership_type: string | null; membership_expires_at: string | null
   weight_kg: number | null; height_cm: number | null
   phone: string | null; date_of_birth: string | null
+  gender: "male" | "female" | "other" | null
   emergency_name: string | null; emergency_phone: string | null
   goal: string | null; medical_conditions: string | null
   training_frequency: string | null; total_xp: number; created_at: string
@@ -39,20 +40,6 @@ type CheckInRow = { id: string; checked_in_at: string; checked_out_at: string | 
 type PaymentRow = { id: string; amount: number; status: string; created_at: string; mp_payment_id: string | null }
 type SessionSetRow = { exercise_name: string; set_number: number; actual_reps: number | null; planned_reps: number | null; reps: number | null; weight_kg: number | null }
 type SessionRow = { id: string; day_name: string; completed_at: string; exercises_count: number; workout_session_sets: SessionSetRow[] }
-
-const GOAL_LABELS: Record<string, string> = {
-  lose_weight: "Bajar de peso",
-  gain_muscle: "Ganar músculo",
-  performance: "Mejorar rendimiento",
-  maintain: "Mantenerme",
-}
-
-const FREQ_LABELS: Record<string, string> = {
-  never: "Nunca entrené",
-  "1-2": "1-2 veces/sem",
-  "3-4": "3-4 veces/sem",
-  "5+": "5+ veces/sem",
-}
 
 const PAYMENT_STATUS: Record<string, { label: string; cls: string }> = {
   approved:  { label: "Aprobado",   cls: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10" },
@@ -86,7 +73,7 @@ export default async function MemberDetailPage({ params }: Props) {
 
   const { data: rawMember } = await supabase
     .from("profiles")
-    .select("id, full_name, avatar_url, role, membership_type, membership_expires_at, weight_kg, height_cm, phone, date_of_birth, emergency_name, emergency_phone, goal, medical_conditions, training_frequency, total_xp, created_at, trainer_id")
+    .select("id, full_name, avatar_url, role, membership_type, membership_expires_at, weight_kg, height_cm, phone, date_of_birth, gender, emergency_name, emergency_phone, goal, medical_conditions, training_frequency, total_xp, created_at, trainer_id")
     .eq("id", params.id)
     .eq("gym_id", gymId)
     .single() as unknown as { data: MemberRow | null }
@@ -209,14 +196,16 @@ export default async function MemberDetailPage({ params }: Props) {
         ))}
       </div>
 
-      {/* Membership + Physical */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <MemberMembershipEdit
-          memberId={params.id}
-          initialType={member.membership_type as "basic" | "premium" | "vip" | null}
-          initialExpiresAt={member.membership_expires_at}
-          plans={membershipPlans ?? []}
-        />
+      {/* Membership (solo admin) + Physical */}
+      <div className={`grid gap-4 ${role === "admin" ? "sm:grid-cols-2" : ""}`}>
+        {role === "admin" && (
+          <MemberMembershipEdit
+            memberId={params.id}
+            initialType={member.membership_type as "basic" | "premium" | "vip" | null}
+            initialExpiresAt={member.membership_expires_at}
+            plans={membershipPlans ?? []}
+          />
+        )}
         <MemberPhysicalEdit
           memberId={params.id}
           initialWeight={member.weight_kg}
@@ -235,27 +224,24 @@ export default async function MemberDetailPage({ params }: Props) {
       )}
 
       {/* Contact & profile info */}
-      <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Datos de contacto</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <InfoCell icon={<Phone className="h-3.5 w-3.5" />} label="Teléfono" value={member.phone ?? "—"} />
-          <InfoCell icon={<Calendar className="h-3.5 w-3.5" />} label="Nacimiento"
-            value={member.date_of_birth ? formatDate(member.date_of_birth) : "—"} />
-          <InfoCell icon={<Target className="h-3.5 w-3.5" />} label="Objetivo"
-            value={member.goal ? (GOAL_LABELS[member.goal] ?? member.goal) : "—"} />
-          <InfoCell icon={<Activity className="h-3.5 w-3.5" />} label="Frecuencia"
-            value={member.training_frequency ? (FREQ_LABELS[member.training_frequency] ?? member.training_frequency) : "—"} />
-          <InfoCell icon={<AlertTriangle className="h-3.5 w-3.5" />} label="Contacto emergencia"
-            value={member.emergency_name ? `${member.emergency_name}${member.emergency_phone ? ` · ${member.emergency_phone}` : ""}` : "—"}
-            span={2} />
-        </div>
-        {member.medical_conditions && (
+      <MemberContactEdit
+        memberId={params.id}
+        initialDateOfBirth={member.date_of_birth}
+        initialPhone={member.phone}
+        initialGender={member.gender}
+        initialGoal={member.goal as "lose_weight" | "gain_muscle" | "performance" | "maintain" | null}
+        initialTrainingFrequency={member.training_frequency as "never" | "1-2" | "3-4" | "5+" | null}
+        initialEmergencyName={member.emergency_name}
+        initialEmergencyPhone={member.emergency_phone}
+      />
+      {member.medical_conditions && (
+        <div className="rounded-2xl border border-border bg-card p-5">
           <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 px-4 py-3">
             <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-1">Condiciones médicas</p>
             <p className="text-sm text-amber-900 dark:text-amber-200">{member.medical_conditions}</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Recent check-ins */}
       <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
@@ -357,15 +343,6 @@ export default async function MemberDetailPage({ params }: Props) {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function InfoCell({ icon, label, value, span }: { icon: React.ReactNode; label: string; value: string; span?: number }) {
-  return (
-    <div className={cn("rounded-xl bg-muted/50 px-4 py-3 space-y-1", span === 2 && "col-span-2")}>
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">{icon}{label}</div>
-      <p className="text-sm font-medium text-foreground">{value}</p>
     </div>
   )
 }

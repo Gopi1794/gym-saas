@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
-import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, X } from "lucide-react"
+import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import type { RealtimeChannel } from "@supabase/supabase-js"
@@ -10,7 +10,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js"
 // (Date.now() puede repetirse en la misma ms; un contador nunca se repite)
 let _channelSeq = 0
 
-type NotificationType = "new_member" | "check_in" | "achievement" | "plan_assigned" | "membership_expiring"
+type NotificationType = "new_member" | "check_in" | "achievement" | "plan_assigned" | "membership_expiring" | "weight_drift"
 
 interface Notification {
   id: string
@@ -28,6 +28,7 @@ const TYPE_ICON: Record<NotificationType, React.ElementType> = {
   achievement:         Trophy,
   plan_assigned:       Dumbbell,
   membership_expiring: Clock,
+  weight_drift:        Scale,
 }
 
 const TYPE_COLOR: Record<NotificationType, string> = {
@@ -36,6 +37,7 @@ const TYPE_COLOR: Record<NotificationType, string> = {
   achievement:         "bg-amber-500/15 text-amber-400",
   plan_assigned:       "bg-blue-500/15 text-blue-400",
   membership_expiring: "bg-red-500/15 text-red-400",
+  weight_drift:        "bg-amber-500/15 text-amber-400",
 }
 
 function timeAgo(dateStr: string) {

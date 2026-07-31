@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { calcNutritionTargets, missingTargetFields } from "@/lib/nutrition"
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -161,7 +163,7 @@ export async function getMemberProfileForPlan(memberId: string) {
   const supabase = createClient()
   const { data } = await supabase
     .from("profiles")
-    .select("weight_kg, height_cm, date_of_birth, gender, training_frequency")
+    .select("weight_kg, height_cm, date_of_birth, gender, training_frequency, goal")
     .eq("id", memberId)
     .single()
   return data as {
@@ -170,6 +172,7 @@ export async function getMemberProfileForPlan(memberId: string) {
     date_of_birth: string | null
     gender: "male" | "female" | "other" | null
     training_frequency: "never" | "1-2" | "3-4" | "5+" | null
+    goal: "lose_weight" | "gain_muscle" | "performance" | "maintain" | null
   } | null
 }
 
@@ -178,10 +181,22 @@ export async function createNutritionPlan(
   memberId: string,
   name: string,
   goal: NutritionPlan["goal"],
-  notes?: string,
-  targets?: { calories: number; protein: number; carbs: number; fat: number } | null
-) {
+  notes?: string
+): Promise<{ id: string } | { error: string }> {
   const supabase = createClient()
+
+  const profile = await getMemberProfileForPlan(memberId)
+  const targets = profile ? calcNutritionTargets(profile, goal) : null
+
+  if (!targets) {
+    const missing = missingTargetFields(profile)
+    return {
+      error: missing.length > 0
+        ? `Faltan datos del socio para calcular el objetivo: ${missing.join(", ")}.`
+        : "No se pudo calcular el objetivo nutricional a partir de los datos del socio."
+    }
+  }
+
   const { data: { user } } = await supabase.auth.getUser()
   const { data, error } = await supabase
     .from("nutrition_plans" as never)
@@ -192,16 +207,16 @@ export async function createNutritionPlan(
       name,
       goal,
       notes: notes ?? null,
-      target_calories: targets?.calories ?? null,
-      target_protein:  targets?.protein  ?? null,
-      target_carbs:    targets?.carbs    ?? null,
-      target_fat:      targets?.fat      ?? null,
+      target_calories: targets.calories,
+      target_protein:  targets.protein,
+      target_carbs:    targets.carbs,
+      target_fat:      targets.fat,
     } as never)
     .select("id")
     .single()
-  if (error) throw new Error(error.message)
+  if (error) return { error: error.message }
   revalidatePath("/nutricion")
-  return (data as unknown as { id: string }).id
+  return { id: (data as unknown as { id: string }).id }
 }
 
 export async function updateNutritionPlan(id: string, updates: Partial<Pick<NutritionPlan, "name" | "goal" | "notes" | "is_active">>) {
@@ -210,6 +225,82 @@ export async function updateNutritionPlan(id: string, updates: Partial<Pick<Nutr
   if (error) throw new Error(error.message)
   revalidatePath("/nutricion")
   revalidatePath(`/nutricion/${id}`)
+}
+
+export async function recalculateNutritionPlanTargets(
+  planId: string
+): Promise<{ error: string } | { success: true; targets: { calories: number; protein: number; carbs: number; fat: number } }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, gym_id")
+    .eq("id", user.id)
+    .single()
+
+  if (!me || !["admin", "trainer"].includes((me as any).role)) {
+    return { error: "Sin permiso" }
+  }
+
+  const { data: plan } = await supabase
+    .from("nutrition_plans" as never)
+    .select("gym_id, member_id, goal, target_calories")
+    .eq("id", planId)
+    .single() as unknown as { data: { gym_id: string; member_id: string; goal: NutritionPlan["goal"]; target_calories: number | null } | null }
+
+  if (!plan || plan.gym_id !== (me as any).gym_id) {
+    return { error: "El plan no pertenece a tu gym" }
+  }
+
+  const profile = await getMemberProfileForPlan(plan.member_id)
+  const targets = profile ? calcNutritionTargets(profile, plan.goal) : null
+
+  if (!targets) {
+    const missing = missingTargetFields(profile)
+    return {
+      error: missing.length > 0
+        ? `Faltan datos del socio para calcular el objetivo: ${missing.join(", ")}.`
+        : "No se pudo calcular el objetivo nutricional a partir de los datos del socio."
+    }
+  }
+
+  const { data: updated, error } = await supabase
+    .from("nutrition_plans" as never)
+    .update({
+      target_calories: targets.calories,
+      target_protein:  targets.protein,
+      target_carbs:    targets.carbs,
+      target_fat:      targets.fat,
+    } as never)
+    .eq("id", planId)
+    .select("id")
+
+  if (error) return { error: error.message }
+
+  // Si RLS bloqueó el update, Supabase no tira error pero tampoco devuelve filas.
+  if (!updated || updated.length === 0) {
+    return { error: "No se pudo actualizar el plan (sin permiso o no existe)" }
+  }
+
+  // El drift quedó resuelto: las notificaciones sobre el objetivo viejo ya no
+  // aplican. Cliente admin porque la policy de DELETE de notifications es
+  // "solo tus propias filas" (user_id = auth.uid()) — quien recalcula no
+  // siempre es quien fue notificado (puede ser un admin distinto, o el drift
+  // pudo haber avisado a varios admins a la vez).
+  if (plan.target_calories != null) {
+    const admin = createAdminClient()
+    await admin
+      .from("notifications" as never)
+      .delete()
+      .eq("type", "weight_drift")
+      .eq("dedup_key", `weight_drift:${planId}:${plan.target_calories}`)
+  }
+
+  revalidatePath(`/nutricion/${planId}`)
+  revalidatePath("/nutricion")
+  return { success: true, targets }
 }
 
 export async function deleteNutritionPlan(id: string) {

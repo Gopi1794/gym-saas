@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Weight, Ruler, Pencil } from "lucide-react"
 import { updateMemberPhysical } from "@/app/actions/members"
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function MemberPhysicalEdit({ memberId, initialWeight, initialHeight, hasActiveNutritionPlan }: Props) {
+  const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [weight, setWeight] = useState(initialWeight?.toString() ?? "")
   const [height, setHeight] = useState(initialHeight?.toString() ?? "")
@@ -23,18 +25,24 @@ export default function MemberPhysicalEdit({ memberId, initialWeight, initialHei
   async function handleSave() {
     setLoading(true)
     setFeedback(null)
-    const result = await updateMemberPhysical({
-      memberId,
-      weightKg: weight ? parseFloat(weight) : null,
-      heightCm: height ? parseInt(height) : null,
-    })
-    setLoading(false)
-    if (result.error) {
-      setFeedback({ type: "error", msg: result.error })
-    } else {
-      setFeedback({ type: "success", msg: "Guardado" })
-      setEditing(false)
-      setTimeout(() => setFeedback(null), 3000)
+    try {
+      const result = await updateMemberPhysical({
+        memberId,
+        weightKg: weight ? parseFloat(weight) : null,
+        heightCm: height ? parseInt(height) : null,
+      })
+      if (result.error) {
+        setFeedback({ type: "error", msg: result.error })
+      } else {
+        setFeedback({ type: "success", msg: "Guardado" })
+        setEditing(false)
+        router.refresh()
+        setTimeout(() => setFeedback(null), 3000)
+      }
+    } catch {
+      setFeedback({ type: "error", msg: "Revisá tu conexión e intentá de nuevo." })
+    } finally {
+      setLoading(false)
     }
   }
 

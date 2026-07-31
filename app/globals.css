@@ -10,12 +10,18 @@
   animation: border-glow-pulse-blue 2s ease-in-out infinite;
 }
 
-/* ── nextjs-toast-notify dark mode override ────────────────── */
-.dark {
-  --toast-bg-color: #18181b;
-  --toast-text-color: #f4f4f5;
-  --toast-close-color: #a1a1aa;
-  --toast-box-shadow: 0 0.25rem 1.125rem 0 rgba(0, 0, 0, 0.5);
+/* ── Sileo: por encima de modales (Dialog usa z-50, mismo z-index que el
+   viewport de Sileo por defecto) y del dropdown de notificaciones (z-[9999]) ── */
+[data-sileo-viewport] {
+  z-index: 10000;
+}
+
+/* Sileo no trae blur de fábrica — el fondo del toast ya es semitransparente
+   (color-mix al 20% con el color de estado), así que el blur sí tiene de
+   dónde "agarrar". */
+[data-sileo-toast] {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 @layer base {

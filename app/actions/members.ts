@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
 export type MemberPhysicalInput = {
@@ -48,13 +49,18 @@ export async function updateMemberPhysical(input: MemberPhysicalInput) {
   return { success: true }
 }
 
-export type MemberMembershipInput = {
+export type MemberContactInput = {
   memberId: string
-  membershipType: "basic" | "premium" | "vip"
-  membershipExpiresAt: string | null
+  dateOfBirth: string | null
+  phone: string | null
+  gender: "male" | "female" | "other" | null
+  goal: "lose_weight" | "gain_muscle" | "performance" | "maintain" | null
+  trainingFrequency: "never" | "1-2" | "3-4" | "5+" | null
+  emergencyName: string | null
+  emergencyPhone: string | null
 }
 
-export async function updateMemberMembership(input: MemberMembershipInput) {
+export async function updateMemberContact(input: MemberContactInput) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
@@ -79,7 +85,66 @@ export async function updateMemberMembership(input: MemberMembershipInput) {
     return { error: "Miembro no pertenece a tu gym" }
   }
 
-  const { data: updated, error } = await supabase
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      date_of_birth: input.dateOfBirth,
+      phone: input.phone,
+      gender: input.gender,
+      goal: input.goal,
+      training_frequency: input.trainingFrequency,
+      emergency_name: input.emergencyName,
+      emergency_phone: input.emergencyPhone,
+    } as never)
+    .eq("id", input.memberId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/members/${input.memberId}`)
+  return { success: true }
+}
+
+export type MemberMembershipInput = {
+  memberId: string
+  membershipType: "basic" | "premium" | "vip"
+  membershipExpiresAt: string | null
+}
+
+export async function updateMemberMembership(input: MemberMembershipInput) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, gym_id")
+    .eq("id", user.id)
+    .single()
+
+  // Admin-only: extender una membresía es dar acceso gratis al gimnasio, y
+  // esta función además inserta en payments — un trainer podría registrar un
+  // pago en efectivo que nunca ocurrió. Es una operación de plata, no de
+  // entrenamiento, mismo criterio que assignTrainer.
+  if (!me || (me as any).role !== "admin") {
+    return { error: "Sin permiso" }
+  }
+
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("gym_id")
+    .eq("id", input.memberId)
+    .single()
+
+  if (!target || (target as any).gym_id !== (me as any).gym_id) {
+    return { error: "Miembro no pertenece a tu gym" }
+  }
+
+  // profiles.membership_type y profiles.membership_expires_at tampoco están en
+  // los privilegios de columna de authenticated — mismo problema que trainer_id
+  // en assignTrainer. Cliente admin para este update; las dos validaciones de
+  // arriba (admin + mismo gym) son la única barrera.
+  const admin = createAdminClient()
+  const { data: updated, error } = await admin
     .from("profiles")
     .update({
       membership_type: input.membershipType,
@@ -90,10 +155,11 @@ export async function updateMemberMembership(input: MemberMembershipInput) {
 
   if (error) return { error: error.message }
 
-  // Si RLS bloqueó el update, Supabase no tira error pero tampoco devuelve filas.
-  // Sin esta guarda, se podía registrar el pago sin haber extendido la membresía.
+  // Guarda por si el socio dejó de existir entre el chequeo de gym y este
+  // update — ya no es un chequeo de RLS: el cliente admin no tiene policies
+  // que lo bloqueen, así que "0 filas" acá solo puede ser esto.
   if (!updated || updated.length === 0) {
-    return { error: "No se pudo actualizar la membresía (sin permiso o el socio no existe)" }
+    return { error: "No se pudo actualizar la membresía (el socio no existe)" }
   }
 
   // Registrar pago en efectivo (RLS admin_insert_payments lo permite)
@@ -144,12 +210,22 @@ export async function assignTrainer(memberId: string, trainerId: string | null) 
     }
   }
 
-  const { error } = await supabase
+  // profiles.trainer_id no está en los privilegios de columna de authenticated
+  // (20260726_profiles_column_privileges.sql) — cliente admin para este update.
+  // Las tres validaciones de arriba ya corrieron: son la única barrera, el
+  // cliente admin no tiene RLS que actúe de red.
+  const admin = createAdminClient()
+  const { data: updated, error } = await admin
     .from("profiles")
     .update({ trainer_id: trainerId } as never)
     .eq("id", memberId)
+    .select("id")
 
   if (error) return { error: error.message }
+
+  if (!updated || updated.length === 0) {
+    return { error: "No se pudo asignar el trainer (el socio no existe)" }
+  }
 
   revalidatePath(`/members/${memberId}`)
   return { success: true }

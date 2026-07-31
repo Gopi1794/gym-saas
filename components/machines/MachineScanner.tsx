@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { X, QrCode, Plus, ChevronRight, Dumbbell } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { showToast } from "nextjs-toast-notify"
+import { sileo } from "sileo"
 import { scanMachineQR, addExerciseToTodayPlan, type MachineExercise, type ScanResult } from "@/app/actions/machines"
 
 interface Props {
@@ -45,7 +45,7 @@ export default function MachineScanner({ userId, planId, hasWorkoutToday, onStar
     stopCamera()
 
     if (!result.found) {
-      showToast.error("Máquina no encontrada", { duration: 3000, position: "top-right" })
+      sileo.error({ title: "Máquina no encontrada", description: "El código QR no corresponde a ninguna máquina registrada.", duration: 3000 })
       processingRef.current = false
       setPhase({ step: "scanner" })
       return
@@ -101,7 +101,7 @@ export default function MachineScanner({ userId, planId, hasWorkoutToday, onStar
         await el.start({ facingMode: "environment" }, config, onScan, () => {})
       } catch {
         try { await el.start({ facingMode: "user" }, config, onScan, () => {}) } catch (e) {
-          showToast.error("No se pudo acceder a la cámara", { duration: 3000, position: "top-right" })
+          sileo.error({ title: "No se pudo acceder a la cámara", description: "Verificá los permisos de cámara del navegador.", duration: 3000 })
           setIsStarted(false)
         }
       }
@@ -115,9 +115,9 @@ export default function MachineScanner({ userId, planId, hasWorkoutToday, onStar
     const res = await addExerciseToTodayPlan(userId, exerciseId)
     setIsPending(false)
     if (res.success) {
-      showToast.success("Ejercicio agregado a tu rutina", { duration: 2500, position: "top-right", transition: "bounceIn" })
+      sileo.success({ title: "Ejercicio agregado a tu rutina", description: "Ya lo vas a ver en tu plan de hoy.", duration: 2500 })
     } else {
-      showToast.error(res.error ?? "Error al agregar", { duration: 3000, position: "top-right" })
+      sileo.error({ title: res.error ?? "Error al agregar", description: "Intentá escanear la máquina de nuevo.", duration: 3000 })
     }
     onClose()
   }

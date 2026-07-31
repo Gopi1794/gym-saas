@@ -4,7 +4,7 @@ import { useState, useTransition, useRef } from "react"
 import { QrCode, Plus, Trash2, Pencil, Dumbbell, X, Check, Camera, ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { showToast } from "nextjs-toast-notify"
+import { sileo } from "sileo"
 import { QRCodeSVG } from "qrcode.react"
 import { createClient } from "@/lib/supabase/client"
 import {
@@ -49,7 +49,7 @@ export default function MachinesPanel({ gymId, initialMachines, allExercises }: 
     setUploadingId(machineId)
     const { error } = await supabase.storage.from("machine-images").upload(path, file, { upsert: true })
     if (error) {
-      showToast.error("Error al subir imagen", { duration: 3000, position: "top-right" })
+      sileo.error({ title: "Error al subir imagen", description: "Verificá el formato y el tamaño del archivo.", duration: 3000 })
       setUploadingId(null)
       return
     }
@@ -57,7 +57,7 @@ export default function MachinesPanel({ gymId, initialMachines, allExercises }: 
     await updateMachineImageUrl(machineId, data.publicUrl)
     setMachines((prev) => prev.map((m) => m.id === machineId ? { ...m, image_url: data.publicUrl } : m))
     setUploadingId(null)
-    showToast.success("Imagen actualizada", { duration: 2500, position: "top-right", transition: "bounceIn" })
+    sileo.success({ title: "Imagen actualizada", description: "Los socios ya ven la nueva foto de la máquina.", duration: 2500 })
   }
 
   // ── Create ────────────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ export default function MachinesPanel({ gymId, initialMachines, allExercises }: 
       startTransition(async () => {
         const result = await createMachine(gymId, name.trim(), desc.trim())
         if (!result) {
-          showToast.error("Error al crear la máquina", { duration: 3000, position: "top-right" })
+          sileo.error({ title: "Error al crear la máquina", description: "Revisá los datos e intentá de nuevo.", duration: 3000 })
           return
         }
 
@@ -96,7 +96,7 @@ export default function MachinesPanel({ gymId, initialMachines, allExercises }: 
         }
 
         setMachines((prev) => [...prev, { id: result.id, name: name.trim(), description: desc.trim() || null, image_url: imageUrl, qr_identifier: result.id, exercises: [] }])
-        showToast.success("Máquina creada", { duration: 2500, position: "top-right", transition: "bounceIn" })
+        sileo.success({ title: "Máquina creada", description: "Ya está disponible para asignarle ejercicios.", duration: 2500 })
         setModal(null)
       })
     }
@@ -166,7 +166,7 @@ export default function MachinesPanel({ gymId, initialMachines, allExercises }: 
               : m
           )
         )
-        showToast.success("Ejercicios actualizados", { duration: 2500, position: "top-right", transition: "bounceIn" })
+        sileo.success({ title: "Ejercicios actualizados", description: "Los cambios se reflejan al instante en el QR de la máquina.", duration: 2500 })
         setModal(null)
       })
     }
@@ -225,7 +225,7 @@ export default function MachinesPanel({ gymId, initialMachines, allExercises }: 
     startTransition(async () => {
       await deleteMachine(machineId)
       setMachines((prev) => prev.filter((m) => m.id !== machineId))
-      showToast.success("Máquina eliminada", { duration: 2500, position: "top-right" })
+      sileo.success({ title: "Máquina eliminada", description: "Se sacó del listado y del QR de escaneo.", duration: 2500 })
     })
   }
 
