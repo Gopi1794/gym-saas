@@ -243,31 +243,44 @@ async function notifyTrainerOfWeightDrift(
   const dedupKey = `weight_drift:${plan.id}:${plan.target_calories}`
   const memberName = memberProfile?.full_name ?? "un socio"
 
-  const { error } = await admin
-    .from("notifications" as never)
-    .upsert(
-      recipientIds.map(userId => ({
-        user_id: userId,
-        type: "weight_drift",
-        title: `Peso actualizado: ${memberName}`,
-        body: oldWeight != null
-          ? `Pasó de ${oldWeight} a ${newWeight} kg. El objetivo de su plan quedó desactualizado.`
-          : `Registró ${newWeight} kg. El objetivo de su plan quedó desactualizado.`,
-        metadata: {
-          plan_id: plan.id,
-          member_id: memberId,
-          old_weight: oldWeight,
-          new_weight: newWeight,
-          old_target: plan.target_calories,
-          new_target: newTargets.calories,
-        },
-        dedup_key: dedupKey,
-      })) as never,
-      { onConflict: "user_id,dedup_key", ignoreDuplicates: true }
-    )
+  // notifications_dedup_idx es un índice PARCIAL (where dedup_key is not null)
+  // — Postgres no lo usa para ON CONFLICT salvo que la sentencia repita el
+  // mismo predicado, y el onConflict de supabase-js no permite expresarlo
+  // ("there is no unique or exclusion constraint matching the ON CONFLICT
+  // specification"). Insert por destinatario en vez de upsert en lote: un
+  // insert batch es atómico, así que si UN destinatario ya tenía la
+  // notificación, aborta el insert completo y ningún otro la recibe.
+  for (const userId of recipientIds) {
+    try {
+      const { error } = await admin
+        .from("notifications" as never)
+        .insert({
+          user_id: userId,
+          type: "weight_drift",
+          title: `Peso actualizado: ${memberName}`,
+          body: oldWeight != null
+            ? `Pasó de ${oldWeight} a ${newWeight} kg. El objetivo de su plan quedó desactualizado.`
+            : `Registró ${newWeight} kg. El objetivo de su plan quedó desactualizado.`,
+          metadata: {
+            plan_id: plan.id,
+            member_id: memberId,
+            old_weight: oldWeight,
+            new_weight: newWeight,
+            old_target: plan.target_calories,
+            new_target: newTargets.calories,
+          },
+          dedup_key: dedupKey,
+        } as never)
 
-  if (error) {
-    console.error("No se pudo notificar el drift de peso:", error.message)
+      // 23505 = unique_violation: ya se notificó por este mismo drift, es el
+      // caso esperado. Cualquier otro error se loguea — fue lo que permitió
+      // encontrar este bug en primer lugar.
+      if (error && error.code !== "23505") {
+        console.error("No se pudo notificar el drift de peso:", error.message)
+      }
+    } catch (err) {
+      console.error("No se pudo notificar el drift de peso:", err)
+    }
   }
 }
 
