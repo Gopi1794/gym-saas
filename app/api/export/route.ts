@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS, type PaymentStatus, type PaymentMethod } from "@/lib/payments"
+import { formatDayAR } from "@/lib/date-ar"
 
 function esc(v: unknown): string {
   if (v === null || v === undefined) return ""
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
     const rows = (data ?? []).map(m => [
       m.full_name,
       m.membership_type,
-      m.membership_expires_at ? dateAR(m.membership_expires_at) : "",
+      m.membership_expires_at ? formatDayAR(m.membership_expires_at, { day: "2-digit", month: "2-digit", year: "numeric" }) : "",
       m.membership_expires_at && new Date(m.membership_expires_at) > new Date() ? "Sí" : "No",
       m.phone,
       m.goal ? (GOALS[m.goal] ?? m.goal) : "",

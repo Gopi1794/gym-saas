@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Calendar, Phone, User2, Target, Activity, AlertTriangle, Pencil } from "lucide-react"
 import { sileo } from "sileo"
 import { updateMemberContact } from "@/app/actions/members"
+import { formatDayAR } from "@/lib/date-ar"
 
 type Gender = "male" | "female" | "other"
 type Goal = "lose_weight" | "gain_muscle" | "performance" | "maintain"
@@ -31,7 +32,7 @@ interface Props {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })
+  return formatDayAR(iso)
 }
 
 const selectCls = "w-full rounded-xl border border-white/10 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 focus:border-brand-500/50 focus:outline-none focus:ring-1 focus:ring-brand-500/30 transition-colors"

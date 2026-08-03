@@ -9,7 +9,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { formatDate, getInitials, isMembershipActive } from "@/lib/utils"
+import { getInitials, isMembershipActive } from "@/lib/utils"
+import { formatDayAR } from "@/lib/date-ar"
 import { Search, ChevronRight, Users, X, Dumbbell } from "lucide-react"
 import type { Profile } from "@/types"
 
@@ -298,7 +299,7 @@ export default function MemberTable({ members, plans = [], churnStatuses = {} }:
                       !active && member.membership_expires_at ? "text-red-400" : "text-zinc-400"
                     }`}>
                       {member.membership_expires_at
-                        ? formatDate(member.membership_expires_at)
+                        ? formatDayAR(member.membership_expires_at)
                         : <span className="text-zinc-700">—</span>}
                     </TableCell>
                     <TableCell>

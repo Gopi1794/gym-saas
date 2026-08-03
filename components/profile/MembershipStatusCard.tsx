@@ -6,6 +6,7 @@ import {
   Zap, CreditCard, Star, Gem, ChevronDown,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { formatDayAR } from "@/lib/date-ar"
 import { Alert } from "@/components/ui/alert"
 
 type MembershipType = "basic" | "premium" | "vip"
@@ -122,10 +123,10 @@ export default function MembershipStatusCard({ membershipType, expiresAt, plans 
 
   const expiryLabel = (() => {
     if (!expiresAt) return "Sin fecha de vencimiento"
-    if (daysLeft !== null && daysLeft <= 0) return "Venció el " + new Date(expiresAt).toLocaleDateString("es-AR", { day: "numeric", month: "long" })
+    if (daysLeft !== null && daysLeft <= 0) return "Venció el " + formatDayAR(expiresAt, { day: "numeric", month: "long" })
     if (daysLeft === 1) return "Vence mañana"
     if (daysLeft !== null && daysLeft <= 7) return `Vence en ${daysLeft} días`
-    return "Vence el " + new Date(expiresAt).toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" })
+    return "Vence el " + formatDayAR(expiresAt, { day: "numeric", month: "long", year: "numeric" })
   })()
 
   async function handleCheckout() {
