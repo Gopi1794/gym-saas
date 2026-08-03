@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -40,6 +41,10 @@ const TYPE_COLOR: Record<NotificationType, string> = {
   weight_drift:        "bg-amber-500/15 text-amber-400",
 }
 
+const TYPE_LINK: Partial<Record<NotificationType, string>> = {
+  check_in: "/check-in",
+}
+
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60_000)
@@ -56,6 +61,7 @@ interface NotificationBellProps {
 }
 
 export default function NotificationBell({ userId }: NotificationBellProps) {
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -63,6 +69,11 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   // Cada instancia del componente captura su propio número de secuencia al montarse
   const seqRef = useRef(++_channelSeq)
   const supabase = useMemo(() => createClient(), [])
+
+  function handleNotificationClick(href: string) {
+    setOpen(false)
+    router.push(href)
+  }
 
   const unreadCount = notifications.filter((n) => !n.read).length
 
@@ -104,6 +115,18 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         },
         (payload: { new: Notification }) => {
           setNotifications((prev) => [payload.new, ...prev])
+        }
+      )
+      .on(
+        "postgres_changes" as never,
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload: { new: Notification }) => {
+          setNotifications((prev) => prev.map((n) => (n.id === payload.new.id ? payload.new : n)))
         }
       )
       .subscribe()
@@ -197,12 +220,23 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
               ) : (
                 notifications.map((n) => {
                   const Icon = TYPE_ICON[n.type] ?? Bell
+                  const href = TYPE_LINK[n.type]
                   return (
                     <div
                       key={n.id}
+                      role={href ? "button" : undefined}
+                      tabIndex={href ? 0 : undefined}
+                      onClick={href ? () => handleNotificationClick(href) : undefined}
+                      onKeyDown={href ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          handleNotificationClick(href)
+                        }
+                      } : undefined}
                       className={cn(
                         "group relative flex gap-3 px-4 py-3 border-b border-zinc-800/50 last:border-0",
-                        !n.read && "bg-zinc-900/60"
+                        !n.read && "bg-zinc-900/60",
+                        href && "cursor-pointer hover:bg-zinc-900/40 transition-colors"
                       )}
                     >
                       {/* Unread dot */}
