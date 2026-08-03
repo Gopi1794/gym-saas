@@ -1,10 +1,10 @@
-import { DollarSign, Users, UserPlus, RefreshCw } from "lucide-react"
+import { DollarSign, Users, UserPlus, BadgeCheck } from "lucide-react"
 
 interface AdminKpiCardsProps {
   revenueThisMonth: number
   activeMembers: number
   newMembersThisMonth: number
-  renewalRate: number
+  membersUpToDateRate: number
 }
 
 function KpiCard({
@@ -49,7 +49,7 @@ export default function AdminKpiCards({
   revenueThisMonth,
   activeMembers,
   newMembersThisMonth,
-  renewalRate,
+  membersUpToDateRate,
 }: AdminKpiCardsProps) {
   const revenueFormatted = new Intl.NumberFormat("es-AR", {
     style: "currency",
@@ -83,10 +83,10 @@ export default function AdminKpiCards({
           color="cyan"
         />
         <KpiCard
-          icon={RefreshCw}
-          label="Tasa de renovación"
-          value={`${renewalRate}%`}
-          sub="pagos aprobados / activos"
+          icon={BadgeCheck}
+          label="Socios al día"
+          value={`${membersUpToDateRate}%`}
+          sub="membresía vigente hoy"
           color="amber"
         />
       </div>
