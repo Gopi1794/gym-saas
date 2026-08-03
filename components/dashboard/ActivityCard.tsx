@@ -4,7 +4,7 @@ interface ActivityCardProps {
   label: string
   value: number | string
   unit?: string
-  chart: "ring" | "bar" | "line"
+  chart: "ring" | "bar" | "line" | "none"
   color?: "violet" | "cyan" | "emerald" | "brand"
   data?: number[]    // bar/line: array of values
   progress?: number  // ring: 0–1
@@ -37,9 +37,11 @@ function RingChart({ color, progress = 0 }: { color: keyof typeof COLORS; progre
 }
 
 function BarChart({ color, data }: { color: keyof typeof COLORS; data?: number[] }) {
-  const raw = data && data.length > 0 ? data : [3, 5, 4, 7, 5, 6, 6]
-  const max = Math.max(...raw, 1)
-  const bars = raw.map(v => Math.max(2, Math.round((v / max) * 36)))
+  // Sin datos reales, no se inventa una tendencia — mismo criterio que
+  // chart="none": mejor nada que un dibujo que parece un dato.
+  if (!data || data.length === 0) return null
+  const max = Math.max(...data, 1)
+  const bars = data.map(v => Math.max(2, Math.round((v / max) * 36)))
   const c = COLORS[color]
   const bw = Math.floor(54 / bars.length) - 1
   return (
@@ -57,25 +59,18 @@ function BarChart({ color, data }: { color: keyof typeof COLORS; data?: number[]
 }
 
 function LineChart({ color, data }: { color: keyof typeof COLORS; data?: number[] }) {
+  // Mismo criterio que BarChart: sin datos suficientes, nada — no una curva
+  // ascendente inventada que parece una tendencia real.
+  if (!data || data.length < 2) return null
   const c = COLORS[color]
-  const raw = data && data.length >= 2 ? data : null
-
-  let linePoints: string
-  let areaPoints: string
-
-  if (raw) {
-    const max = Math.max(...raw, 1)
-    const n = raw.length
-    const pts = raw.map((v, i) => ({
-      x: Math.round((i / (n - 1)) * 56),
-      y: Math.round(30 - (v / max) * 28) + 1,
-    }))
-    linePoints = pts.map(p => `${p.x},${p.y}`).join(" ")
-    areaPoints = `0,32 ${linePoints} 56,32`
-  } else {
-    linePoints = "0,28 9,26 18,22 27,18 36,14 45,10 56,6"
-    areaPoints = "0,32 0,28 9,26 18,22 27,18 36,14 45,10 56,6 56,32"
-  }
+  const max = Math.max(...data, 1)
+  const n = data.length
+  const pts = data.map((v, i) => ({
+    x: Math.round((i / (n - 1)) * 56),
+    y: Math.round(30 - (v / max) * 28) + 1,
+  }))
+  const linePoints = pts.map(p => `${p.x},${p.y}`).join(" ")
+  const areaPoints = `0,32 ${linePoints} 56,32`
 
   return (
     <svg viewBox="0 0 56 32" className="h-8 w-14">
@@ -108,8 +103,9 @@ export default function ActivityCard({ label, value, unit, chart, color = "viole
           ? <RingChart color={color} progress={progress} />
           : chart === "bar"
           ? <BarChart color={color} data={data} />
-          : <LineChart color={color} data={data} />
-        }
+          : chart === "line"
+          ? <LineChart color={color} data={data} />
+          : null}
       </div>
 
       <div>

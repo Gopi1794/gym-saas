@@ -336,13 +336,6 @@ export default async function DashboardPage() {
     const dayStr = day.toISOString().split("T")[0]
     return (checkInsLast7Days ?? []).filter(ci => ci.checked_in_at.startsWith(dayStr)).length
   })
-  const revenueTrend = Array.from({ length: 7 }, (_, i) => {
-    const m = new Date(todayDate.getFullYear(), todayDate.getMonth() - (6 - i), 1)
-    return (paymentsLast12Months ?? [])
-      .filter(pay => { const d = new Date(pay.created_at); return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear() })
-      .reduce((sum, pay) => sum + (pay.amount ?? 0), 0)
-  })
-
   const hour = hourAR()
   const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches"
   const firstName = p?.full_name?.split(" ")[0] ?? ""
@@ -471,7 +464,7 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-3 gap-3">
             <ActivityCard label="Miembros" value={totalMembers ?? 0} chart="ring" color="violet" progress={adminMembersProgress} />
             <ActivityCard label="Check-ins hoy" value={todayCheckIns ?? 0} chart="bar" color="cyan" data={checkInWeekData} />
-            <ActivityCard label="Activos" value={activeMembers ?? 0} chart="line" color="emerald" data={revenueTrend} />
+            <ActivityCard label="Activos" value={activeMembers ?? 0} chart="none" color="emerald" />
           </div>
         </div>
       ) : null}
