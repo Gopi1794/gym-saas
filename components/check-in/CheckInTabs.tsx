@@ -21,16 +21,21 @@ interface CheckInTabsProps {
   profile: Profile | null
   todayCheckIns: CheckInRow[]
   gymId: string
+  initialTab?: string
 }
 
-export default function CheckInTabs({ profile, todayCheckIns, gymId }: CheckInTabsProps) {
+export default function CheckInTabs({ profile, todayCheckIns, gymId, initialTab }: CheckInTabsProps) {
   const role = profile?.role ?? "member"
   const isAdmin = role === "admin"
   const isStaff = role === "admin" || role === "trainer"
   const gymQrValue = `GYM_CHECKIN:${gymId}`
 
+  const defaultTab = isStaff ? "scan" : "qr"
+  const validTabs = isAdmin ? ["gym-qr", "scan", "log"] : isStaff ? ["scan", "log"] : ["qr", "log"]
+  const activeTab = initialTab && validTabs.includes(initialTab) ? initialTab : defaultTab
+
   return (
-    <Tabs defaultValue={isStaff ? "scan" : "qr"} className="space-y-4">
+    <Tabs defaultValue={activeTab} className="space-y-4">
       <TabsList className="w-full border border-border bg-card text-muted-foreground">
         {isAdmin && <TabsTrigger value="gym-qr" className="flex-1">QR del Gym</TabsTrigger>}
         {!isAdmin && <TabsTrigger value="qr" className="flex-1">Mi QR</TabsTrigger>}

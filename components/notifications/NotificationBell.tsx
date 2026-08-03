@@ -42,7 +42,7 @@ const TYPE_COLOR: Record<NotificationType, string> = {
 }
 
 const TYPE_LINK: Partial<Record<NotificationType, string>> = {
-  check_in: "/check-in",
+  check_in: "/check-in?tab=log",
 }
 
 function timeAgo(dateStr: string) {
