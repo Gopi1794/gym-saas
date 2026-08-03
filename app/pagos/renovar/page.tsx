@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import RenewMembershipCard from "@/components/dashboard/RenewMembershipCard"
-import { LogOut } from "lucide-react"
-import Link from "next/link"
+import SignOutLink from "@/components/auth/SignOutLink"
 
 export const metadata = { title: "Renovar membresía" }
 
@@ -42,16 +41,11 @@ export default async function RenovarPage() {
           expiresAt={profile?.membership_expires_at ?? null}
           currentType={profile?.membership_type ?? null}
           plans={plans ?? []}
+          forceInline
         />
 
         <div className="text-center">
-          <Link
-            href="/api/auth/signout"
-            className="inline-flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            Cerrar sesión
-          </Link>
+          <SignOutLink />
         </div>
       </div>
     </div>
