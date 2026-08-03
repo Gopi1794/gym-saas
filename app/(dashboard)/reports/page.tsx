@@ -83,10 +83,12 @@ export default async function ReportsPage() {
       .gte("created_at", ninetyDaysAgo),
   ])
 
-  // ── Retención ──
-  const active   = (members ?? []).filter(m => m.membership_expires_at && new Date(m.membership_expires_at) > now && Math.ceil((new Date(m.membership_expires_at).getTime() - now.getTime()) / 86_400_000) > 7).length
-  const expiring = (members ?? []).filter(m => m.membership_expires_at && new Date(m.membership_expires_at) > now && Math.ceil((new Date(m.membership_expires_at).getTime() - now.getTime()) / 86_400_000) <= 7).length
-  const expired  = (members ?? []).filter(m => !m.membership_expires_at || new Date(m.membership_expires_at) <= now).length
+  // ── Socios al día ── mismo corte que activeMembers del dashboard:
+  // membership_expires_at >= ahora cuenta como al día, "por vencer" es un
+  // subconjunto informativo de "al día", no una categoría que le resta.
+  const upToDate = (members ?? []).filter(m => m.membership_expires_at && new Date(m.membership_expires_at) >= now).length
+  const expiringSoon = (members ?? []).filter(m => m.membership_expires_at && new Date(m.membership_expires_at) >= now && Math.ceil((new Date(m.membership_expires_at).getTime() - now.getTime()) / 86_400_000) <= 7).length
+  const expired = (members ?? []).filter(m => !m.membership_expires_at || new Date(m.membership_expires_at) < now).length
 
   // ── Churn ──
   const churned = (members ?? [])
@@ -147,7 +149,7 @@ export default async function ReportsPage() {
     .slice(0, 10)
 
   // ── Frecuencia promedio semanal ──
-  const activeCount = active + expiring
+  const activeCount = upToDate
   const avgVisitsPerWeek = activeCount > 0
     ? Math.round(((recentCheckIns ?? []).length / activeCount / 30) * 7 * 10) / 10
     : 0
@@ -197,13 +199,13 @@ export default async function ReportsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Retención */}
+        {/* Socios al día */}
         <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Retención</h2>
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Socios al día</h2>
             <p className="text-xs text-muted-foreground mt-0.5">Estado actual de las membresías</p>
           </div>
-          <RetentionChart active={active} expiring={expiring} expired={expired} />
+          <RetentionChart upToDate={upToDate} expiringSoon={expiringSoon} expired={expired} />
         </div>
 
         {/* Días pico */}

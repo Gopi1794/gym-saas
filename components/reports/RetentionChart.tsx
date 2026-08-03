@@ -3,20 +3,18 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts"
 
 interface Props {
-  active: number
-  expiring: number
+  upToDate: number
+  expiringSoon: number  // subconjunto de upToDate (vencen en ≤7 días) — informativo, no una porción propia del gráfico
   expired: number
 }
 
-const COLORS = ["#10b981", "#f59e0b", "#ef4444"]
-const LABELS = ["Activos", "Por vencer", "Vencidos"]
+const COLORS = ["#10b981", "#ef4444"]
 
-export default function RetentionChart({ active, expiring, expired }: Props) {
-  const total = active + expiring + expired
+export default function RetentionChart({ upToDate, expiringSoon, expired }: Props) {
+  const total = upToDate + expired
   const data = [
-    { name: "Activos",     value: active },
-    { name: "Por vencer",  value: expiring },
-    { name: "Vencidos",    value: expired },
+    { name: "Al día",   value: upToDate },
+    { name: "Vencidos", value: expired },
   ].filter(d => d.value > 0)
 
   if (total === 0) {
@@ -26,17 +24,18 @@ export default function RetentionChart({ active, expiring, expired }: Props) {
   return (
     <div className="space-y-4">
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Activos",    value: active,   color: "text-emerald-500", bg: "bg-emerald-500/10" },
-          { label: "Por vencer", value: expiring,  color: "text-amber-500",   bg: "bg-amber-500/10" },
-          { label: "Vencidos",   value: expired,   color: "text-red-500",     bg: "bg-red-500/10" },
-        ].map(({ label, value, color, bg }) => (
-          <div key={label} className={`rounded-xl ${bg} px-4 py-3 text-center`}>
-            <p className={`text-2xl font-black ${color}`}>{value}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-emerald-500/10 px-4 py-3 text-center">
+          <p className="text-2xl font-black text-emerald-500">{upToDate}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Al día</p>
+          {expiringSoon > 0 && (
+            <p className="text-[11px] text-amber-500 mt-1">{expiringSoon} vencen en ≤7 días</p>
+          )}
+        </div>
+        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-center">
+          <p className="text-2xl font-black text-red-500">{expired}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Vencidos</p>
+        </div>
       </div>
 
       {/* Donut */}
@@ -52,7 +51,7 @@ export default function RetentionChart({ active, expiring, expired }: Props) {
             dataKey="value"
           >
             {data.map((_, i) => (
-              <Cell key={i} fill={COLORS[["Activos","Por vencer","Vencidos"].indexOf(data[i].name)]} />
+              <Cell key={i} fill={COLORS[["Al día", "Vencidos"].indexOf(data[i].name)]} />
             ))}
           </Pie>
           <Tooltip
