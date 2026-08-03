@@ -2,16 +2,17 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, ChevronRight, X } from "lucide-react"
+import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, AlertTriangle, ChevronRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import type { RealtimeChannel } from "@supabase/supabase-js"
 
 // Contador de módulo — garantiza nombre de canal único incluso en el doble-mount de StrictMode
 // (Date.now() puede repetirse en la misma ms; un contador nunca se repite)
 let _channelSeq = 0
 
-type NotificationType = "new_member" | "check_in" | "achievement" | "plan_assigned" | "membership_expiring" | "weight_drift"
+type NotificationType = "new_member" | "check_in" | "achievement" | "plan_assigned" | "membership_expiring" | "churn_alert" | "weight_drift"
 
 interface Notification {
   id: string
@@ -23,12 +24,16 @@ interface Notification {
   created_at: string
 }
 
+// Ícono + color por tipo — grano fino, cada tipo se ve distinto aunque
+// comparta categoría (new_member y weight_drift son los dos "Sistema", pero
+// no se ven igual).
 const TYPE_ICON: Record<NotificationType, React.ElementType> = {
   new_member:          Users,
   check_in:            QrCode,
   achievement:         Trophy,
   plan_assigned:       Dumbbell,
   membership_expiring: Clock,
+  churn_alert:         AlertTriangle,
   weight_drift:        Scale,
 }
 
@@ -38,7 +43,44 @@ const TYPE_COLOR: Record<NotificationType, string> = {
   achievement:         "bg-amber-500/15 text-amber-400",
   plan_assigned:       "bg-blue-500/15 text-blue-400",
   membership_expiring: "bg-red-500/15 text-red-400",
+  churn_alert:         "bg-orange-500/15 text-orange-400",
   weight_drift:        "bg-amber-500/15 text-amber-400",
+}
+
+// Categoría — grano grueso, para el tag de cada card y los chips de filtro.
+// Única fuente: el tag de una notificación y su chip (si tiene) salen del
+// mismo lugar, nunca se definen dos veces.
+type CategoryKey = "check_in" | "system" | "achievement"
+
+const TYPE_CATEGORY: Record<NotificationType, CategoryKey> = {
+  check_in:            "check_in",
+  new_member:          "system",
+  plan_assigned:       "system",
+  membership_expiring: "system",
+  churn_alert:         "system",
+  weight_drift:        "system",
+  achievement:         "achievement",
+}
+
+const CATEGORY_META: Record<CategoryKey, { tagLabel: string; chipLabel: string | null; tagClass: string }> = {
+  check_in: {
+    tagLabel:  "Check-in",
+    chipLabel: "Check-ins",
+    tagClass:  "bg-brand-600/10 text-brand-700 dark:bg-brand-700/15 dark:text-brand-400",
+  },
+  system: {
+    tagLabel:  "Sistema",
+    chipLabel: "Sistema",
+    tagClass:  "bg-zinc-200 text-zinc-600 dark:bg-zinc-700/50 dark:text-zinc-400",
+  },
+  // Sin chipLabel a propósito: no hace falta paridad 1:1 entre tags y chips.
+  // "Logros" tiene tag propio pero cae bajo "Todas" — agregar su chip es
+  // una línea acá si hace falta más adelante.
+  achievement: {
+    tagLabel:  "Logros",
+    chipLabel: null,
+    tagClass:  "bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
+  },
 }
 
 function getNotificationHref(n: Notification): string | null {
@@ -73,6 +115,8 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<"all" | CategoryKey>("all")
+  const [confirmingClearAll, setConfirmingClearAll] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
   // Cada instancia del componente captura su propio número de secuencia al montarse
@@ -85,6 +129,18 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   }
 
   const unreadCount = notifications.filter((n) => !n.read).length
+
+  const categoryUnreadCounts = (Object.keys(CATEGORY_META) as CategoryKey[]).reduce((acc, key) => {
+    acc[key] = notifications.filter((n) => !n.read && TYPE_CATEGORY[n.type] === key).length
+    return acc
+  }, {} as Record<CategoryKey, number>)
+
+  const categoryChips = (Object.entries(CATEGORY_META) as [CategoryKey, typeof CATEGORY_META[CategoryKey]][])
+    .filter(([, meta]) => meta.chipLabel)
+
+  const visibleNotifications = selectedCategory === "all"
+    ? notifications
+    : notifications.filter((n) => TYPE_CATEGORY[n.type] === selectedCategory)
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -149,9 +205,12 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     }
   }, [userId, fetchNotifications, supabase])
 
-  // Click outside to close
+  // Click outside to close — pausado mientras el diálogo de confirmación está
+  // abierto: Dialog es un Radix Portal, renderiza fuera de panelRef, así que
+  // un click adentro del diálogo se leería como "afuera del panel" y lo
+  // cerraría por debajo del diálogo.
   useEffect(() => {
-    if (!open) return
+    if (!open || confirmingClearAll) return
     function handleClick(e: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         setOpen(false)
@@ -159,19 +218,29 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     }
     document.addEventListener("mousedown", handleClick)
     return () => document.removeEventListener("mousedown", handleClick)
-  }, [open])
+  }, [open, confirmingClearAll])
+
+  const markAllRead = useCallback(async () => {
+    await supabase
+      .from("notifications" as never)
+      .update({ read: true } as never)
+      .eq("user_id", userId)
+      .eq("read", false)
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+  }, [supabase, userId])
 
   // Mark all as read when opening
   async function handleOpen() {
     setOpen((v) => !v)
     if (!open && unreadCount > 0) {
-      await supabase
-        .from("notifications" as never)
-        .update({ read: true } as never)
-        .eq("user_id", userId)
-        .eq("read", false)
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+      await markAllRead()
     }
+  }
+
+  async function confirmClearAll() {
+    setConfirmingClearAll(false)
+    await supabase.from("notifications" as never).delete().eq("user_id", userId)
+    setNotifications([])
   }
 
   async function dismiss(id: string, e: React.MouseEvent) {
@@ -201,35 +270,91 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
 
       {/* Panel */}
       {open && (
-        <div className="fixed right-0 top-14 z-[9999] w-full sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-80">
-          <div className="mx-2 sm:mx-0 rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
+        <div className="fixed right-0 top-14 z-[9999] w-full sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-96">
+          <div className="mx-2 sm:mx-0 rounded-xl border border-zinc-200 bg-white shadow-2xl overflow-hidden dark:border-zinc-800 dark:bg-zinc-950">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-              <p className="text-sm font-semibold text-zinc-100">Notificaciones</p>
-              {notifications.length > 0 && (
-                <button
-                  onClick={async () => {
-                    await supabase.from("notifications" as never).delete().eq("user_id", userId)
-                    setNotifications([])
-                  }}
-                  className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
-                >
-                  Limpiar todo
-                </button>
-              )}
+            <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Notificaciones</p>
+              <div className="flex items-center gap-3">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors cursor-pointer"
+                  >
+                    Marcar todas como leídas
+                  </button>
+                )}
+                {notifications.length > 0 && (
+                  <button
+                    onClick={() => setConfirmingClearAll(true)}
+                    className="text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-600 dark:hover:text-zinc-400 transition-colors cursor-pointer"
+                  >
+                    Limpiar todo
+                  </button>
+                )}
+              </div>
             </div>
 
+            {/* Filter chips */}
+            {notifications.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
+                <button
+                  onClick={() => setSelectedCategory("all")}
+                  className={cn(
+                    "flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors cursor-pointer",
+                    selectedCategory === "all"
+                      ? "bg-brand-600 text-white"
+                      : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  )}
+                >
+                  Todas
+                  <span className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none",
+                    selectedCategory === "all" ? "bg-white/20" : "bg-zinc-300/60 dark:bg-zinc-700"
+                  )}>
+                    {unreadCount}
+                  </span>
+                </button>
+                {categoryChips.map(([key, meta]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedCategory(key)}
+                    className={cn(
+                      "flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors cursor-pointer",
+                      selectedCategory === key
+                        ? "bg-brand-600 text-white"
+                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    )}
+                  >
+                    {meta.chipLabel}
+                    <span className={cn(
+                      "rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none",
+                      selectedCategory === key ? "bg-white/20" : "bg-zinc-300/60 dark:bg-zinc-700"
+                    )}>
+                      {categoryUnreadCounts[key]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* List */}
-            <div className="max-h-[min(24rem,calc(100dvh-8rem))] overflow-y-auto">
+            <div className="max-h-[min(28rem,calc(100dvh-8rem))] overflow-y-auto p-3 space-y-2">
               {notifications.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-10 text-center">
-                  <Bell className="h-8 w-8 text-zinc-700" />
-                  <p className="text-sm text-zinc-600">Sin notificaciones</p>
+                  <Bell className="h-8 w-8 text-zinc-300 dark:text-zinc-700" />
+                  <p className="text-sm text-zinc-500 dark:text-zinc-600">Sin notificaciones</p>
+                </div>
+              ) : visibleNotifications.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-10 text-center">
+                  <Bell className="h-8 w-8 text-zinc-300 dark:text-zinc-700" />
+                  <p className="text-sm text-zinc-500 dark:text-zinc-600">Nada en esta categoría</p>
                 </div>
               ) : (
-                notifications.map((n) => {
+                visibleNotifications.map((n) => {
                   const Icon = TYPE_ICON[n.type] ?? Bell
                   const href = getNotificationHref(n)
+                  const category = CATEGORY_META[TYPE_CATEGORY[n.type]]
                   return (
                     <div
                       key={n.id}
@@ -243,46 +368,52 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                         }
                       } : undefined}
                       className={cn(
-                        "group relative flex gap-3 px-4 py-3 border-b border-zinc-800/50 last:border-0",
-                        !n.read && "bg-zinc-900/60",
-                        href && "cursor-pointer hover:bg-zinc-900/40 transition-colors"
+                        "group relative flex items-start gap-3 rounded-2xl border p-3 transition-colors",
+                        n.read
+                          ? "border-transparent"
+                          : "border-zinc-200 bg-zinc-50 dark:border-zinc-800/80 dark:bg-zinc-900/60",
+                        href && "cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-700"
                       )}
                     >
                       {/* Unread dot */}
                       {!n.read && (
-                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-brand-500" />
+                        <span className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full bg-brand-500 ring-2 ring-white dark:ring-zinc-950" />
                       )}
 
                       {/* Icon */}
                       <div className={cn(
-                        "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                        "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
                         TYPE_COLOR[n.type]
                       )}>
                         <Icon className="h-4 w-4" />
                       </div>
 
                       {/* Content */}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-zinc-200 leading-snug">{n.title}</p>
-                        <p className="mt-0.5 text-xs text-zinc-500 leading-snug">{n.body}</p>
-                        <p className="mt-1 text-[10px] text-zinc-700">{timeAgo(n.created_at)}</p>
+                      <div className="min-w-0 flex-1 py-0.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={cn(
+                            "text-xs leading-snug text-zinc-900 dark:text-zinc-100",
+                            n.read ? "font-medium" : "font-semibold"
+                          )}>
+                            {n.title}
+                          </p>
+                          <p className="shrink-0 pt-0.5 text-[10px] text-zinc-400 dark:text-zinc-600">{timeAgo(n.created_at)}</p>
+                        </div>
+                        <p className="mt-1 text-xs leading-snug text-zinc-500">{n.body}</p>
+                        <div className="mt-2 flex items-center gap-1">
+                          <span className={cn("rounded-md px-2 py-0.5 text-[10px] font-semibold", category.tagClass)}>
+                            {category.tagLabel}
+                          </span>
+                          {href && <ChevronRight className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-600" />}
+                        </div>
                       </div>
 
-                      {/* Indicador de "esto navega" — decorativo, no es un target de toque
-                          propio: el target es la fila entera (onClick de arriba). */}
-                      {href && (
-                        <ChevronRight className="h-4 w-4 shrink-0 self-center text-zinc-600" />
-                      )}
-
-                      {/* Dismiss — siempre visible (hover no existe en touch), hit area de
-                          44×44 aunque el ícono se vea de 14px, y ml-1 de margen propio además
-                          del gap-3 de la fila: con la fila ahora navegable, este es un target
-                          real al lado de otro target real (la fila), no decoración al lado de
-                          un target — la separación tiene que ser explícita. */}
+                      {/* Dismiss — siempre visible (hover no existe en touch), 44×44 de hit
+                          area aunque el ícono se vea de 14px */}
                       <button
                         onClick={(e) => dismiss(n.id, e)}
                         aria-label="Descartar notificación"
-                        className="ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 active:bg-zinc-700 transition-colors cursor-pointer"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 dark:text-zinc-600 dark:hover:text-zinc-300 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -294,6 +425,32 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           </div>
         </div>
       )}
+
+      {/* Clear all confirmation */}
+      <Dialog open={confirmingClearAll} onOpenChange={setConfirmingClearAll}>
+        <DialogContent className="sm:max-w-sm border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-900 dark:text-zinc-50">¿Borrar todas las notificaciones?</DialogTitle>
+            <DialogDescription className="text-zinc-500 dark:text-zinc-400">
+              Se eliminan las {notifications.length} notificaciones de esta lista. Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => setConfirmingClearAll(false)}
+              className="flex-1 rounded-xl border border-zinc-200 py-2.5 text-sm font-medium text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-200 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmClearAll}
+              className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-500 transition-colors"
+            >
+              Borrar todo
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
