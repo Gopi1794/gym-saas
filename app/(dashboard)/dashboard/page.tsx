@@ -21,6 +21,7 @@ import WeightReminderBanner from "@/components/dashboard/WeightReminderBanner"
 import MonthlyTrainingCalendar from "@/components/dashboard/MonthlyTrainingCalendar"
 import PersonalRecordsCard from "@/components/dashboard/PersonalRecordsCard"
 import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, startOfTodayAR } from "@/lib/date-ar"
+import { computeMonthToDateRevenue } from "@/lib/revenue"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Dashboard" }
@@ -65,7 +66,6 @@ export default async function DashboardPage() {
     { count: totalCheckIns },
     { data: recentCheckIns },
     { data: leaderboardRows },
-    { data: paymentsThisMonth },
     { count: newMembersThisMonth },
     { data: paymentsLast12Months },
     { data: checkInsLast7Days },
@@ -103,12 +103,6 @@ export default async function DashboardPage() {
       .eq("role", "member")
       .order("total_xp", { ascending: false })
       .limit(10) as unknown as Promise<{ data: LeaderboardRow[] | null }>,
-    supabase
-      .from("payments")
-      .select("amount")
-      .eq("gym_id", p?.gym_id ?? "")
-      .eq("status", "approved")
-      .gte("created_at", firstOfMonth),
     supabase
       .from("profiles")
       .select("*", { count: "exact", head: true })
@@ -325,7 +319,15 @@ export default async function DashboardPage() {
     monthSessionDates = (monthSessions ?? []).map(s => s.completed_at)
   }
 
-  const revenueThisMonth = (paymentsThisMonth ?? []).reduce((sum, p) => sum + (p.amount ?? 0), 0)
+  const revenueComparison = computeMonthToDateRevenue(paymentsLast12Months ?? [], todayDate)
+  const revenueThisMonth = revenueComparison.thisMonthToDate
+  const revenueSub = revenueThisMonth > 0
+    ? `$${revenueComparison.sameTramoLastMonth.toLocaleString("es-AR")} el mes pasado a esta altura`
+    : revenueComparison.sameTramoLastMonth > 0
+      ? `el mes pasado a esta altura: $${revenueComparison.sameTramoLastMonth.toLocaleString("es-AR")}`
+      : revenueComparison.lastPaymentDate
+        ? `sin pagos — el último fue el ${new Date(revenueComparison.lastPaymentDate).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}`
+        : "sin pagos en los últimos 12 meses"
   // % de socios (role='member') con membresía vigente hoy, sobre el total de socios.
   // Sin componente de tiempo de pago — un socio con plan anual pagado en marzo
   // cuenta como al día en agosto.
@@ -419,6 +421,7 @@ export default async function DashboardPage() {
           <div data-tour="kpi-cards">
             <AdminKpiCards
               revenueThisMonth={revenueThisMonth}
+              revenueSub={revenueSub}
               activeMembers={activeMembers ?? 0}
               newMembersThisMonth={newMembersThisMonth ?? 0}
               membersUpToDateRate={membersUpToDateRate}

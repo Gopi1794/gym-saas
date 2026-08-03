@@ -8,7 +8,8 @@ import PeakDaysChart from "@/components/reports/PeakDaysChart"
 import RevenueComparisonCard from "@/components/reports/RevenueComparisonCard"
 import MemberGrowthChart from "@/components/reports/MemberGrowthChart"
 import AtRiskList, { type AtRiskMember } from "@/components/reports/AtRiskList"
-import { startOfTodayAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, todayDateAR } from "@/lib/date-ar"
+import { startOfTodayAR, firstOfMonthsAgoAR, daysAgoAR, todayDateAR } from "@/lib/date-ar"
+import { computeMonthToDateRevenue } from "@/lib/revenue"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Reportes" }
@@ -30,7 +31,6 @@ export default async function ReportsPage() {
   const todayDate = todayDateAR()
   const ninetyDaysAgo = daysAgoAR(89)
   const thirtyDaysAgo = daysAgoAR(29)
-  const firstOfThisMonth = firstOfMonthAR()
   const firstOfLastMonth = firstOfMonthsAgoAR(1)
   const firstOf6MonthsAgo = firstOfMonthsAgoAR(5)
 
@@ -38,8 +38,7 @@ export default async function ReportsPage() {
     { data: members },
     { data: checkIns },
     { data: recentCheckIns },
-    { data: paymentsThisMonth },
-    { data: paymentsLastMonth },
+    { data: paymentsThisAndLastMonth },
     { data: renewalPayments },
   ] = await Promise.all([
     supabase
@@ -60,20 +59,14 @@ export default async function ReportsPage() {
       .eq("gym_id", gymId)
       .gte("checked_in_at", thirtyDaysAgo),
 
+    // Cubre "este mes" y "mismo tramo del mes pasado" en un solo query —
+    // computeMonthToDateRevenue hace el resto.
     supabase
       .from("payments")
-      .select("amount")
+      .select("amount, created_at")
       .eq("gym_id", gymId)
       .eq("status", "approved")
-      .gte("created_at", firstOfThisMonth),
-
-    supabase
-      .from("payments")
-      .select("amount")
-      .eq("gym_id", gymId)
-      .eq("status", "approved")
-      .gte("created_at", firstOfLastMonth)
-      .lt("created_at", firstOfThisMonth),
+      .gte("created_at", firstOfLastMonth),
 
     supabase
       .from("payments")
@@ -109,9 +102,10 @@ export default async function ReportsPage() {
     byDay[monIdx]++
   }
 
-  // ── Ingresos ──
-  const revenueThisMonth = (paymentsThisMonth ?? []).reduce((s, p) => s + (p.amount ?? 0), 0)
-  const revenueLastMonth = (paymentsLastMonth ?? []).reduce((s, p) => s + (p.amount ?? 0), 0)
+  // ── Ingresos: este mes vs mismo tramo del mes pasado ──
+  const revenueComparison = computeMonthToDateRevenue(paymentsThisAndLastMonth ?? [], todayDate)
+  const revenueThisMonth = revenueComparison.thisMonthToDate
+  const revenueLastMonth = revenueComparison.sameTramoLastMonth
 
   // ── Nuevos socios últimos 6 meses ──
   const memberGrowth = Array.from({ length: 6 }, (_, i) => {
@@ -232,7 +226,12 @@ export default async function ReportsPage() {
             <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Ingresos</h2>
             <p className="text-xs text-muted-foreground mt-0.5">Este mes vs mes anterior</p>
           </div>
-          <RevenueComparisonCard thisMonth={revenueThisMonth} lastMonth={revenueLastMonth} />
+          <RevenueComparisonCard
+            thisMonth={revenueThisMonth}
+            lastMonth={revenueLastMonth}
+            daysIntoMonth={revenueComparison.daysIntoMonth}
+            isFullMonth={revenueComparison.isFullMonth}
+          />
         </div>
 
         {/* Nuevos socios */}

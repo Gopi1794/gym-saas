@@ -2,6 +2,7 @@ import { DollarSign, Users, UserPlus, BadgeCheck } from "lucide-react"
 
 interface AdminKpiCardsProps {
   revenueThisMonth: number
+  revenueSub: string
   activeMembers: number
   newMembersThisMonth: number
   membersUpToDateRate: number
@@ -47,6 +48,7 @@ function KpiCard({
 
 export default function AdminKpiCards({
   revenueThisMonth,
+  revenueSub,
   activeMembers,
   newMembersThisMonth,
   membersUpToDateRate,
@@ -67,6 +69,7 @@ export default function AdminKpiCards({
           icon={DollarSign}
           label="Ingresos del mes"
           value={revenueFormatted}
+          sub={revenueSub}
           color="emerald"
         />
         <KpiCard
