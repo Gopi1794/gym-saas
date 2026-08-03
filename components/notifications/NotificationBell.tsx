@@ -205,10 +205,11 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     }
   }, [userId, fetchNotifications, supabase])
 
-  // Click outside to close — pausado mientras el diálogo de confirmación está
-  // abierto: Dialog es un Radix Portal, renderiza fuera de panelRef, así que
-  // un click adentro del diálogo se leería como "afuera del panel" y lo
-  // cerraría por debajo del diálogo.
+  // Click afuera o Escape cierran el panel — pausado mientras el diálogo de
+  // confirmación está abierto: Dialog es un Radix Portal, renderiza fuera de
+  // panelRef, así que un click o Escape adentro del diálogo se leería como
+  // "cerrar el panel" por debajo (Radix ya maneja su propio Escape para
+  // cerrarse a sí mismo).
   useEffect(() => {
     if (!open || confirmingClearAll) return
     function handleClick(e: MouseEvent) {
@@ -216,8 +217,15 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         setOpen(false)
       }
     }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false)
+    }
     document.addEventListener("mousedown", handleClick)
-    return () => document.removeEventListener("mousedown", handleClick)
+    document.addEventListener("keydown", handleKeyDown)
+    return () => {
+      document.removeEventListener("mousedown", handleClick)
+      document.removeEventListener("keydown", handleKeyDown)
+    }
   }, [open, confirmingClearAll])
 
   const markAllRead = useCallback(async () => {
@@ -229,13 +237,19 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
   }, [supabase, userId])
 
-  // Mark all as read when opening
-  async function handleOpen() {
-    setOpen((v) => !v)
-    if (!open && unreadCount > 0) {
-      await markAllRead()
+  // Marcar como leídas al CERRAR, no al abrir — si no, los puntos de no-leída
+  // desaparecen mientras el usuario todavía está mirando el panel y nunca
+  // llega a ver cuáles eran nuevas. Un solo punto de disparo (la transición
+  // open→false) en vez de repetir la llamada en cada lugar que cierra el
+  // panel (bell, click afuera, Escape, click en una notificación que
+  // navega) — así ninguno de esos caminos puede quedar afuera por olvido.
+  const wasOpenRef = useRef(false)
+  useEffect(() => {
+    if (wasOpenRef.current && !open) {
+      markAllRead()
     }
-  }
+    wasOpenRef.current = open
+  }, [open, markAllRead])
 
   async function confirmClearAll() {
     setConfirmingClearAll(false)
@@ -256,7 +270,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     <div className="relative" ref={panelRef}>
       {/* Bell button */}
       <button
-        onClick={handleOpen}
+        onClick={() => setOpen((v) => !v)}
         aria-label="Notificaciones"
         className="relative flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 cursor-pointer"
       >
@@ -339,7 +353,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
             )}
 
             {/* List */}
-            <div className="max-h-[min(28rem,calc(100dvh-8rem))] overflow-y-auto p-3 space-y-2">
+            <div className="max-h-[min(28rem,calc(100dvh-8rem))] overflow-y-auto p-3 space-y-2.5">
               {notifications.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-10 text-center">
                   <Bell className="h-8 w-8 text-zinc-300 dark:text-zinc-700" />
@@ -370,14 +384,17 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                       className={cn(
                         "group relative flex items-start gap-3 rounded-2xl border p-3 transition-colors",
                         n.read
-                          ? "border-transparent"
+                          ? "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/20"
                           : "border-zinc-200 bg-zinc-50 dark:border-zinc-800/80 dark:bg-zinc-900/60",
                         href && "cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-700"
                       )}
                     >
-                      {/* Unread dot */}
+                      {/* Unread dot — adentro de la card (no en el borde/esquina): con el
+                          borde siempre visible ahora, un offset negativo quedaba tapado o
+                          cortado por el rounded-2xl. Sin ring: ya no está a caballo de un
+                          borde/costura, se apoya limpio sobre el propio fondo de la card. */}
                       {!n.read && (
-                        <span className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full bg-brand-500 ring-2 ring-white dark:ring-zinc-950" />
+                        <span className="absolute left-2 top-2 h-2 w-2 rounded-full bg-brand-500" />
                       )}
 
                       {/* Icon */}
