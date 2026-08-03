@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { AlertCircle, Clock, RefreshCw } from "lucide-react"
+import { useEffect, useState } from "react"
+import { AlertCircle, AlertTriangle, Clock, RefreshCw, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { daysUntilAR } from "@/lib/date-ar"
 
 interface DbPlan {
   type: "basic" | "premium" | "vip"
@@ -34,6 +35,44 @@ function toDisplayPlan(p: DbPlan): Plan {
   }
 }
 
+type Tier = "expired" | "urgent" | "preventive"
+
+const TIER_STYLES: Record<Tier, {
+  border: string
+  bg: string
+  icon: typeof AlertCircle
+  iconColor: string
+  titleColor: string
+}> = {
+  expired: {
+    border: "border-red-800/60",
+    bg: "bg-red-950/30",
+    icon: AlertCircle,
+    iconColor: "text-red-400",
+    titleColor: "text-red-300",
+  },
+  urgent: {
+    border: "border-orange-800/60",
+    bg: "bg-orange-950/30",
+    icon: AlertTriangle,
+    iconColor: "text-orange-400",
+    titleColor: "text-orange-300",
+  },
+  preventive: {
+    border: "border-amber-800/60",
+    bg: "bg-amber-950/20",
+    icon: Clock,
+    iconColor: "text-amber-400",
+    titleColor: "text-amber-300",
+  },
+}
+
+// Sesión (no base de datos): el aviso vuelve a aparecer la próxima vez que
+// el socio entra. Se guarda el nivel descartado, no un booleano, para que
+// si la urgencia escala (ej. de "preventivo" a "urgente") el aviso
+// resurja aunque ya se haya cerrado en un nivel más bajo.
+const DISMISS_KEY = "renew-membership-dismissed-tier"
+
 interface Props {
   expiresAt: string | null
   currentType: "basic" | "premium" | "vip" | null
@@ -45,11 +84,34 @@ export default function RenewMembershipCard({ expiresAt, currentType, plans = []
   const [selected, setSelected] = useState<Plan["key"]>(currentType ?? "basic")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dismissedTier, setDismissedTier] = useState<string | null>(null)
 
-  const isExpired = !expiresAt || new Date(expiresAt) < new Date()
-  const daysLeft = expiresAt
-    ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000)
-    : null
+  const daysLeft = expiresAt ? daysUntilAR(expiresAt) : null
+  const tier: Tier = daysLeft === null || daysLeft < 0 ? "expired" : daysLeft <= 1 ? "urgent" : "preventive"
+  const isExpired = tier === "expired"
+  const canDismiss = !isExpired
+
+  useEffect(() => {
+    try {
+      setDismissedTier(sessionStorage.getItem(DISMISS_KEY))
+    } catch {
+      // sessionStorage puede fallar en modo privado; el aviso simplemente no se descarta
+    }
+  }, [])
+
+  function handleDismiss() {
+    try {
+      sessionStorage.setItem(DISMISS_KEY, tier)
+    } catch {
+      // no persiste, pero igual se oculta para esta vista
+    }
+    setDismissedTier(tier)
+  }
+
+  if (canDismiss && dismissedTier === tier) return null
+
+  const style = TIER_STYLES[tier]
+  const Icon = style.icon
 
   async function handleRenew() {
     setLoading(true)
@@ -74,33 +136,34 @@ export default function RenewMembershipCard({ expiresAt, currentType, plans = []
     }
   }
 
+  const title =
+    tier === "expired" ? "Tu membresía venció" :
+    tier === "urgent" ? (daysLeft === 0 ? "Tu membresía vence hoy" : "Tu membresía vence mañana") :
+    `Tu membresía vence en ${daysLeft} día${daysLeft === 1 ? "" : "s"}`
+
+  const subtitle =
+    tier === "expired" ? "Renovala para seguir entrenando sin interrupciones." :
+    tier === "urgent" ? "Renová ahora para no quedarte sin acceso." :
+    "Renová cuando quieras para no tener que pensarlo después."
+
   return (
-    <div className={cn(
-      "rounded-2xl border p-4 space-y-4",
-      isExpired
-        ? "border-red-800/60 bg-red-950/30"
-        : "border-amber-800/60 bg-amber-950/20"
-    )}>
+    <div className={cn("rounded-2xl border p-4 space-y-4", style.border, style.bg)}>
       {/* Status */}
       <div className="flex items-start gap-3">
-        {isExpired ? (
-          <AlertCircle aria-hidden className="h-5 w-5 shrink-0 text-red-400 mt-0.5" />
-        ) : (
-          <Clock aria-hidden className="h-5 w-5 shrink-0 text-amber-400 mt-0.5" />
-        )}
-        <div>
-          <p className={cn(
-            "text-sm font-semibold",
-            isExpired ? "text-red-300" : "text-amber-300"
-          )}>
-            {isExpired ? "Tu membresía venció" : `Tu membresía vence en ${daysLeft} día${daysLeft === 1 ? "" : "s"}`}
-          </p>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            {isExpired
-              ? "Renovala para seguir entrenando sin interrupciones."
-              : "Renová ahora para no perder el acceso."}
-          </p>
+        <Icon aria-hidden className={cn("h-5 w-5 shrink-0 mt-0.5", style.iconColor)} />
+        <div className="flex-1">
+          <p className={cn("text-sm font-semibold", style.titleColor)}>{title}</p>
+          <p className="text-xs text-zinc-400 mt-0.5">{subtitle}</p>
         </div>
+        {canDismiss && (
+          <button
+            onClick={handleDismiss}
+            aria-label="Descartar aviso"
+            className="shrink-0 -m-1.5 p-1.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        )}
       </div>
 
       {/* Plan selector */}
