@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { startOfTodayAR } from "@/lib/date-ar"
+import { startOfTodayAR, daysUntilAR } from "@/lib/date-ar"
 
 type CheckInResult =
   | { success: true; action: "checkin" | "checkout"; memberName: string }
@@ -26,7 +26,7 @@ export async function registerMemberCheckIn(
   const isStaff = profile.role === "admin" || profile.role === "trainer"
   const isActive =
     isStaff ||
-    (profile.membership_expires_at && new Date(profile.membership_expires_at) > new Date())
+    (profile.membership_expires_at != null && daysUntilAR(profile.membership_expires_at) >= 0)
 
   if (!isActive) {
     return { success: false, reason: "membership_expired", memberName: profile.full_name ?? undefined }
