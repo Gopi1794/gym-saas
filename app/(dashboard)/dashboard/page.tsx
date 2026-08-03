@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
+import { daysUntilAR } from "@/lib/date-ar"
 import type { Profile } from "@/types"
 import FeaturedCard from "@/components/dashboard/FeaturedCard"
 import ActivityCard from "@/components/dashboard/ActivityCard"
@@ -282,7 +283,7 @@ export default async function DashboardPage() {
 
     // Fetch gym's configured membership plans (only when member may need renewal)
     const exp = p?.membership_expires_at
-    const daysLeft = exp ? Math.ceil((new Date(exp).getTime() - Date.now()) / 86_400_000) : null
+    const daysLeft = exp ? daysUntilAR(exp) : null
     if (p?.gym_id && (daysLeft === null || daysLeft <= 7)) {
       const { data: plansData } = await (supabase
         .from("membership_plans" as never)
@@ -368,7 +369,7 @@ export default async function DashboardPage() {
       {/* Membership renewal — members expiring ≤7 days or already expired */}
       {p?.role === "member" && (() => {
         const exp = p.membership_expires_at
-        const daysLeft = exp ? Math.ceil((new Date(exp).getTime() - Date.now()) / 86_400_000) : null
+        const daysLeft = exp ? daysUntilAR(exp) : null
         if (daysLeft === null || daysLeft <= 7) {
           return (
             <RenewMembershipCard

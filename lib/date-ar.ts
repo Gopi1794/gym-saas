@@ -62,3 +62,32 @@ export function daysAgoAR(n: number): string {
   d.setDate(d.getDate() - n)
   return d.toISOString()
 }
+
+/**
+ * Días de diferencia entre expiresAt (timestamptz ISO) y "hoy" en Argentina,
+ * por día calendario — no por instante. Negativo si ya pasó.
+ *
+ * Lee el día directo del string en UTC (antes de la "T"), sin convertir de
+ * zona: para fechas puestas a mano (MemberMembershipEdit.tsx, siempre
+ * medianoche UTC del día elegido) esto es exactamente correcto — "vence el
+ * 3" guardado como medianoche UTC del 3 es lo que el usuario eligió, y
+ * leerlo tal cual respeta esa elección. Convertir de zona acá correría la
+ * fecha un día para atrás (mismo caso ya resuelto en
+ * notify_expiring_memberships).
+ *
+ * Para fechas con hora ≠ medianoche (ej. renovaciones de MercadoPago desde
+ * un vencimiento previo, donde el nuevo vencimiento sale de `now() +
+ * duración`) puede regalar hasta un día completo cuando la hora UTC cae
+ * entre 00:00 y 02:59 — esa franja, en Argentina, todavía es el día
+ * anterior. No se corrige a propósito: el error solo va para el lado de dar
+ * más acceso, nunca de sacarlo — exactamente lo que se buscaba arreglar con
+ * esta función. Cortarlo con precisión de instante reintroduciría el bug
+ * original (bloquear antes de tiempo).
+ */
+export function daysUntilAR(expiresAt: string): number {
+  const expiresDay = expiresAt.split("T")[0]
+  const todayStr = todayAR()
+  return Math.round(
+    (new Date(`${expiresDay}T12:00:00Z`).getTime() - new Date(`${todayStr}T12:00:00Z`).getTime()) / 86_400_000
+  )
+}

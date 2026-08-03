@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { daysUntilAR } from "@/lib/date-ar"
 
 const PUBLIC_PATHS = ["/", "/login", "/register", "/forgot-password"]
 const PUBLIC_PREFIXES = ["/api/"]
@@ -79,7 +80,7 @@ export async function middleware(request: NextRequest) {
 
     // Admins y trainers nunca quedan bloqueados por membresía
     const isBlocked = profile.role === "member" &&
-      (!profile.membership_expires_at || new Date(profile.membership_expires_at) < new Date())
+      (!profile.membership_expires_at || daysUntilAR(profile.membership_expires_at) < 0)
 
     if (isBlocked) {
       const url = request.nextUrl.clone()
