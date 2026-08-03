@@ -73,7 +73,8 @@ export default async function DashboardPage() {
     supabase
       .from("profiles")
       .select("*", { count: "exact", head: true })
-      .eq("gym_id", p?.gym_id ?? ""),
+      .eq("gym_id", p?.gym_id ?? "")
+      .eq("role", "member"),
     supabase
       .from("check_ins")
       .select("*", { count: "exact", head: true })
@@ -83,6 +84,7 @@ export default async function DashboardPage() {
       .from("profiles")
       .select("*", { count: "exact", head: true })
       .eq("gym_id", p?.gym_id ?? "")
+      .eq("role", "member")
       .gte("membership_expires_at", new Date().toISOString()),
     supabase
       .from("check_ins")
@@ -324,8 +326,11 @@ export default async function DashboardPage() {
   }
 
   const revenueThisMonth = (paymentsThisMonth ?? []).reduce((sum, p) => sum + (p.amount ?? 0), 0)
-  const renewalRate = activeMembers && activeMembers > 0
-    ? Math.round(((paymentsThisMonth?.length ?? 0) / activeMembers) * 100)
+  // % de socios (role='member') con membresía vigente hoy, sobre el total de socios.
+  // Sin componente de tiempo de pago — un socio con plan anual pagado en marzo
+  // cuenta como al día en agosto.
+  const membersUpToDateRate = totalMembers
+    ? Math.round(((activeMembers ?? 0) / totalMembers) * 100)
     : 0
 
   // Admin chart data
@@ -336,13 +341,6 @@ export default async function DashboardPage() {
     const dayStr = day.toISOString().split("T")[0]
     return (checkInsLast7Days ?? []).filter(ci => ci.checked_in_at.startsWith(dayStr)).length
   })
-  const revenueTrend = Array.from({ length: 7 }, (_, i) => {
-    const m = new Date(todayDate.getFullYear(), todayDate.getMonth() - (6 - i), 1)
-    return (paymentsLast12Months ?? [])
-      .filter(pay => { const d = new Date(pay.created_at); return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear() })
-      .reduce((sum, pay) => sum + (pay.amount ?? 0), 0)
-  })
-
   const hour = hourAR()
   const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches"
   const firstName = p?.full_name?.split(" ")[0] ?? ""
@@ -423,7 +421,7 @@ export default async function DashboardPage() {
               revenueThisMonth={revenueThisMonth}
               activeMembers={activeMembers ?? 0}
               newMembersThisMonth={newMembersThisMonth ?? 0}
-              renewalRate={renewalRate}
+              membersUpToDateRate={membersUpToDateRate}
             />
           </div>
           <div data-tour="revenue-chart">
@@ -471,7 +469,7 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-3 gap-3">
             <ActivityCard label="Miembros" value={totalMembers ?? 0} chart="ring" color="violet" progress={adminMembersProgress} />
             <ActivityCard label="Check-ins hoy" value={todayCheckIns ?? 0} chart="bar" color="cyan" data={checkInWeekData} />
-            <ActivityCard label="Activos" value={activeMembers ?? 0} chart="line" color="emerald" data={revenueTrend} />
+            <ActivityCard label="Activos" value={activeMembers ?? 0} chart="none" color="emerald" />
           </div>
         </div>
       ) : null}

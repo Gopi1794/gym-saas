@@ -152,14 +152,14 @@ export default async function ReportsPage() {
     ? Math.round(((recentCheckIns ?? []).length / activeCount / 30) * 7 * 10) / 10
     : 0
 
-  // ── Tasa de renovación ──
+  // ── Retención: de los que vencieron en los últimos 90 días, cuántos volvieron a pagar ──
   const renewalPaymentUsers = new Map<string, string>()
   for (const p of renewalPayments ?? []) renewalPaymentUsers.set(p.member_id, p.created_at)
   const churnedWithRenewal = churned.filter(m =>
     renewalPaymentUsers.has(m.id) &&
     new Date(renewalPaymentUsers.get(m.id)!) > new Date(m.membership_expires_at!)
   ).length
-  const renewalRate = churned.length > 0 ? Math.round((churnedWithRenewal / churned.length) * 100) : null
+  const retentionRate = churned.length > 0 ? Math.round((churnedWithRenewal / churned.length) * 100) : null
 
   return (
     <div className="space-y-6 pb-8">
@@ -181,11 +181,11 @@ export default async function ReportsPage() {
           <p className="text-xs text-muted-foreground">promedio por socio</p>
         </div>
         <div className="rounded-2xl border border-border bg-card px-4 py-4 space-y-1">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Tasa renovación</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Retención</p>
           <p className="text-3xl font-black text-foreground leading-none">
-            {renewalRate !== null ? `${renewalRate}%` : "—"}
+            {retentionRate !== null ? `${retentionRate}%` : "—"}
           </p>
-          <p className="text-xs text-muted-foreground">últimos 90 días</p>
+          <p className="text-xs text-muted-foreground">vencidos hace ≤90 días que volvieron a pagar</p>
         </div>
         <div className="rounded-2xl border border-border bg-card px-4 py-4 space-y-1">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">En riesgo</p>
