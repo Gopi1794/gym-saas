@@ -65,7 +65,7 @@ export default async function AdminPage({
   } else {
     const { data: payments } = await supabase
       .from("payments")
-      .select("id, amount, status, mp_payment_id, created_at, profiles(full_name, avatar_url)")
+      .select("id, amount, status, method, mp_payment_id, created_at, profiles(full_name, avatar_url)")
       .eq("gym_id", gymId)
       .order("created_at", { ascending: false })
       .limit(100) as unknown as { data: PaymentRow[] | null }

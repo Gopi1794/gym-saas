@@ -176,7 +176,8 @@ export async function updateMemberMembership(input: MemberMembershipInput) {
       gym_id: (me as any).gym_id,
       member_id: input.memberId,
       amount: price,
-      status: "cash" as never,
+      status: "approved",
+      method: "cash",
       mp_payment_id: null,
     })
   }
