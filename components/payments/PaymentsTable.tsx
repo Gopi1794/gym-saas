@@ -14,13 +14,20 @@ import { useState } from "react"
 import {
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   CheckCircle2, Clock, XCircle, MinusCircle, RefreshCw,
+  Banknote, CreditCard,
 } from "lucide-react"
 import { ProfileAvatar } from "@/components/ui/profile-avatar"
+import {
+  PAYMENT_STATUS_LABELS, PAYMENT_STATUS_CLASSES,
+  PAYMENT_METHOD_LABELS, PAYMENT_METHOD_CLASSES,
+  type PaymentStatus, type PaymentMethod,
+} from "@/lib/payments"
 
 export interface PaymentRow {
   id: string
   amount: number
-  status: "pending" | "approved" | "rejected" | "cancelled" | "refunded" | "cash"
+  status: PaymentStatus
+  method: PaymentMethod
   mp_payment_id: string | null
   created_at: string
   user_id: string | null
@@ -30,31 +37,19 @@ export interface PaymentRow {
   } | null
 }
 
-const STATUS_LABEL: Record<PaymentRow["status"], string> = {
-  approved:  "Aprobado",
-  pending:   "Pendiente",
-  rejected:  "Rechazado",
-  cancelled: "Cancelado",
-  refunded:  "Reintegrado",
-  cash:      "Efectivo",
-}
-
-const STATUS_CLASS: Record<PaymentRow["status"], string> = {
-  approved:  "bg-emerald-500/15 text-emerald-400",
-  pending:   "bg-amber-500/15 text-amber-400",
-  rejected:  "bg-red-500/15 text-red-400",
-  cancelled: "bg-zinc-500/15 text-zinc-400",
-  refunded:  "bg-cyan-500/15 text-cyan-400",
-  cash:      "bg-blue-500/15 text-blue-400",
-}
-
-const STATUS_ICON: Record<PaymentRow["status"], React.ElementType> = {
+// Solo el ícono queda acá — es el único consumidor, no hay una segunda copia
+// que pueda divergir. Labels y colores salen de lib/payments.ts.
+const STATUS_ICON: Record<PaymentStatus, React.ElementType> = {
   approved:  CheckCircle2,
   pending:   Clock,
   rejected:  XCircle,
   cancelled: MinusCircle,
   refunded:  RefreshCw,
-  cash:      CheckCircle2,
+}
+
+const METHOD_ICON: Record<PaymentMethod, React.ElementType> = {
+  mercadopago: CreditCard,
+  cash:        Banknote,
 }
 
 function formatARS(value: number) {
@@ -108,15 +103,28 @@ const columns = [
       </span>
     ),
   }),
+  col.accessor("method", {
+    header: "Método",
+    cell: ({ getValue }) => {
+      const m = getValue()
+      const Icon = METHOD_ICON[m]
+      return (
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${PAYMENT_METHOD_CLASSES[m]}`}>
+          <Icon className="h-3 w-3 shrink-0" aria-hidden />
+          {PAYMENT_METHOD_LABELS[m]}
+        </span>
+      )
+    },
+  }),
   col.accessor("status", {
     header: "Estado",
     cell: ({ getValue }) => {
       const s = getValue()
       const Icon = STATUS_ICON[s]
       return (
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_CLASS[s]}`}>
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${PAYMENT_STATUS_CLASSES[s]}`}>
           <Icon className="h-3 w-3 shrink-0" aria-hidden />
-          {STATUS_LABEL[s]}
+          {PAYMENT_STATUS_LABELS[s]}
         </span>
       )
     },

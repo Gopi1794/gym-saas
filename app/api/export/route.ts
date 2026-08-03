@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS, type PaymentStatus, type PaymentMethod } from "@/lib/payments"
 
 function esc(v: unknown): string {
   if (v === null || v === undefined) return ""
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
   if (type === "pagos") {
     const { data: payments } = await supabase
       .from("payments")
-      .select("created_at, amount, status, mp_payment_id, member_id")
+      .select("created_at, amount, status, method, mp_payment_id, member_id")
       .eq("gym_id", gymId)
       .order("created_at", { ascending: false })
 
@@ -88,16 +89,12 @@ export async function GET(req: NextRequest) {
       : { data: [] }
     const nameMap = new Map((profileNames ?? []).map(p => [p.id, p.full_name]))
 
-    const STATUS: Record<string, string> = {
-      approved: "Aprobado", pending: "Pendiente", rejected: "Rechazado",
-      cancelled: "Cancelado", refunded: "Reembolsado", cash: "Efectivo",
-    }
-
-    const headers = ["Fecha", "Monto (ARS)", "Estado", "Miembro", "ID MercadoPago"]
+    const headers = ["Fecha", "Monto (ARS)", "Estado", "Método", "Miembro", "ID MercadoPago"]
     const rows = (payments ?? []).map(p => [
       dateAR(p.created_at),
       p.amount,
-      STATUS[p.status] ?? p.status,
+      PAYMENT_STATUS_LABELS[p.status as PaymentStatus] ?? p.status,
+      PAYMENT_METHOD_LABELS[p.method as PaymentMethod] ?? p.method,
       nameMap.get(p.member_id) ?? "",
       p.mp_payment_id,
     ])

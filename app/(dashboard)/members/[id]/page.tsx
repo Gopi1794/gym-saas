@@ -8,6 +8,11 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { isMembershipActive } from "@/lib/utils"
+import {
+  PAYMENT_STATUS_LABELS, PAYMENT_STATUS_CLASSES,
+  PAYMENT_METHOD_LABELS, PAYMENT_METHOD_CLASSES,
+  type PaymentStatus, type PaymentMethod,
+} from "@/lib/payments"
 import PlanCard from "@/components/planes/PlanCard"
 import CreatePlanForMember from "@/components/members/CreatePlanForMember"
 import MemberPhysicalEdit from "@/components/members/MemberPhysicalEdit"
@@ -37,18 +42,9 @@ type PlanRow = {
 }
 
 type CheckInRow = { id: string; checked_in_at: string; checked_out_at: string | null; method: "qr" | "manual" }
-type PaymentRow = { id: string; amount: number; status: string; created_at: string; mp_payment_id: string | null }
+type PaymentRow = { id: string; amount: number; status: string; method: string; created_at: string; mp_payment_id: string | null }
 type SessionSetRow = { exercise_name: string; set_number: number; actual_reps: number | null; planned_reps: number | null; reps: number | null; weight_kg: number | null }
 type SessionRow = { id: string; day_name: string; completed_at: string; exercises_count: number; workout_session_sets: SessionSetRow[] }
-
-const PAYMENT_STATUS: Record<string, { label: string; cls: string }> = {
-  approved:  { label: "Aprobado",   cls: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10" },
-  pending:   { label: "Pendiente",  cls: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10" },
-  rejected:  { label: "Rechazado",  cls: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10" },
-  cancelled: { label: "Cancelado",  cls: "text-zinc-500 bg-zinc-100 dark:bg-zinc-800" },
-  refunded:  { label: "Reembolsado", cls: "text-zinc-500 bg-zinc-100 dark:bg-zinc-800" },
-  cash:      { label: "Efectivo",   cls: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10" },
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })
@@ -107,7 +103,7 @@ export default async function MemberDetailPage({ params }: Props) {
     supabase.from("check_ins").select("*", { count: "exact", head: true })
       .eq("user_id", params.id).eq("gym_id", gymId),
 
-    supabase.from("payments").select("id, amount, status, created_at, mp_payment_id")
+    supabase.from("payments").select("id, amount, status, method, created_at, mp_payment_id")
       .eq("member_id", params.id).eq("gym_id", gymId)
       .order("created_at", { ascending: false }).limit(5) as unknown as Promise<{ data: PaymentRow[] | null }>,
 
@@ -186,7 +182,7 @@ export default async function MemberDetailPage({ params }: Props) {
           {
             icon: <CreditCard className="h-4 w-4 text-emerald-500" />,
             label: "Pagos",
-            value: String(recentPayments?.filter(p => p.status === "approved" || p.status === "cash").length ?? 0),
+            value: String(recentPayments?.filter(p => p.status === "approved").length ?? 0),
           },
         ].map(({ icon, label, value }) => (
           <div key={label} className="rounded-2xl border border-border bg-card px-4 py-3 space-y-1">
@@ -273,7 +269,10 @@ export default async function MemberDetailPage({ params }: Props) {
         ) : (
           <ul className="space-y-2">
             {recentPayments.map(p => {
-              const st = PAYMENT_STATUS[p.status] ?? { label: p.status, cls: "text-zinc-400 bg-zinc-800" }
+              const statusLabel = PAYMENT_STATUS_LABELS[p.status as PaymentStatus] ?? p.status
+              const statusCls   = PAYMENT_STATUS_CLASSES[p.status as PaymentStatus] ?? "text-zinc-400 bg-zinc-800"
+              const methodLabel = PAYMENT_METHOD_LABELS[p.method as PaymentMethod] ?? p.method
+              const methodCls   = PAYMENT_METHOD_CLASSES[p.method as PaymentMethod] ?? "text-zinc-400 bg-zinc-800"
               return (
                 <li key={p.id} className="flex items-center justify-between rounded-xl bg-muted/50 px-4 py-2.5">
                   <div className="flex items-center gap-3">
@@ -287,9 +286,14 @@ export default async function MemberDetailPage({ params }: Props) {
                       <p className="text-xs text-muted-foreground">{formatDate(p.created_at)}</p>
                     </div>
                   </div>
-                  <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", st.cls)}>
-                    {st.label}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", methodCls)}>
+                      {methodLabel}
+                    </span>
+                    <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", statusCls)}>
+                      {statusLabel}
+                    </span>
+                  </div>
                 </li>
               )
             })}

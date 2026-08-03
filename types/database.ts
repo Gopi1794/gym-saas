@@ -405,6 +405,14 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["user_achievements"]["Insert"]>
         Relationships: []
       }
+      // payments desincronizado a mano del generador: no hay supabase/config.toml
+      // ni proyecto linkeado en este repo (sin `supabase gen types` disponible),
+      // así que se edita directo en vez de regenerar. Si en algún momento se
+      // linkea el proyecto, correr `supabase gen types typescript --linked` y
+      // reemplazar este archivo entero en vez de seguir editándolo a mano.
+      // 'cash' no está en status a propósito: pasó a ser method, no status —
+      // ver lib/payments.ts. El enum de Postgres todavía tiene 'cash' como
+      // valor histórico sin uso (no se puede sacar de un enum sin recrearlo).
       payments: {
         Row: {
           id: string
@@ -412,6 +420,7 @@ export interface Database {
           member_id: string
           amount: number
           status: "pending" | "approved" | "rejected" | "cancelled" | "refunded"
+          method: "mercadopago" | "cash"
           mp_payment_id: string | null
           created_at: string
         }
@@ -421,6 +430,7 @@ export interface Database {
           member_id: string
           amount: number
           status?: "pending" | "approved" | "rejected" | "cancelled" | "refunded"
+          method?: "mercadopago" | "cash"
           mp_payment_id?: string | null
           created_at?: string
         }
