@@ -91,3 +91,26 @@ export function daysUntilAR(expiresAt: string): number {
     (new Date(`${expiresDay}T12:00:00Z`).getTime() - new Date(`${todayStr}T12:00:00Z`).getTime()) / 86_400_000
   )
 }
+
+/**
+ * Formatea una fecha "de calendario" (medianoche UTC del día elegido, o una
+ * columna `date` pura tipo date_of_birth) leyendo el día directo del string,
+ * sin conversión de zona — mismo criterio que daysUntilAR, para mostrar en
+ * vez de comparar.
+ *
+ * Ancla a mediodía UTC y fuerza timeZone: "UTC" en el formato: el resultado
+ * no depende de si esto corre en el navegador (zona AR) o en el server —
+ * a diferencia de `new Date(iso).toLocaleDateString(...)` sin timeZone, que
+ * en un navegador en Argentina corre la fecha un día para atrás (medianoche
+ * UTC del 3 = 21:00 del 2 en AR).
+ *
+ * No usar esto para instantes reales (created_at, paid_at, checked_in_at):
+ * ahí sí corresponde mostrar la hora local de quien mira.
+ */
+export function formatDayAR(
+  iso: string,
+  options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short", year: "numeric" },
+): string {
+  const day = iso.split("T")[0]
+  return new Date(`${day}T12:00:00Z`).toLocaleDateString("es-AR", { ...options, timeZone: "UTC" })
+}

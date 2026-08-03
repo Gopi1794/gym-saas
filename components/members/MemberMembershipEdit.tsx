@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { CreditCard, Calendar, Pencil } from "lucide-react"
 import { updateMemberMembership } from "@/app/actions/members"
 import { isMembershipActive } from "@/lib/utils"
+import { formatDayAR } from "@/lib/date-ar"
 import { Alert } from "@/components/ui/alert"
 
 type MembershipType = "basic" | "premium" | "vip"
@@ -43,7 +44,7 @@ function addDays(days: number): string {
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—"
-  return new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })
+  return formatDayAR(iso)
 }
 
 export default function MemberMembershipEdit({ memberId, initialType, initialExpiresAt, plans = [] }: Props) {
