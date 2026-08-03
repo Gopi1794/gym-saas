@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, X } from "lucide-react"
+import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, ChevronRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import type { RealtimeChannel } from "@supabase/supabase-js"
@@ -41,8 +41,17 @@ const TYPE_COLOR: Record<NotificationType, string> = {
   weight_drift:        "bg-amber-500/15 text-amber-400",
 }
 
-const TYPE_LINK: Partial<Record<NotificationType, string>> = {
-  check_in: "/check-in",
+function getNotificationHref(n: Notification): string | null {
+  switch (n.type) {
+    case "check_in":
+      return "/check-in?tab=log"
+    case "weight_drift": {
+      const planId = n.metadata?.plan_id
+      return typeof planId === "string" ? `/nutricion/${planId}` : null
+    }
+    default:
+      return null
+  }
 }
 
 function timeAgo(dateStr: string) {
@@ -220,7 +229,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
               ) : (
                 notifications.map((n) => {
                   const Icon = TYPE_ICON[n.type] ?? Bell
-                  const href = TYPE_LINK[n.type]
+                  const href = getNotificationHref(n)
                   return (
                     <div
                       key={n.id}
@@ -259,10 +268,21 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                         <p className="mt-1 text-[10px] text-zinc-700">{timeAgo(n.created_at)}</p>
                       </div>
 
-                      {/* Dismiss */}
+                      {/* Indicador de "esto navega" — decorativo, no es un target de toque
+                          propio: el target es la fila entera (onClick de arriba). */}
+                      {href && (
+                        <ChevronRight className="h-4 w-4 shrink-0 self-center text-zinc-600" />
+                      )}
+
+                      {/* Dismiss — siempre visible (hover no existe en touch), hit area de
+                          44×44 aunque el ícono se vea de 14px, y ml-1 de margen propio además
+                          del gap-3 de la fila: con la fila ahora navegable, este es un target
+                          real al lado de otro target real (la fila), no decoración al lado de
+                          un target — la separación tiene que ser explícita. */}
                       <button
                         onClick={(e) => dismiss(n.id, e)}
-                        className="opacity-0 group-hover:opacity-100 flex h-5 w-5 shrink-0 items-center justify-center rounded text-zinc-600 hover:text-zinc-300 transition-all cursor-pointer"
+                        aria-label="Descartar notificación"
+                        className="ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 active:bg-zinc-700 transition-colors cursor-pointer"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>

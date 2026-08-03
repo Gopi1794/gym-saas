@@ -38,7 +38,11 @@ const ADMIN_CHECKIN_STEPS: Step[] = [
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Check-in" }
 
-export default async function CheckInPage() {
+export default async function CheckInPage({
+  searchParams,
+}: {
+  searchParams: { tab?: string }
+}) {
   const supabase = createClient()
 
   const {
@@ -91,6 +95,7 @@ export default async function CheckInPage() {
           profile={profile!}
           todayCheckIns={todayCheckIns ?? []}
           gymId={gymId}
+          initialTab={searchParams.tab}
         />
       </div>
     </div>
