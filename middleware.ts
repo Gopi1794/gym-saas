@@ -78,21 +78,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // DIAGNÓSTICO TEMPORAL — confirmar en logs de Vercel el bug de bloqueo
-    // indebido en /pagos/renovar (socio con membresía vigente redirigido
-    // igual). Sacar una vez confirmada la causa.
-    try {
-      console.log("[middleware:paywall-diagnostico]", {
-        userId: user.id,
-        pathname,
-        role: profile.role,
-        membership_expires_at: profile.membership_expires_at,
-        daysUntilAR: profile.membership_expires_at ? daysUntilAR(profile.membership_expires_at) : null,
-      })
-    } catch (err) {
-      console.log("[middleware:paywall-diagnostico] daysUntilAR tiró una excepción:", err)
-    }
-
     // Admins y trainers nunca quedan bloqueados por membresía
     const isBlocked = profile.role === "member" &&
       (!profile.membership_expires_at || daysUntilAR(profile.membership_expires_at) < 0)
@@ -109,6 +94,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/|favicon.ico|manifest.webmanifest|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico)$).*)",
   ],
 }
