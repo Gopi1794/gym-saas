@@ -99,7 +99,10 @@ export default function RenewMembershipCard({ expiresAt, currentType, plans = []
   const daysLeft = expiresAt ? daysUntilAR(expiresAt) : null
   const tier: Tier = daysLeft === null || daysLeft < 0 ? "expired" : daysLeft <= 1 ? "urgent" : "preventive"
   const isExpired = tier === "expired"
-  const canDismiss = !isExpired
+  // Con forceInline (/pagos/renovar) la card nunca es descartable: es el
+  // único contenido de esa página, y el descarte va a sessionStorage — al
+  // cerrarla no vuelve ni recargando, y ahí no hay nada más para volver a.
+  const canDismiss = !isExpired && !forceInline
   const isModal = !forceInline && tier !== "preventive"
 
   useEffect(() => {

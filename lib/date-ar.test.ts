@@ -90,6 +90,18 @@ describe("daysUntilAR", () => {
 
     expect(daysUntilAR("2026-08-03T02:00:00+00:00")).toBe(0)
   })
+
+  it("vence en 5 días → devuelve 5, no un número negativo", () => {
+    // Caso real reportado en producción: socio con membership_expires_at
+    // '2026-08-08 00:00:00+00', evaluado el 3 de agosto — la card lo
+    // calculaba bien (5 días), pero el middleware lo bloqueaba igual. Esta
+    // función, aislada, da lo que corresponde; el bug estaba en otro lado
+    // (ver middleware.ts).
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-03T15:00:00Z"))
+
+    expect(daysUntilAR("2026-08-08T00:00:00+00:00")).toBe(5)
+  })
 })
 
 describe("formatDayAR", () => {
