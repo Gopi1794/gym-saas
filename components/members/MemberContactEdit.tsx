@@ -7,6 +7,7 @@ import { Calendar, Phone, User2, Target, Activity, AlertTriangle, Pencil } from 
 import { sileo } from "sileo"
 import { updateMemberContact } from "@/app/actions/members"
 import { formatDayAR } from "@/lib/date-ar"
+import { normalizePhoneAR, formatPhoneAR } from "@/lib/phone"
 
 type Gender = "male" | "female" | "other"
 type Goal = "lose_weight" | "gain_muscle" | "performance" | "maintain"
@@ -52,14 +53,25 @@ export default function MemberContactEdit({
   const [emergencyName, setEmergencyName] = useState(initialEmergencyName ?? "")
   const [emergencyPhone, setEmergencyPhone] = useState(initialEmergencyPhone ?? "")
   const [loading, setLoading] = useState(false)
+  const [phoneError, setPhoneError] = useState<string | null>(null)
 
   async function handleSave() {
+    setPhoneError(null)
+    let normalizedPhone: string | null = null
+    if (phone.trim()) {
+      normalizedPhone = normalizePhoneAR(phone)
+      if (!normalizedPhone) {
+        setPhoneError("Número inválido — usá el formato 011 15-1234-5678")
+        return
+      }
+    }
+
     setLoading(true)
     try {
       const result = await updateMemberContact({
         memberId,
         dateOfBirth: dateOfBirth || null,
-        phone: phone || null,
+        phone: normalizedPhone,
         gender: gender || null,
         goal: goal || null,
         trainingFrequency: trainingFrequency || null,
@@ -105,7 +117,7 @@ export default function MemberContactEdit({
             transition={{ duration: 0.15 }}
             className="grid grid-cols-2 sm:grid-cols-3 gap-3"
           >
-            <Stat icon={<Phone className="h-4 w-4 text-brand-500" />} label="Teléfono" value={initialPhone ?? "—"} />
+            <Stat icon={<Phone className="h-4 w-4 text-brand-500" />} label="Teléfono" value={initialPhone ? formatPhoneAR(initialPhone) : "—"} />
             <Stat icon={<Calendar className="h-4 w-4 text-brand-500" />} label="Nacimiento"
               value={initialDateOfBirth ? formatDate(initialDateOfBirth) : "—"} />
             <Stat icon={<User2 className="h-4 w-4 text-brand-500" />} label="Género"
@@ -139,7 +151,15 @@ export default function MemberContactEdit({
                   <Phone className="h-3.5 w-3.5" />
                   Teléfono
                 </span>
-                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+54 11 1234-5678" className={inputCls} />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => { setPhone(e.target.value); setPhoneError(null) }}
+                  placeholder="011 15-1234-5678"
+                  className={inputCls}
+                  aria-invalid={!!phoneError}
+                />
+                {phoneError && <p className="text-xs text-red-400">{phoneError}</p>}
               </label>
             </div>
 

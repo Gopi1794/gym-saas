@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, AlertTriangle, ChevronRight, X } from "lucide-react"
+import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, AlertTriangle, ChevronRight, X, MessageCircle, UserRoundPlus, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { formatDayAR } from "@/lib/date-ar"
+import { normalizePhoneAR, whatsappNumber } from "@/lib/phone"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import type { RealtimeChannel } from "@supabase/supabase-js"
 
@@ -22,6 +24,12 @@ interface Notification {
   read: boolean
   metadata: Record<string, unknown>
   created_at: string
+  contacted_at: string | null
+}
+
+interface MemberSnapshot {
+  phone: string | null
+  membership_expires_at: string | null
 }
 
 // Ícono + color por tipo — grano fino, cada tipo se ve distinto aunque
@@ -96,6 +104,29 @@ function getNotificationHref(n: Notification): string | null {
   }
 }
 
+// Calcula si una notificación de vencimiento dirigida al admin sigue siendo
+// una tarea pendiente. Compara por día calendario, no por instante — mismo
+// criterio que la función SQL: un re-guardado del socio que no cambia el
+// día no debe leerse como "renovó".
+function getContactState(
+  n: Notification,
+  snapshots: Record<string, MemberSnapshot>
+): { memberId: string; phone: string | null; isPending: boolean } | null {
+  if (n.type !== "membership_expiring") return null
+  const memberId = n.metadata?.member_id
+  if (typeof memberId !== "string") return null // caso socio, no caso admin
+  if (n.contacted_at) return { memberId, phone: null, isPending: false }
+
+  const snap = snapshots[memberId]
+  if (!snap) return null // todavía no llegó el snapshot del perfil
+
+  const snapshotDay = typeof n.metadata?.expires_at === "string" ? n.metadata.expires_at.split("T")[0] : null
+  const currentDay = snap.membership_expires_at ? snap.membership_expires_at.split("T")[0] : null
+  const renewed = !!(snapshotDay && currentDay && currentDay > snapshotDay)
+
+  return { memberId, phone: snap.phone, isPending: !renewed }
+}
+
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60_000)
@@ -114,6 +145,7 @@ interface NotificationBellProps {
 export default function NotificationBell({ userId }: NotificationBellProps) {
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [memberSnapshots, setMemberSnapshots] = useState<Record<string, MemberSnapshot>>({})
   const [open, setOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<"all" | CategoryKey>("all")
   const [confirmingClearAll, setConfirmingClearAll] = useState(false)
@@ -150,11 +182,51 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(30) as { data: Notification[] | null }
-      if (data) setNotifications(data)
+      if (!data) return
+      setNotifications(data)
+
+      // Snapshot de perfil solo para las tareas de vencimiento todavía
+      // abiertas — es lo único que necesita saber si el socio sigue
+      // pendiente o ya renovó, y con qué teléfono contactarlo.
+      const memberIds = Array.from(new Set(
+        data
+          .filter((n) => n.type === "membership_expiring" && !n.contacted_at && typeof n.metadata?.member_id === "string")
+          .map((n) => n.metadata.member_id as string)
+      ))
+      if (memberIds.length === 0) return
+
+      const { data: profilesData } = await supabase
+        .from("profiles" as never)
+        .select("id, phone, membership_expires_at")
+        .in("id", memberIds) as { data: ({ id: string } & MemberSnapshot)[] | null }
+      if (profilesData) {
+        setMemberSnapshots(
+          Object.fromEntries(profilesData.map((p) => [p.id, { phone: p.phone, membership_expires_at: p.membership_expires_at }]))
+        )
+      }
     } catch {
       // tabla aún no existe (migración pendiente)
     }
   }, [supabase, userId])
+
+  async function handleContact(n: Notification, memberId: string, phone: string) {
+    const normalized = normalizePhoneAR(phone)
+    if (!normalized) return // defensivo — el botón no debería llamar a esto sin un teléfono válido
+
+    const memberName = typeof n.metadata?.member_name === "string" ? n.metadata.member_name : "Hola"
+    const expiresRaw = typeof n.metadata?.expires_at === "string" ? n.metadata.expires_at : null
+    const dateLabel = expiresRaw ? formatDayAR(expiresRaw) : ""
+    const message = `Hola ${memberName}! Tu membresía vence el ${dateLabel}. ¿Querés renovarla para seguir entrenando sin cortes?`
+    const url = `https://wa.me/${whatsappNumber(normalized)}?text=${encodeURIComponent(message)}`
+    window.open(url, "_blank", "noopener,noreferrer")
+
+    const nowIso = new Date().toISOString()
+    await supabase
+      .from("notifications" as never)
+      .update({ contacted_at: nowIso } as never)
+      .eq("id", n.id)
+    setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, contacted_at: nowIso } : x)))
+  }
 
   // Realtime subscription — canal con sufijo único evita el doble-mount de StrictMode
   useEffect(() => {
@@ -369,6 +441,8 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                   const Icon = TYPE_ICON[n.type] ?? Bell
                   const href = getNotificationHref(n)
                   const category = CATEGORY_META[TYPE_CATEGORY[n.type]]
+                  const contact = getContactState(n, memberSnapshots)
+                  const contactPhone = contact?.phone ? normalizePhoneAR(contact.phone) : null
                   return (
                     <div
                       key={n.id}
@@ -423,6 +497,34 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                           </span>
                           {href && <ChevronRight className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-600" />}
                         </div>
+
+                        {/* Tarea de vencimiento: contactar por WhatsApp, cargar teléfono
+                            si falta, o el tag de que ya se gestionó. Nunca las tres — el
+                            estado se calcula, no se guarda como bandera aparte. */}
+                        {contact && contact.isPending && contactPhone && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleContact(n, contact.memberId, contact.phone!) }}
+                            className="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 min-h-11 text-[11px] font-semibold text-white hover:bg-emerald-500 transition-colors cursor-pointer"
+                          >
+                            <MessageCircle className="h-3 w-3" aria-hidden />
+                            Contactar por WhatsApp
+                          </button>
+                        )}
+                        {contact && contact.isPending && !contactPhone && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOpen(false); router.push(`/members/${contact.memberId}`) }}
+                            className="mt-2 flex items-center gap-1.5 min-h-11 text-[11px] font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+                          >
+                            <UserRoundPlus className="h-3 w-3" aria-hidden />
+                            Cargar teléfono
+                          </button>
+                        )}
+                        {contact && !contact.isPending && n.contacted_at && (
+                          <div className="mt-2 flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="h-3 w-3" aria-hidden />
+                            Gestionada
+                          </div>
+                        )}
                       </div>
 
                       {/* Dismiss — siempre visible (hover no existe en touch), 44×44 de hit
