@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, User, Calendar, Activity, Heart } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { normalizePhoneAR } from "@/lib/phone"
 import LottiePlayer from "@/components/ui/lottie-player"
 import { cn } from "@/lib/utils"
 import RegisterShell from "./RegisterShell"
@@ -76,6 +77,9 @@ export default function MemberRegisterForm({ gymCode, gymName }: Props) {
     if (step === 1) {
       if (!data.dateOfBirth) errs.dateOfBirth = "La fecha es obligatoria"
       if (!data.gender) errs.gender = "Seleccioná tu género"
+      if (data.phone.trim() && !normalizePhoneAR(data.phone)) {
+        errs.phone = "Número inválido — usá el formato 011 15-1234-5678"
+      }
     }
     if (step === 2) {
       if (!data.weightKg || isNaN(Number(data.weightKg))) errs.weightKg = "Peso inválido"
@@ -135,7 +139,7 @@ export default function MemberRegisterForm({ gymCode, gymName }: Props) {
     if (authData.session) {
       await supabase.from("profiles").update({
         date_of_birth:      data.dateOfBirth || null,
-        phone:              data.phone || null,
+        phone:              data.phone ? normalizePhoneAR(data.phone) : null,
         weight_kg:          data.weightKg ? Number(data.weightKg) : null,
         height_cm:          data.heightCm ? Number(data.heightCm) : null,
         goal:               data.goal || null,
@@ -300,9 +304,10 @@ export default function MemberRegisterForm({ gymCode, gymName }: Props) {
             <label htmlFor="phone" className={labelCls}>
               Teléfono <span className="normal-case font-normal text-zinc-600">(opcional)</span>
             </label>
-            <input id="phone" type="tel" autoComplete="tel" placeholder="+54 11 1234-5678"
+            <input id="phone" type="tel" autoComplete="tel" placeholder="011 15-1234-5678"
               value={data.phone} onChange={(e) => set("phone", e.target.value)}
-              className={inputCls} />
+              className={cn(inputCls, errors.phone && "border-red-500/60")} />
+            <FieldError msg={errors.phone} />
           </div>
         </>
       )}

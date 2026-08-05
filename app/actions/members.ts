@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
+import { normalizePhoneAR } from "@/lib/phone"
 
 export type MemberPhysicalInput = {
   memberId: string
@@ -83,6 +84,14 @@ export async function updateMemberContact(input: MemberContactInput) {
 
   if (!target || (target as any).gym_id !== (me as any).gym_id) {
     return { error: "Miembro no pertenece a tu gym" }
+  }
+
+  // El cliente ya normaliza a E.164, pero no confiamos solo en eso: si
+  // llega algo que no vuelve a validar como número argentino, se rechaza
+  // acá — un teléfono mal guardado termina armando un link de WhatsApp al
+  // número equivocado.
+  if (input.phone && normalizePhoneAR(input.phone) !== input.phone) {
+    return { error: "Número de teléfono inválido" }
   }
 
   const { error } = await supabase
