@@ -4,11 +4,7 @@ import { XCircle } from "lucide-react"
 
 export const metadata: Metadata = { title: "Pago fallido" }
 
-export default async function PaymentFailurePage({
-  searchParams,
-}: {
-  searchParams: { payment_id?: string; status?: string }
-}) {
+export default async function PaymentFailurePage() {
   return (
     <div className="min-h-dvh bg-zinc-950 flex items-center justify-center p-6">
       <div className="w-full max-w-md text-center space-y-6">

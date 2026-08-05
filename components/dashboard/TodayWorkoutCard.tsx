@@ -40,7 +40,10 @@ export default function TodayWorkoutCard({
       : "Recuperate, mañana volvemos 💪";
 
     return (
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-brand-600/40 bg-white dark:bg-brand-900 p-6">
+      <Link
+        href={restHref}
+        className="relative block overflow-hidden rounded-2xl border border-zinc-200 dark:border-brand-600/40 bg-white dark:bg-brand-900 p-6 active:scale-[0.99] transition-transform"
+      >
         <p className="text-sm font-medium text-brand-600 dark:text-brand-400">
           Hoy · {dayName}
         </p>
@@ -51,7 +54,7 @@ export default function TodayWorkoutCard({
         <div className="absolute top-5 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-brand-600/15 dark:bg-brand-700/20">
           <Moon className="h-5 w-5 text-white" />
         </div>
-      </div>
+      </Link>
     );
   }
 

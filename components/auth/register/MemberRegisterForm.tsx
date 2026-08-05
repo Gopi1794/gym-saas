@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useRef } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, User, Calendar, Activity, Heart } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"

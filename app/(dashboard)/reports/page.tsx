@@ -8,7 +8,7 @@ import PeakDaysChart from "@/components/reports/PeakDaysChart"
 import RevenueComparisonCard from "@/components/reports/RevenueComparisonCard"
 import MemberGrowthChart from "@/components/reports/MemberGrowthChart"
 import AtRiskList, { type AtRiskMember } from "@/components/reports/AtRiskList"
-import { startOfTodayAR, firstOfMonthsAgoAR, daysAgoAR, todayDateAR } from "@/lib/date-ar"
+import { firstOfMonthsAgoAR, daysAgoAR, todayDateAR } from "@/lib/date-ar"
 import { computeMonthToDateRevenue } from "@/lib/revenue"
 
 export const dynamic = "force-dynamic"
@@ -32,7 +32,7 @@ export default async function ReportsPage() {
   const ninetyDaysAgo = daysAgoAR(89)
   const thirtyDaysAgo = daysAgoAR(29)
   const firstOfLastMonth = firstOfMonthsAgoAR(1)
-  const firstOf6MonthsAgo = firstOfMonthsAgoAR(5)
+  const _firstOf6MonthsAgo = firstOfMonthsAgoAR(5)
 
   const [
     { data: members },

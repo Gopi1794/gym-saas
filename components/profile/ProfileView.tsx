@@ -29,10 +29,7 @@ import {
   CheckCircle2,
   ChevronsRight,
   LogOut,
-  Sun,
 } from "lucide-react";
-import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
-import AchievementBadge from "@/components/achievements/AchievementBadge";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/types";

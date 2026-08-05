@@ -32,7 +32,7 @@ interface PlanCardProps {
   members?: Member[]
 }
 
-export default function PlanCard({ plan, isTemplate, trainerId, readOnly = false, members = [] }: PlanCardProps) {
+export default function PlanCard({ plan, isTemplate, readOnly = false, members = [] }: PlanCardProps) {
   const days = plan.workout_plan_days ?? []
   const activeDays = new Set(days.map((d) => d.day_of_week))
   const total = days.reduce((sum, d) => sum + d.workout_plan_exercises.length, 0)
