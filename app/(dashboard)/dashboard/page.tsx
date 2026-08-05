@@ -394,7 +394,6 @@ export default async function DashboardPage() {
             planName={todayWorkout.planName}
             dayName={todayWorkout.dayName}
             exercises={todayWorkout.exercises}
-            hasPlan
             gender={p?.gender}
           />
         </div>
