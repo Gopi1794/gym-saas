@@ -14,7 +14,6 @@ interface Props {
   planName: string;
   dayName: string;
   exercises: Exercise[];
-  hasPlan?: boolean;
   gender?: string | null;
 }
 
@@ -22,36 +21,36 @@ export default function TodayWorkoutCard({
   planName,
   dayName,
   exercises,
-  hasPlan = false,
   gender,
 }: Props) {
   const heroImage =
     gender === "female"
       ? "/card-mujer/card_mujer.png"
       : "/card-hombre/card_hombre.png";
-  const isRestDay = exercises.length === 0;
 
-  if (isRestDay) {
-    // Plan exists but no workout today → trainer hasn't scheduled this day
-    const restHref = hasPlan ? "/planes" : "/exercises";
-    const restTitle = hasPlan ? "Sin rutina hoy" : "Día de descanso";
-    const restSubtitle = hasPlan
-      ? "El entrenador no programó ejercicios para hoy. Tocá para ver tu plan."
-      : "Recuperate, mañana volvemos 💪";
-
+  if (exercises.length === 0) {
+    // No hay un concepto de "día de descanso planificado" aparte: esto es
+    // simplemente que el entrenador no cargó ejercicios para hoy. Lleva a
+    // /planes (el plan completo del socio) para que pueda ver el resto de
+    // la semana aunque hoy esté vacío.
     return (
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-brand-600/40 bg-white dark:bg-brand-900 p-6">
+      <Link
+        href="/planes"
+        className="relative block overflow-hidden rounded-2xl border border-zinc-200 dark:border-brand-600/40 bg-white dark:bg-brand-900 p-6 active:scale-[0.99] transition-transform"
+      >
         <p className="text-sm font-medium text-brand-600 dark:text-brand-400">
           Hoy · {dayName}
         </p>
         <p className="mt-2 text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
-          {restTitle}
+          Sin rutina hoy
         </p>
-        <p className="mt-1.5 text-sm text-zinc-500">{restSubtitle}</p>
+        <p className="mt-1.5 text-sm text-zinc-500">
+          El entrenador no programó ejercicios para hoy. Tocá para ver tu plan.
+        </p>
         <div className="absolute top-5 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-brand-600/15 dark:bg-brand-700/20">
           <Moon className="h-5 w-5 text-white" />
         </div>
-      </div>
+      </Link>
     );
   }
 

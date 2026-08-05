@@ -70,7 +70,7 @@ export async function scanMachineQR(qrIdentifier: string, userId: string): Promi
     .filter(Boolean)
 
   // Obtener los ejercicios de hoy del miembro
-  const { data: profile } = await supabase
+  const { data: _profile } = await supabase
     .from("profiles")
     .select("gym_id")
     .eq("id", userId)

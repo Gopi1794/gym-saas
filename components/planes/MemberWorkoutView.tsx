@@ -113,31 +113,6 @@ function getMuscleGroups(exercises: PlanExercise[]): string[] {
     .slice(0, 4);
 }
 
-function VolumeBar({ exercises }: { exercises: PlanExercise[] }) {
-  const counts = new Map<string, number>();
-  for (const pe of exercises) {
-    for (const m of pe.exercises.muscle_groups ?? []) {
-      counts.set(m, (counts.get(m) ?? 0) + pe.sets);
-    }
-  }
-  const total = [...counts.values()].reduce((a, b) => a + b, 0) || 1;
-  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
-
-  return (
-    <div className="flex items-end gap-1 h-10">
-      {top.map(([, count], i) => (
-        <div
-          key={i}
-          style={{
-            height: `${Math.max(20, Math.round((count / total) * 100))}%`,
-          }}
-          className="w-1.5 rounded-full bg-white/40"
-        />
-      ))}
-    </div>
-  );
-}
-
 function DayDetail({
   day,
   onBack,
@@ -324,7 +299,6 @@ export default function MemberWorkoutView({
   plan,
   days,
   userId,
-  gymId,
   recentSessions,
   gender,
   weightKg,
@@ -475,7 +449,7 @@ export default function MemberWorkoutView({
           userId={userId}
           planId={plan.id}
           hasWorkoutToday={todayIsActive}
-          onStartExercise={(exerciseId) => {
+          onStartExercise={(_exerciseId) => {
             if (todayDay) {
               const sorted = [...todayDay.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
               const workout = { exercises: sorted, dayName: DAY_NAMES[todayDow], dayOfWeek: todayDow }

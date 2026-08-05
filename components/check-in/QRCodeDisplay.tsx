@@ -125,8 +125,11 @@ export default function QRCodeDisplay({ qrCode, memberName }: QRCodeDisplayProps
               className="border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={toggleFullscreen}
             >
-              <Maximize2 className="mr-2 h-4 w-4" />
-              Pantalla completa
+              {isFullscreen ? (
+                <><Minimize2 className="mr-2 h-4 w-4" />Salir de pantalla completa</>
+              ) : (
+                <><Maximize2 className="mr-2 h-4 w-4" />Pantalla completa</>
+              )}
             </Button>
           </div>
         </CardContent>

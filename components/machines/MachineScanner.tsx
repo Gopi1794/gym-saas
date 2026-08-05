@@ -21,7 +21,7 @@ type Phase =
   | { step: "exercise_not_in_plan"; machine: string; exercise: MachineExercise }
   | { step: "multi_choice"; machine: string; exercises: MachineExercise[]; todayIds: Set<string> }
 
-export default function MachineScanner({ userId, planId, hasWorkoutToday, onStartExercise, onClose }: Props) {
+export default function MachineScanner({ userId, hasWorkoutToday, onStartExercise, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>({ step: "scanner" })
   const [isStarted, setIsStarted] = useState(false)
   const [isPending, setIsPending] = useState(false)

@@ -38,10 +38,6 @@ type PlanDay = {
 export default async function ExercisesPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const userGender =
-    (user?.user_metadata?.gender as string | undefined) ??
-    (user?.user_metadata?.sexo as string | undefined) ??
-    (user?.user_metadata?.genero as string | undefined)
 
   const profileRes = await supabase
     .from("profiles")

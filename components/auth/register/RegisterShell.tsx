@@ -30,7 +30,7 @@ interface Props {
 }
 
 export default function RegisterShell({
-  steps, step, dir, loading, serverError, isLast,
+  steps, step, dir, loading, serverError,
   submitLabel, loadingLabel, onContinue, onBack, gymBanner, children,
 }: Props) {
   const StepIcon = steps[step].icon

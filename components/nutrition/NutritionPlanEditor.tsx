@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
-  Plus, Trash2, X, Search, Sun, Moon, Coffee, Utensils, Cake,
-  Copy, Pencil, Check, Clock, Upload, RotateCcw, MoreVertical,
+  Plus, Trash2, X, Search, Utensils,
+  Copy, Pencil, Check, Upload,
 } from "lucide-react"
 import { sileo } from "sileo"
 import {
@@ -243,19 +243,6 @@ function MacroRing({ label, value, target, unit, color, icon, uid }: {
   )
 }
 
-function SlotIcon({ idx, dim = 32 }: { idx: number; dim?: number }) {
-  const c = ORBS[idx % ORBS.length]
-  return (
-    <span className="shrink-0 rounded-full" style={{ width: dim, height: dim, display: "inline-block" }}>
-      <svg width={dim} height={dim} viewBox={`0 0 ${dim} ${dim}`}>
-        <circle cx={dim / 2} cy={dim / 2} r={dim / 2} fill={`${c}22`} />
-        <circle cx={dim / 2} cy={dim / 2} r={dim / 2 - 2} fill="none" stroke={`${c}66`} strokeWidth="1.5" />
-        <circle cx={dim / 2} cy={dim / 2} r={dim / 5} fill={c} opacity="0.85" />
-      </svg>
-    </span>
-  )
-}
-
 // ── Calorie ring with liquid fill ──────────────────────────────
 function CalorieRing({ planned, target }: { planned: number; target: number | null }) {
   const ringR = 46, cx = 56, cy = 56, sw = 8
@@ -402,7 +389,7 @@ function MacroBar({ label, value, target, unit, accent }: {
 }
 
 // ── Meal detail (center column) ─────────────────────────────────
-function MealDetail({ meal, mealIdx, items, foods, onDelete, onItemsChange }: {
+function MealDetail({ meal, mealIdx, items, onDelete, onItemsChange }: {
   meal: Meal; mealIdx: number; items: MealItem[]; foods: Food[]
   onDelete: () => void
   onItemsChange: (items: MealItem[]) => void
@@ -439,7 +426,7 @@ function MealDetail({ meal, mealIdx, items, foods, onDelete, onItemsChange }: {
     <div className="flex h-full flex-col">
       {/* Meal header */}
       <div className="mb-4 flex items-center gap-3 border-b border-zinc-800 pb-4">
-        <SlotIcon idx={mealIdx} />
+        <LiquidOrb idx={mealIdx} />
 
         {editingName ? (
           <div className="flex flex-1 items-center gap-2">
@@ -950,7 +937,7 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
                   {active && (
                     <span className="absolute inset-y-0 left-0 w-0.5 rounded-r bg-brand-500" />
                   )}
-                  <SlotIcon idx={i} />
+                  <LiquidOrb idx={i} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium leading-tight">{meal.name}</p>
                     <p className={`text-xs ${active ? "text-brand-400" : "text-zinc-600"}`}>{kcal} kcal</p>

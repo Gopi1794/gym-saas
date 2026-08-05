@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, User, Building2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import LottiePlayer from "@/components/ui/lottie-player"
 import { cn } from "@/lib/utils"
 import RegisterShell from "./RegisterShell"
 import { inputCls, labelCls, FieldError } from "./shared"
@@ -37,7 +36,6 @@ export default function OwnerRegisterForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
   const [alreadyExists, setAlreadyExists] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const turnstileRef = useRef<TurnstileInstance>(null)
@@ -259,23 +257,6 @@ export default function OwnerRegisterForm() {
         <p className="mt-4 text-sm text-zinc-600">
           Al iniciar sesión te vamos a redirigir al pago automáticamente.
         </p>
-      </div>
-    )
-  }
-
-  if (success) {
-    return (
-      <div className="w-full max-w-md text-center">
-        <div className="flex justify-center">
-          <LottiePlayer src="/animations/success.lottie" style={{ width: 160, height: 160 }} />
-        </div>
-        <h2 className="font-display text-3xl text-zinc-50">¡Cuenta creada!</h2>
-        <p className="mt-2 text-zinc-400">
-          Confirmá tu email y luego iniciá sesión para activar tu gimnasio.
-        </p>
-        <Link href="/login" className="mt-6 inline-block rounded-full bg-brand-700 px-10 py-3 text-sm font-bold text-white">
-          Ir a iniciar sesión
-        </Link>
       </div>
     )
   }

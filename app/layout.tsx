@@ -50,6 +50,7 @@ export default function RootLayout({
           <ToastProvider />
           {children}
         </ThemeProvider>
+        <SpeedInsights />
       </body>
     </html>
   )

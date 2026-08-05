@@ -1151,43 +1151,6 @@ function StatBadge({ label, value }: { label: string; value: number | string }) 
   )
 }
 
-function NumberField({ label, value, min, max, saving, onChange }: {
-  label: string; value: number; min: number; max: number; step?: number
-  saving: boolean; onChange: (v: number) => void
-}) {
-  const [local, setLocal] = useState(String(value))
-
-  useEffect(() => { setLocal(String(value)) }, [value])
-
-  function handleBlur() {
-    const parsed = parseInt(local, 10)
-    if (isNaN(parsed)) { setLocal(String(value)); return }
-    const clamped = Math.min(max, Math.max(min, parsed))
-    setLocal(String(clamped))
-    if (clamped !== value) onChange(clamped)
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="text-xs text-zinc-500">{label}</span>
-      <input
-        type="number"
-        min={min}
-        max={max}
-        value={local}
-        disabled={saving}
-        onChange={(e) => setLocal(e.target.value)}
-        onBlur={handleBlur}
-        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
-        className={cn(
-          "w-14 rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1 text-center text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-1 focus:ring-brand-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
-          saving && "opacity-50"
-        )}
-      />
-    </div>
-  )
-}
-
 function NotesField({ value, saving, onSave }: {
   value: string; saving: boolean; onSave: (v: string) => void
 }) {
