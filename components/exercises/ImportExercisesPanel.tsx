@@ -56,11 +56,10 @@ export default function ImportExercisesPanel() {
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 space-y-2">
         <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Formato del CSV</p>
         <code className="block text-xs text-zinc-400 bg-zinc-950 rounded-lg px-3 py-2 whitespace-pre overflow-x-auto">
-          external_id,name,description,category,difficulty,muscle_groups
+          external_id,name,description,category,muscle_groups
         </code>
         <ul className="text-xs text-zinc-500 space-y-0.5">
           <li><span className="text-zinc-400">category</span>: strength · cardio · hiit · flexibility · balance</li>
-          <li><span className="text-zinc-400">difficulty</span>: beginner · intermediate · advanced</li>
           <li><span className="text-zinc-400">muscle_groups</span>: separados por <code className="text-zinc-300">|</code> (ej. <code className="text-zinc-300">Cuádriceps|Glúteos</code>)</li>
           <li><span className="text-zinc-400">description</span>: entre comillas si tiene comas</li>
         </ul>

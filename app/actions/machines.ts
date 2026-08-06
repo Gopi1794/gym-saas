@@ -56,11 +56,25 @@ export async function getMachines(gymId: string): Promise<MachineWithExercises[]
 export async function scanMachineQR(qrIdentifier: string, userId: string): Promise<ScanResult> {
   const supabase = createClient()
 
-  // Buscar la máquina
+  // El userId lo manda el cliente — nunca confiar en él sin verificar contra la sesión real.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.id !== userId) return { found: false }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("gym_id")
+    .eq("id", userId)
+    .single()
+
+  if (!profile) return { found: false }
+
+  // Buscar la máquina, acotada al gym del usuario (RLS ya lo cubre, pero no hay que
+  // confiar solo en eso — ver regla de multi-tenancy del proyecto).
   const { data: machine } = await (supabase
     .from("machines" as any)
     .select("id, name, description, image_url, machine_exercises(exercises(id, name, category, image_url, muscle_groups, is_timed))")
     .eq("qr_identifier", qrIdentifier)
+    .eq("gym_id", profile.gym_id)
     .single() as any)
 
   if (!machine) return { found: false }
@@ -68,13 +82,6 @@ export async function scanMachineQR(qrIdentifier: string, userId: string): Promi
   const exercises: MachineExercise[] = (machine.machine_exercises ?? [])
     .map((me: any) => me.exercises)
     .filter(Boolean)
-
-  // Obtener los ejercicios de hoy del miembro
-  const { data: _profile } = await supabase
-    .from("profiles")
-    .select("gym_id")
-    .eq("id", userId)
-    .single()
 
   // Plan asignado al miembro
   const { data: plan } = await (supabase
@@ -112,6 +119,14 @@ export async function scanMachineQR(qrIdentifier: string, userId: string): Promi
 }
 
 export async function addExerciseToTodayPlan(userId: string, exerciseId: string): Promise<{ success: boolean; error?: string }> {
+  // El userId lo manda el cliente y esta función usa el cliente admin (bypassa RLS) —
+  // hay que verificar la identidad antes de tocar la base, nunca confiar en el parámetro.
+  const authClient = createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user || user.id !== userId) {
+    return { success: false, error: "No autorizado" }
+  }
+
   const supabase = createAdminClient()
 
   const { data: plan } = await (supabase
@@ -166,12 +181,12 @@ export async function addExerciseToTodayPlan(userId: string, exerciseId: string)
 
 // ── Mutaciones admin ─────────────────────────────────────────────────────────
 
-export async function createMachine(gymId: string, name: string, description: string): Promise<{ id: string } | null> {
+export async function createMachine(gymId: string, name: string, description: string): Promise<{ id: string; qr_identifier: string } | null> {
   const supabase = createClient()
   const { data, error } = await (supabase
     .from("machines" as any)
     .insert({ gym_id: gymId, name, description: description || null })
-    .select("id")
+    .select("id, qr_identifier")
     .single() as any)
   if (error) return null
   revalidatePath("/entrenamiento")

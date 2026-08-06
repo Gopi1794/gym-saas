@@ -69,6 +69,8 @@ interface Props {
   userWeightKg?: number | null;
   exerciseMaxes?: Record<string, number>;
   initialDraft?: WorkoutDraft | null;
+  /** Arranca en el ejercicio escaneado por QR en vez de en el primero del día. */
+  initialExerciseId?: string;
   onClose: () => void;
 }
 
@@ -153,6 +155,7 @@ export default function WorkoutSession({
   userWeightKg,
   exerciseMaxes = {},
   initialDraft,
+  initialExerciseId,
   onClose,
 }: Props) {
   const sortedExercises = [...exercises].sort((a, b) => {
@@ -172,7 +175,14 @@ export default function WorkoutSession({
     } catch { return fallback }
   }
 
-  const [exerciseIdx, setExerciseIdx] = useState(() => initialDraft?.exercise_idx ?? loadSaved("exerciseIdx", 0));
+  const [exerciseIdx, setExerciseIdx] = useState(() => {
+    if (initialDraft?.exercise_idx != null) return initialDraft.exercise_idx;
+    if (initialExerciseId) {
+      const scannedIdx = sortedExercises.findIndex((e) => e.exercises.id === initialExerciseId);
+      if (scannedIdx >= 0) return scannedIdx;
+    }
+    return loadSaved("exerciseIdx", 0);
+  });
   const [currentSet, setCurrentSet] = useState(() => initialDraft?.current_set ?? loadSaved("currentSet", 1));
   const [phase, setPhase] = useState<Phase>(() => (initialDraft?.phase as Phase) ?? loadSaved<Phase>("phase", "exercising"));
   const [restEndsAt, setRestEndsAt] = useState<number | null>(() => initialDraft?.rest_ends_at ?? loadSaved<number | null>("restEndsAt", null));
@@ -201,6 +211,11 @@ export default function WorkoutSession({
   const [currentResistance, setCurrentResistance] = useState("");
 
   const savedRef = useRef(false);
+  const submittingSetRef = useRef(false);
+  // Copia local de exerciseMaxes: la prop es la foto del server al cargar la página y
+  // nunca se actualiza — sin esto, la serie 2 de un ejercicio comparaba contra el 1RM
+  // viejo aunque la serie 1 ya hubiera guardado uno nuevo.
+  const [localExerciseMaxes, setLocalExerciseMaxes] = useState(exerciseMaxes);
 
   const current = sortedExercises[exerciseIdx];
   const effectiveSets = current.set_configs?.length > 0 ? current.set_configs.length : current.sets;
@@ -230,6 +245,11 @@ export default function WorkoutSession({
   useEffect(() => {
     setActualReps(currentReps)
   }, [exerciseIdx, currentSet, currentReps])
+
+  // Reabrir el guard de doble-tap en cada serie/ejercicio nuevo — ver handleSetDone.
+  useEffect(() => {
+    submittingSetRef.current = false;
+  }, [exerciseIdx, currentSet]);
 
   // Pre-fill weight from previous set of same exercise
   useEffect(() => {
@@ -311,7 +331,14 @@ export default function WorkoutSession({
   }, [phase, restLeft, isLastSet, isLastExercise]);
 
   function handleSetDone() {
-    const durationSecs = isDuration ? current.duration_seconds! : isCardio ? cardioElapsed : undefined;
+    if (submittingSetRef.current) return;
+    submittingSetRef.current = true;
+
+    // currentDuration ya resuelve el override por serie (set_configs), a diferencia de
+    // current.duration_seconds que es el valor a nivel ejercicio y puede ser null aunque
+    // esta serie puntual sí tenga duración — guardar ese último corrompía el registro en
+    // silencio (se persistía null pese a que el usuario cumplió el countdown real).
+    const durationSecs = isDuration ? currentDuration! : isCardio ? cardioElapsed : undefined;
     const distanceM = currentDistance !== "" ? Math.round(parseFloat(currentDistance) * 1000) : undefined;
     const speedKmh = currentSpeed !== "" ? parseFloat(currentSpeed) : undefined;
     const resistance = currentResistance !== "" ? parseInt(currentResistance, 10) : undefined;
@@ -324,9 +351,16 @@ export default function WorkoutSession({
     // Auto-save new 1RM if weight entered and exceeds current max
     if (isStrengthLike && !isDuration && currentWeight !== "") {
       const enteredWeight = parseFloat(currentWeight)
-      const currentMax = exerciseMaxes[current.exercises.id]
+      const currentMax = localExerciseMaxes[current.exercises.id]
       if (!isNaN(enteredWeight) && (currentMax == null || enteredWeight > currentMax)) {
-        insertExerciseMax(current.exercises.id, enteredWeight)
+        const exerciseId = current.exercises.id
+        insertExerciseMax(exerciseId, enteredWeight).then((res) => {
+          if ("error" in res) {
+            console.error("[insertExerciseMax]", res.error)
+            return
+          }
+          setLocalExerciseMaxes((prev) => ({ ...prev, [exerciseId]: enteredWeight }))
+        })
       }
     }
 
@@ -676,7 +710,7 @@ export default function WorkoutSession({
 
         {/* Weight input — strength / hiit only */}
         {isStrengthLike && !isDuration && (() => {
-          const currentMax = exerciseMaxes[current.exercises.id];
+          const currentMax = localExerciseMaxes[current.exercises.id];
           const rmPct = currentSetConfig?.percent_1rm ?? null;
           const rmPercent = rmPct != null ? { min: rmPct, max: rmPct } : parseRmPercent(current.notes);
           const suggestedWeight = rmPercent && currentMax
@@ -753,14 +787,14 @@ export default function WorkoutSession({
 
       {/* CTA */}
       <div className="relative z-10 px-5 pb-10 pt-2 space-y-3">
-        {isStrengthLike && !isDuration && currentWeight === "" && !!exerciseMaxes[current.exercises.id] && (
+        {isStrengthLike && !isDuration && currentWeight === "" && !!localExerciseMaxes[current.exercises.id] && (
           <p className="text-center text-xs text-brand-500 font-medium">
             Ingresá el peso para continuar
           </p>
         )}
         <button
           onClick={handleSetDone}
-          disabled={isStrengthLike && !isDuration && currentWeight === "" && !!exerciseMaxes[current.exercises.id]}
+          disabled={isStrengthLike && !isDuration && currentWeight === "" && !!localExerciseMaxes[current.exercises.id]}
           className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-700 py-5 text-base font-bold text-white transition-all hover:bg-brand-700 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
           style={{
             boxShadow: "0 0 40px rgba(213,0,0,0.4), 0 8px 24px rgba(0,0,0,0.4)",

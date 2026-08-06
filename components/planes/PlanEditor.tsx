@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
+import { sileo } from "sileo"
+import { CATEGORY_ICONS, StrengthIcon } from "@/components/exercises/CategoryIcons"
 
 const DAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 const DAY_FULL  = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
@@ -339,9 +341,14 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     const counts = new Map<string, number>()
     for (const day of Object.values(days)) {
       for (const ex of day.exercises) {
+        // set_configs es la fuente real de series desde que existe el flujo de
+        // "Añadir Nueva Serie" — ex.sets solo se setea una vez al crear el ejercicio
+        // y nunca se vuelve a sincronizar. Usar set_configs cuando hay, ex.sets de
+        // fallback para ejercicios que nunca pasaron por ese flujo (generatePlan, CSV, etc).
+        const setCount = ex.set_configs.length > 0 ? ex.set_configs.length : ex.sets
         for (const m of ex.exercises.muscle_groups ?? []) {
           const key = m.charAt(0).toUpperCase() + m.slice(1).toLowerCase()
-          counts.set(key, (counts.get(key) ?? 0) + ex.sets)
+          counts.set(key, (counts.get(key) ?? 0) + setCount)
         }
       }
     }
@@ -393,7 +400,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       for (const ex of exsForPhase) newAllExs.push({ ...ex, order_index: idx++ })
     }
     setDays(prev => ({ ...prev, [selectedDay]: { ...prev[selectedDay], exercises: newAllExs } }))
-    await Promise.all(newAllExs.map(ex => supabase.from("workout_plan_exercises").update({ order_index: ex.order_index } as never).eq("id", ex.id)))
+    const results = await Promise.all(newAllExs.map(ex => supabase.from("workout_plan_exercises").update({ order_index: ex.order_index } as never).eq("id", ex.id)))
+    if (results.some((r) => r.error)) {
+      sileo.error({ title: "El orden no se guardó del todo", description: "Recargá la página para ver el orden real." })
+    }
   }
 
   const refreshExercises = useCallback(async () => {
@@ -412,28 +422,46 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     (ex) => !inPlanIds.has(ex.id) && ex.name.toLowerCase().includes(search.toLowerCase())
   )
 
+  // Dos addExercise concurrentes sobre el mismo día vacío (doble click, o agregar a dos
+  // fases distintas casi al mismo tiempo) veían days[dow].id === null los dos y disparaban
+  // dos INSERT — el índice único de la base tira el segundo, y antes eso se perdía en un
+  // catch silencioso. Con este cache de promesas en curso, la segunda llamada espera a la
+  // primera en vez de disparar su propio insert.
+  const dayCreationRef = useRef<Record<number, Promise<string> | undefined>>({})
+
   async function ensureDayExists(dow: number): Promise<string> {
     if (days[dow].id) return days[dow].id!
-    // Check DB first to avoid creating duplicates
-    const { data: existing } = await supabase
-      .from("workout_plan_days")
-      .select("id")
-      .eq("plan_id", plan.id)
-      .eq("day_of_week", dow)
-      .order("id")
-      .limit(1) as unknown as { data: { id: string }[] | null }
-    if (existing?.[0]) {
-      setDays((prev) => ({ ...prev, [dow]: { ...prev[dow], id: existing[0].id } }))
-      return existing[0].id
+    if (dayCreationRef.current[dow]) return dayCreationRef.current[dow]!
+
+    const creation = (async () => {
+      // Check DB first to avoid creating duplicates
+      const { data: existing } = await supabase
+        .from("workout_plan_days")
+        .select("id")
+        .eq("plan_id", plan.id)
+        .eq("day_of_week", dow)
+        .order("id")
+        .limit(1) as unknown as { data: { id: string }[] | null }
+      if (existing?.[0]) {
+        setDays((prev) => ({ ...prev, [dow]: { ...prev[dow], id: existing[0].id } }))
+        return existing[0].id
+      }
+      const { data, error } = await supabase
+        .from("workout_plan_days")
+        .insert({ plan_id: plan.id, day_of_week: dow })
+        .select("id")
+        .single() as unknown as { data: { id: string } | null; error: unknown }
+      if (error || !data) throw error
+      setDays((prev) => ({ ...prev, [dow]: { ...prev[dow], id: data.id } }))
+      return data.id
+    })()
+
+    dayCreationRef.current[dow] = creation
+    try {
+      return await creation
+    } finally {
+      delete dayCreationRef.current[dow]
     }
-    const { data, error } = await supabase
-      .from("workout_plan_days")
-      .insert({ plan_id: plan.id, day_of_week: dow })
-      .select("id")
-      .single() as unknown as { data: { id: string } | null; error: unknown }
-    if (error || !data) throw error
-    setDays((prev) => ({ ...prev, [dow]: { ...prev[dow], id: data.id } }))
-    return data.id
   }
 
   async function addExercise(exercise: Exercise) {
@@ -451,7 +479,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
         .select("id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds, phase")
         .single() as unknown as { data: Omit<PlanExercise, "exercises"> | null; error: unknown }
 
-      console.error("[addExercise] dayId:", dayId, "error:", error, "data:", data)
+      if (error || !data) {
+        console.error("[addExercise] dayId:", dayId, "error:", error)
+        sileo.error({ title: "No se pudo agregar el ejercicio", description: "Probá de nuevo en unos segundos." })
+      }
 
       if (!error && data) {
         const defaultConfigs = Array.from({ length: 3 }, (_, i) => ({
@@ -475,11 +506,16 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       }
     } catch (err) {
       console.error("[addExercise] caught:", err)
+      sileo.error({ title: "No se pudo agregar el ejercicio", description: "Probá de nuevo en unos segundos." })
     }
   }
 
   async function removeExercise(peId: string) {
-    await supabase.from("workout_plan_exercises").delete().eq("id", peId)
+    const { error } = await supabase.from("workout_plan_exercises").delete().eq("id", peId)
+    if (error) {
+      sileo.error({ title: "No se pudo quitar el ejercicio", description: "Probá de nuevo en unos segundos." })
+      return
+    }
     setDays((prev) => ({
       ...prev,
       [selectedDay]: {
@@ -566,7 +602,11 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   }
 
   async function removeSetConfig(peId: string, configId: string) {
-    await supabase.from("workout_plan_set_configs").delete().eq("id", configId)
+    const { error } = await supabase.from("workout_plan_set_configs").delete().eq("id", configId)
+    if (error) {
+      sileo.error({ title: "No se pudo quitar la serie", description: "Probá de nuevo en unos segundos." })
+      return
+    }
     setDays((prev) => ({
       ...prev,
       [selectedDay]: {
@@ -579,7 +619,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   }
 
   async function updateSetConfig(peId: string, configId: string, field: keyof Omit<SetConfig, "id" | "set_number">, value: number | string | null) {
-    await supabase.from("workout_plan_set_configs").update({ [field]: value } as never).eq("id", configId)
+    const { error } = await supabase.from("workout_plan_set_configs").update({ [field]: value } as never).eq("id", configId)
+    if (error) {
+      sileo.error({ title: "No se guardó el cambio", description: "Recargá la página para ver el valor real." })
+    }
     setDays((prev) => ({
       ...prev,
       [selectedDay]: {
@@ -595,7 +638,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
 
   async function updateNotes(peId: string, notes: string) {
     setSaving(peId)
-    await supabase.from("workout_plan_exercises").update({ notes: notes || null }).eq("id", peId)
+    const { error } = await supabase.from("workout_plan_exercises").update({ notes: notes || null }).eq("id", peId)
+    if (error) {
+      sileo.error({ title: "No se guardó la nota", description: "Recargá la página para ver el valor real." })
+    }
     setDays((prev) => ({
       ...prev,
       [selectedDay]: {
@@ -610,7 +656,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
 
   async function updateField(peId: string, field: "sets" | "reps" | "reps_max" | "rest_seconds" | "duration_seconds", value: number | null) {
     setSaving(peId)
-    await supabase.from("workout_plan_exercises").update({ [field]: value } as unknown as { sets?: number; reps?: number; reps_max?: number | null; rest_seconds?: number; duration_seconds?: number | null }).eq("id", peId)
+    const { error } = await supabase.from("workout_plan_exercises").update({ [field]: value } as unknown as { sets?: number; reps?: number; reps_max?: number | null; rest_seconds?: number; duration_seconds?: number | null }).eq("id", peId)
+    if (error) {
+      sileo.error({ title: "No se guardó el cambio", description: "Recargá la página para ver el valor real." })
+    }
     setDays((prev) => ({
       ...prev,
       [selectedDay]: {
@@ -633,9 +682,6 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
     await supabase.from("workout_plans").delete().eq("id", plan.id)
     router.push("/planes")
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { CATEGORY_ICONS, StrengthIcon } = require("@/components/exercises/CategoryIcons")
 
   return (
     <div className="space-y-5">

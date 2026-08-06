@@ -19,7 +19,7 @@ type Phase =
   | { step: "machine_info"; name: string; description: string | null; image_url: string | null }
   | { step: "exercise_in_plan"; machine: string; exercise: MachineExercise; sets: number; reps: number; reps_max: number | null; isFirst: boolean }
   | { step: "exercise_not_in_plan"; machine: string; exercise: MachineExercise }
-  | { step: "multi_choice"; machine: string; exercises: MachineExercise[]; todayIds: Set<string> }
+  | { step: "multi_choice"; machine: string; exercises: MachineExercise[]; todayIds: Set<string>; todayExercises: { wpeId: string; exerciseId: string; sets: number; reps: number; reps_max: number | null }[] }
 
 export default function MachineScanner({ userId, hasWorkoutToday, onStartExercise, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>({ step: "scanner" })
@@ -82,7 +82,7 @@ export default function MachineScanner({ userId, hasWorkoutToday, onStartExercis
     }
 
     // Múltiples ejercicios → elegir
-    setPhase({ step: "multi_choice", machine: machine.name, exercises, todayIds })
+    setPhase({ step: "multi_choice", machine: machine.name, exercises, todayIds, todayExercises })
     processingRef.current = false
   }, [userId, stopCamera, hasWorkoutToday, onClose])
 
@@ -244,7 +244,8 @@ export default function MachineScanner({ userId, hasWorkoutToday, onStartExercis
                     key={ex.id}
                     onClick={() => {
                       if (inPlan) {
-                        setPhase({ step: "exercise_in_plan", machine: phase.machine, exercise: ex, sets: 3, reps: 10, reps_max: null, isFirst: !hasWorkoutToday })
+                        const match = phase.todayExercises.find((t) => t.exerciseId === ex.id)
+                        setPhase({ step: "exercise_in_plan", machine: phase.machine, exercise: ex, sets: match?.sets ?? 3, reps: match?.reps ?? 10, reps_max: match?.reps_max ?? null, isFirst: !hasWorkoutToday })
                       } else {
                         setPhase({ step: "exercise_not_in_plan", machine: phase.machine, exercise: ex })
                       }

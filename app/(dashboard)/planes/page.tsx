@@ -87,11 +87,13 @@ export default async function PlanesPage() {
     supabase
       .from("workout_plans")
       .select(planSelect)
+      .eq("gym_id", gymId)
       .eq("is_template", true)
       .order("created_at"),
     supabase
       .from("workout_plans")
       .select(planSelect)
+      .eq("gym_id", gymId)
       .eq("is_template", false)
       .order("created_at", { ascending: false }),
     supabase

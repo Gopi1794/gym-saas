@@ -17,6 +17,7 @@ export async function registerMemberCheckIn(
     .from("profiles")
     .select("id, full_name, membership_expires_at, role")
     .eq("qr_code", qrCode)
+    .eq("gym_id", gymId)
     .single()
 
   if (profileError || !profile) {
