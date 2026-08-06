@@ -12,11 +12,12 @@ export default async function PlanPage({ params }: Props) {
 
   const { data: profileData } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, gym_id")
     .eq("id", user!.id)
     .single()
 
-  const role: string = (profileData as { role: string } | null)?.role ?? ""
+  const profile = profileData as { role: string; gym_id: string | null } | null
+  const role: string = profile?.role ?? ""
   if (!role) redirect("/dashboard")
 
   const isTrainer = ["admin", "trainer"].includes(role)
@@ -27,7 +28,7 @@ export default async function PlanPage({ params }: Props) {
       .from("workout_plans" as never)
       .select("*")
       .eq("id", params.id)
-      .single() as unknown as Promise<{ data: { id: string; name: string; description: string | null; is_template: boolean; created_by: string | null; assigned_to: string | null } | null }>,
+      .single() as unknown as Promise<{ data: { id: string; name: string; description: string | null; is_template: boolean; created_by: string | null; assigned_to: string | null; gym_id: string } | null }>,
     supabase
       .from("workout_plan_days" as never)
       .select(`
@@ -52,6 +53,9 @@ export default async function PlanPage({ params }: Props) {
 
   // Members can only view their own assigned plan
   if (isMember && plan.assigned_to !== user!.id) redirect("/planes")
+
+  // Trainers/admins can only view/edit plans from their own gym
+  if (isTrainer && plan.gym_id !== profile?.gym_id) redirect("/planes")
 
   return (
     <PlanEditor

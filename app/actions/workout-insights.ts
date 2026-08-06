@@ -1,8 +1,16 @@
 "use server"
 
 import Anthropic from "@anthropic-ai/sdk"
+import { createClient } from "@/lib/supabase/server"
 
 const anthropic = new Anthropic()
+
+// Nada de esto valida las sesiones contra la base (siguen viniendo tal cual del
+// cliente) — pero al menos exige sesión real y acota el tamaño del payload que
+// termina en el prompt, para no dejar la API de Anthropic abierta a llamadas
+// directas al Server Action sin límite de costo.
+const MAX_SESSIONS = 20
+const MAX_SETS_PER_SESSION = 30
 
 export type InsightType = "positive" | "warning" | "suggestion"
 
@@ -44,9 +52,17 @@ export async function generateWorkoutInsights(
     return { overall: "No hay sesiones suficientes para analizar.", insights: [] }
   }
 
-  const summaries = sessions.map(session => {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { overall: "No autenticado.", insights: [] }
+  }
+
+  const boundedSessions = sessions.slice(0, MAX_SESSIONS)
+
+  const summaries = boundedSessions.map(session => {
     const byEx: Record<string, { planned: number; actual: number; weights: number[] }> = {}
-    for (const s of session.sets) {
+    for (const s of session.sets.slice(0, MAX_SETS_PER_SESSION)) {
       if (!byEx[s.exercise_name]) byEx[s.exercise_name] = { planned: 0, actual: 0, weights: [] }
       if (s.planned_reps != null) byEx[s.exercise_name].planned += s.planned_reps
       if (s.actual_reps != null) byEx[s.exercise_name].actual += s.actual_reps

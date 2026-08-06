@@ -95,7 +95,7 @@ export default function MachinesPanel({ gymId, initialMachines, allExercises }: 
           }
         }
 
-        setMachines((prev) => [...prev, { id: result.id, name: name.trim(), description: desc.trim() || null, image_url: imageUrl, qr_identifier: result.id, exercises: [] }])
+        setMachines((prev) => [...prev, { id: result.id, name: name.trim(), description: desc.trim() || null, image_url: imageUrl, qr_identifier: result.qr_identifier, exercises: [] }])
         sileo.success({ title: "Máquina creada", description: "Ya está disponible para asignarle ejercicios.", duration: 2500 })
         setModal(null)
       })

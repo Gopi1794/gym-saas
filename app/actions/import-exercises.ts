@@ -46,15 +46,37 @@ function escapeCSVField(value: string): string {
   return value
 }
 
+// exercises es un catálogo global (sin gym_id) compartido por todos los gimnasios del
+// SaaS — el gate de admin/trainer en la UI no alcanza, un Server Action se puede invocar
+// directo. Hay que validar rol acá adentro, siempre.
+async function requireStaff(supabase: ReturnType<typeof createClient>): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+  return profile?.role === "admin" || profile?.role === "trainer"
+}
+
 export async function importExercisesFromCSV(csvContent: string): Promise<ImportResult> {
   const supabase = createClient()
+
+  if (!(await requireStaff(supabase))) {
+    return { total: 0, upserted: 0, errors: [{ row: 0, message: "No autorizado" }] }
+  }
+
   const lines = csvContent.trim().split("\n").filter(Boolean)
   const dataLines = lines.slice(1)
   const errors: ImportResult["errors"] = []
 
   const rows: ParsedRow[] = dataLines.map((line: string, idx: number) => {
     const cols = parseCSVLine(line)
-    const [external_id = "", name = "", description = "", category = "", , muscle_groups_raw = ""] = cols
+    // 5 columnas: external_id,name,description,category,muscle_groups — sin "difficulty",
+    // removida del schema en 20260531_remove_exercise_difficulty.sql. exportExercisesAsCSV
+    // ya emite este formato; el import tenía un slot de más que desalineaba muscle_groups.
+    const [external_id = "", name = "", description = "", category = "", muscle_groups_raw = ""] = cols
     return { external_id, name, description, category, muscle_groups_raw, rowNum: idx + 2 }
   })
 
@@ -93,6 +115,8 @@ export async function importExercisesFromCSV(csvContent: string): Promise<Import
 
 export async function exportExercisesAsCSV(): Promise<string> {
   const supabase = createClient()
+
+  if (!(await requireStaff(supabase))) return ""
 
   const { data, error } = await supabase
     .from("exercises")

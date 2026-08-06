@@ -291,6 +291,7 @@ type ActiveWorkout = {
   exercises: PlanExercise[];
   dayName: string;
   dayOfWeek: number;
+  initialExerciseId?: string;
 };
 
 const STORAGE_KEY = "voltia_active_workout"
@@ -355,6 +356,7 @@ export default function MemberWorkoutView({
         userWeightKg={weightKg}
         exerciseMaxes={exerciseMaxes}
         initialDraft={activeDraft}
+        initialExerciseId={activeWorkout.initialExerciseId}
         onClose={() => {
           justFinishedRef.current = true
           sessionStorage.removeItem(STORAGE_KEY)
@@ -409,6 +411,7 @@ export default function MemberWorkoutView({
     const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
     setActiveDraft(pendingDraft)
     setActiveWorkout({ exercises: sorted, dayName: pendingDraft.day_name, dayOfWeek: pendingDraft.day_of_week })
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ dayOfWeek: pendingDraft.day_of_week, dayName: pendingDraft.day_name }))
     setPendingDraft(null)
   }
 
@@ -449,10 +452,10 @@ export default function MemberWorkoutView({
           userId={userId}
           planId={plan.id}
           hasWorkoutToday={todayIsActive}
-          onStartExercise={(_exerciseId) => {
+          onStartExercise={(exerciseId) => {
             if (todayDay) {
               const sorted = [...todayDay.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
-              const workout = { exercises: sorted, dayName: DAY_NAMES[todayDow], dayOfWeek: todayDow }
+              const workout = { exercises: sorted, dayName: DAY_NAMES[todayDow], dayOfWeek: todayDow, initialExerciseId: exerciseId }
               sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ dayOfWeek: workout.dayOfWeek, dayName: workout.dayName }))
               setActiveWorkout(workout)
             }

@@ -125,6 +125,36 @@ ${schema}`
 export async function generatePlan(input: GeneratePlanInput): Promise<GeneratePlanResult> {
   const supabase = createClient()
 
+  // input.gymId/input.trainerId los manda el cliente — es un Server Action, invocable
+  // directo sin pasar por app/api/chat/trainer/route.ts. Nunca confiar en esos campos:
+  // se derivan de la sesión y se usan en vez de lo que vino en el payload.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "No autenticado" }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("gym_id, role")
+    .eq("id", user.id)
+    .single()
+
+  if (!profile || (profile.role !== "admin" && profile.role !== "trainer")) {
+    return { ok: false, error: "No autorizado" }
+  }
+
+  const gymId = profile.gym_id
+  const trainerId = user.id
+
+  if (input.memberId) {
+    const { data: memberProfile } = await supabase
+      .from("profiles")
+      .select("gym_id")
+      .eq("id", input.memberId)
+      .single()
+    if (!memberProfile || memberProfile.gym_id !== gymId) {
+      return { ok: false, error: "Miembro no encontrado en este gimnasio" }
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: exercises } = await (supabase as any)
     .from("exercises")
@@ -169,8 +199,8 @@ export async function generatePlan(input: GeneratePlanInput): Promise<GeneratePl
       name: generated.plan_name,
       description: generated.description || null,
       is_template: !input.memberId,
-      gym_id: input.gymId,
-      created_by: input.trainerId,
+      gym_id: gymId,
+      created_by: trainerId,
       assigned_to: input.memberId || null,
     })
     .select("id")

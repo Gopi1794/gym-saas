@@ -8,6 +8,7 @@ import { GlassCalendar } from "@/components/ui/glass-calendar"
 import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
 import { motion, AnimatePresence } from "framer-motion"
+import { todayAR } from "@/lib/date-ar"
 
 interface Trainer {
   id: string
@@ -51,7 +52,7 @@ function initials(name: string | null) {
 const TARGET_MINUTES = 8 * 60
 
 export default function StaffLog({ gymId }: StaffLogProps) {
-  const [date, setDate] = useState(toDateStr(new Date()))
+  const [date, setDate] = useState(todayAR())
   const [trainers, setTrainers] = useState<Trainer[]>([])
   const [checkIns, setCheckIns] = useState<StaffCheckIn[]>([])
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({})
@@ -69,7 +70,7 @@ export default function StaffLog({ gymId }: StaffLogProps) {
       const [{ data: trainerData }, { data: ciData }, { data: planData }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, avatar_url").eq("gym_id", gymId).eq("role", "trainer"),
         supabase.from("check_ins").select("user_id, checked_in_at, checked_out_at").eq("gym_id", gymId).gte("checked_in_at", date).lt("checked_in_at", nextDay),
-        supabase.from("workout_plans").select("created_by, assigned_to").filter("assigned_to", "not.is", "null").filter("created_by", "not.is", "null"),
+        supabase.from("workout_plans").select("created_by, assigned_to").eq("gym_id", gymId).filter("assigned_to", "not.is", "null").filter("created_by", "not.is", "null").limit(1000),
       ])
 
       const counts: Record<string, number> = {}
@@ -103,7 +104,7 @@ export default function StaffLog({ gymId }: StaffLogProps) {
     return () => document.removeEventListener("mousedown", handleClick)
   }, [calendarOpen])
 
-  const isToday = date === toDateStr(new Date())
+  const isToday = date === todayAR()
   const presentCount = checkIns.filter((c) => !c.checked_out_at && trainers.some((t) => t.id === c.user_id)).length
   const totalMembers = Object.values(memberCounts).reduce((a, b) => a + b, 0)
 
@@ -117,7 +118,7 @@ export default function StaffLog({ gymId }: StaffLogProps) {
   })()
 
   const stats = [
-    { label: "Presentes hoy", value: presentCount, color: "text-emerald-400" },
+    { label: isToday ? "Presentes hoy" : "Sin salida marcada", value: presentCount, color: "text-emerald-400" },
     { label: "Trainers", value: trainers.length, color: "text-zinc-100" },
     { label: "Socios gestionados", value: totalMembers, color: "text-brand-400" },
   ]
@@ -154,7 +155,7 @@ export default function StaffLog({ gymId }: StaffLogProps) {
 
           {!isToday && (
             <button
-              onClick={() => { setDate(toDateStr(new Date())); setCalendarOpen(false) }}
+              onClick={() => { setDate(todayAR()); setCalendarOpen(false) }}
               className="h-10 rounded-xl border border-white/10 px-4 text-sm text-zinc-400 transition-colors hover:border-zinc-700 hover:bg-zinc-800 hover:text-zinc-100"
             >
               Hoy

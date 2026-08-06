@@ -49,6 +49,7 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
         const { data: existing } = await (supabase.from("check_ins") as any)
           .select("id, checked_out_at")
           .eq("user_id", userId)
+          .eq("gym_id", gymId)
           .gte("checked_in_at", todayStr)
           .order("checked_in_at", { ascending: false })
           .limit(1)
@@ -60,7 +61,8 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
             .eq("id", existing.id)
           stopCamera()
           if (outErr) {
-            sileo.error({ title: `Error al registrar salida: ${outErr.message}`, description: "Intentá de nuevo o avisá al administrador.", duration: 3000 })
+            console.error("[QRScanner] checkout error:", outErr)
+            sileo.error({ title: "Error al registrar salida", description: "Intentá de nuevo o avisá al administrador.", duration: 3000 })
           } else {
             sileo.success({ title: "Salida fichada correctamente", description: "Se registró la hora de salida de hoy.", duration: 3000 })
             router.refresh()
@@ -84,7 +86,8 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
         })
         stopCamera()
         if (insertErr) {
-          sileo.error({ title: `Error al fichar: ${insertErr.message}`, description: "Intentá de nuevo o avisá al administrador.", duration: 3000 })
+          console.error("[QRScanner] check-in error:", insertErr)
+          sileo.error({ title: "Error al fichar", description: "Intentá de nuevo o avisá al administrador.", duration: 3000 })
         } else {
           sileo.success({ title: "Entrada fichada correctamente", description: "Se registró la hora de entrada de hoy.", duration: 3000 })
           router.refresh()
@@ -104,7 +107,8 @@ export default function QRScanner({ gymId, userId, userRole }: QRScannerProps) {
             ? "Código QR desconocido — usuario no encontrado"
             : result.reason === "membership_expired"
               ? `La membresía de ${name} está vencida`
-              : `Error al registrar: ${result.message ?? "error desconocido"}`
+              : "Error al registrar el check-in"
+        if (result.reason === "error") console.error("[QRScanner] registerMemberCheckIn error:", result.message)
         sileo.error({ title: msg, description: "Intentá de nuevo o avisá al administrador.", duration: 3500 })
       } else {
         const msg = result.action === "checkout"
