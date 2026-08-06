@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 import { normalizePhoneAR } from "@/lib/phone"
+import { canCollectPayment, isPlanCollectible, normalizeMpReference, normalizePaymentNotes } from "@/lib/payments"
 
 export type MemberPhysicalInput = {
   memberId: string
@@ -188,6 +189,7 @@ export async function updateMemberMembership(input: MemberMembershipInput) {
       status: "approved",
       method: "cash",
       mp_payment_id: null,
+      recorded_by: user.id,
     })
   }
 
@@ -238,5 +240,143 @@ export async function assignTrainer(memberId: string, trainerId: string | null) 
   }
 
   revalidatePath(`/members/${memberId}`)
+  return { success: true }
+}
+
+export type CollectPaymentInput = {
+  memberId: string
+  membershipType: "basic" | "premium" | "vip"
+  method: "cash" | "mercadopago"
+  mpReference?: string | null
+  notes?: string | null
+}
+
+// Camino de cobro acotado para admin + trainer con can_collect_payments: a
+// diferencia de updateMemberMembership (edición libre, admin-only), acá
+// nunca se elige fecha ni monto a mano — siempre sale server-side del plan
+// elegido. Solo planes con price > 0 (payments.amount tiene check(amount>0),
+// un plan gratuito no puede generar fila de pago). Reusa
+// extend_member_membership en vez de reimplementar la extensión a mano,
+// para no sumar una tercera implementación paralela a las que ya conviven
+// (la del webhook y la de updateMemberMembership).
+export async function collectMembershipPayment(input: CollectPaymentInput) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, gym_id, can_collect_payments")
+    .eq("id", user.id)
+    .single()
+
+  if (!me) return { error: "Sin permiso" }
+
+  if (!canCollectPayment((me as any).role, (me as any).can_collect_payments === true)) {
+    return { error: "Sin permiso para cobrar membresías" }
+  }
+
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("gym_id")
+    .eq("id", input.memberId)
+    .single()
+
+  if (!target || (target as any).gym_id !== (me as any).gym_id) {
+    return { error: "Miembro no pertenece a tu gym" }
+  }
+
+  if (input.method !== "cash" && input.method !== "mercadopago") {
+    return { error: "Método de pago inválido" }
+  }
+
+  const { data: plan } = await supabase
+    .from("membership_plans" as never)
+    .select("price, duration_days, is_active")
+    .eq("gym_id", (me as any).gym_id)
+    .eq("type", input.membershipType)
+    .maybeSingle() as unknown as { data: { price: number; duration_days: number; is_active: boolean } | null }
+
+  if (!isPlanCollectible(plan)) {
+    return { error: "Ese plan no está disponible para cobro" }
+  }
+
+  const mpReference = normalizeMpReference(input.method, input.mpReference)
+  const notes = normalizePaymentNotes(input.notes)
+
+  // extend_member_membership es SECURITY DEFINER, EXECUTE solo a service_role
+  // (20260725_lock_down_security_definer_rpcs.sql) — cliente admin obligatorio.
+  // Las validaciones de arriba (permiso + mismo gym + plan pago del propio gym)
+  // son la única barrera; no hay RLS en payments que actúe de red acá, el
+  // insert ocurre adentro de la función.
+  const admin = createAdminClient()
+  const { data, error } = await admin.rpc("extend_member_membership" as never, {
+    p_member_id: input.memberId,
+    p_gym_id: (me as any).gym_id,
+    p_payment_id: mpReference,
+    p_amount: plan.price,
+    p_membership_type: input.membershipType,
+    p_duration_days: plan.duration_days,
+    p_method: input.method,
+    p_recorded_by: user.id,
+    p_notes: notes,
+  } as never)
+
+  if (error) {
+    if ((error as { code?: string }).code === "23505") {
+      return { error: "Ya existe un pago cargado con ese número de operación de MercadoPago" }
+    }
+    return { error: error.message }
+  }
+
+  revalidatePath(`/members/${input.memberId}`)
+  return { success: true, newExpiresAt: data as unknown as string }
+}
+
+// Notas de un pago ya existente (automático o manual) — editable después de
+// cargado, no solo al momento de cobrar. Admin puede anotar cualquier pago
+// del gym; trainer solo los que él mismo cargó (payments.recorded_by), para
+// no darle acceso a anotar pagos automáticos o de otro trainer.
+export async function updatePaymentNotes(paymentId: string, notes: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, gym_id")
+    .eq("id", user.id)
+    .single()
+
+  if (!me) return { error: "Sin permiso" }
+
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("id, gym_id, member_id, recorded_by")
+    .eq("id", paymentId)
+    .single()
+
+  if (!payment || (payment as any).gym_id !== (me as any).gym_id) {
+    return { error: "Pago no encontrado" }
+  }
+
+  const isAdmin = (me as any).role === "admin"
+  const isOwnRecord = (payment as any).recorded_by === user.id
+  if (!isAdmin && !isOwnRecord) {
+    return { error: "Sin permiso para editar este pago" }
+  }
+
+  // payments no tiene ninguna policy RLS de UPDATE (solo INSERT y SELECT) —
+  // sin policy, RLS deniega por default. Cliente admin; las validaciones de
+  // arriba ya corrieron y son la única barrera.
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from("payments")
+    .update({ notes: normalizePaymentNotes(notes) } as never)
+    .eq("id", paymentId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/members/${(payment as any).member_id}`)
   return { success: true }
 }

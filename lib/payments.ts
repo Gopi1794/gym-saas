@@ -33,3 +33,48 @@ export const PAYMENT_METHOD_CLASSES: Record<PaymentMethod, string> = {
   mercadopago: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
   cash:        "bg-violet-500/15 text-violet-600 dark:text-violet-400",
 }
+
+/**
+ * Quién puede usar "Cobrar y renovar" — el permiso lo otorga el admin por
+ * trainer (profiles.can_collect_payments), nunca es automático del rol.
+ * Distinto de "Editar membresía" (admin-only sin excepción, ver
+ * docs/superpowers/plans/2026-07-31-fix-profiles-column-privilege-updates.md).
+ */
+export function canCollectPayment(role: string, canCollectFlag: boolean): boolean {
+  return role === "admin" || (role === "trainer" && canCollectFlag === true)
+}
+
+export type CollectiblePlan = {
+  is_active: boolean
+  price: number
+}
+
+/**
+ * "Cobrar y renovar" nunca da de alta un plan gratuito — payments.amount
+ * tiene check(amount > 0), así que un plan con price = 0 no puede generar
+ * fila de pago. Esos siguen siendo admin-only vía "Editar membresía".
+ */
+export function isPlanCollectible<T extends CollectiblePlan>(plan: T | null | undefined): plan is T {
+  return !!plan && plan.is_active && plan.price > 0
+}
+
+/**
+ * Nº de operación de MercadoPago cargado a mano por staff: solo aplica al
+ * método mercadopago, y string vacío/solo espacios se normaliza a null
+ * (nunca ""), para no romper el índice único parcial en mp_payment_id ni
+ * dejar filas con un valor vacío en vez de ausente.
+ */
+export function normalizeMpReference(
+  method: PaymentMethod,
+  raw: string | null | undefined,
+): string | null {
+  if (method !== "mercadopago") return null
+  const trimmed = raw?.trim()
+  return trimmed ? trimmed : null
+}
+
+/** Notas libres de un pago: string vacío o solo espacios se guarda como null. */
+export function normalizePaymentNotes(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim()
+  return trimmed ? trimmed : null
+}

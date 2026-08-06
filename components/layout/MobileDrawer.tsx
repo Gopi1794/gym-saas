@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
-  Menu, X, LogOut, LayoutDashboard, Users, QrCode,
+  PanelLeftOpen, PanelLeftClose, LogOut, LayoutDashboard, Users, QrCode,
   User, TrendingUp, Trophy, Settings, Dumbbell, BarChart2,
 } from "lucide-react"
 import NotificationBell from "@/components/notifications/NotificationBell"
@@ -83,7 +83,7 @@ export default function MobileDrawer({ profile }: MobileDrawerProps) {
             aria-label="Abrir menú"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-500 transition-colors hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer"
           >
-            <Menu className="h-5 w-5" />
+            <PanelLeftOpen className="h-5 w-5" />
           </button>
         </div>
       </header>
@@ -111,7 +111,7 @@ export default function MobileDrawer({ profile }: MobileDrawerProps) {
                 aria-label="Cerrar menú"
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-zinc-200 cursor-pointer"
               >
-                <X className="h-5 w-5" />
+                <PanelLeftClose className="h-5 w-5" />
               </button>
             </div>
 
