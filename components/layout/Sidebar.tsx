@@ -15,13 +15,15 @@ import {
   Dumbbell,
   BarChart2,
   Apple,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import NotificationBell from "@/components/notifications/NotificationBell"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -54,6 +56,25 @@ export default function Sidebar({ profile }: SidebarProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
 
+  // Default false para que coincida con el render del server (SSR no conoce
+  // localStorage) — se sincroniza recién en el efecto, después de montar, para
+  // no meter un mismatch de hidratación. Implica un flash breve si el usuario
+  // lo tenía colapsado; es el mismo trade-off que usa shadcn/ui con su cookie.
+  const [collapsed, setCollapsed] = useState(false)
+
+  useEffect(() => {
+    const saved = localStorage.getItem("gymflow-sidebar-collapsed")
+    if (saved === "1") setCollapsed(true)
+  }, [])
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem("gymflow-sidebar-collapsed", next ? "1" : "0")
+      return next
+    })
+  }
+
   const role = profile?.role ?? "member"
   const isAdminOrTrainer = role === "admin" || role === "trainer"
 
@@ -71,15 +92,42 @@ export default function Sidebar({ profile }: SidebarProps) {
   })
 
   return (
-    <aside className="hidden w-64 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800/60 dark:bg-zinc-950 md:flex">
+    <aside
+      className={cn(
+        "hidden flex-col border-r border-zinc-200 bg-white transition-[width] duration-200 ease-in-out dark:border-zinc-800/60 dark:bg-zinc-950 md:flex",
+        collapsed ? "w-[72px]" : "w-64"
+      )}
+    >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between border-b border-zinc-200 px-5 dark:border-zinc-800">
-        <GymFlowLogo size={20} textSize="text-lg" />
-        <div className="flex items-center gap-1">
-          <AnimatedThemeToggler />
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-2 border-b border-zinc-200 py-3 dark:border-zinc-800">
           <NotificationBell userId={profile?.id ?? ""} />
+          <button
+            onClick={toggleCollapsed}
+            aria-label="Expandir menú"
+            title="Expandir menú"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
         </div>
-      </div>
+      ) : (
+        <div className="flex h-16 items-center justify-between border-b border-zinc-200 px-5 dark:border-zinc-800">
+          <GymFlowLogo size={20} textSize="text-lg" />
+          <div className="flex items-center gap-1">
+            <AnimatedThemeToggler />
+            <NotificationBell userId={profile?.id ?? ""} />
+            <button
+              onClick={toggleCollapsed}
+              aria-label="Colapsar menú"
+              title="Colapsar menú"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 space-y-1 p-4">
@@ -89,44 +137,58 @@ export default function Sidebar({ profile }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              title={collapsed ? item.label : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 font-heading text-sm tracking-wide transition-colors",
+                "flex items-center gap-3 rounded-lg py-2.5 font-heading text-sm tracking-wide transition-colors",
+                collapsed ? "justify-center px-0" : "px-3",
                 isActive
                   ? "bg-brand-700/20 text-brand-500"
                   : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
               )}
             >
               <item.icon className="h-4 w-4 shrink-0" />
-              {item.label}
+              {!collapsed && item.label}
             </Link>
           )
         })}
       </nav>
 
       {/* User */}
-      <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
-        <div className="mb-3 flex items-center gap-3">
+      <div className={cn("border-t border-zinc-200 dark:border-zinc-800", collapsed ? "p-2" : "p-4")}>
+        <div
+          className={cn(
+            "flex items-center gap-3",
+            collapsed ? "mb-2 flex-col" : "mb-3"
+          )}
+          title={collapsed ? `${profile?.full_name ?? "User"} · ${profile?.role ?? "member"}` : undefined}
+        >
           <Avatar className="h-8 w-8">
             <AvatarImage src={profile?.avatar_url ?? undefined} />
             <AvatarFallback className="text-xs">
               {getInitials(profile?.full_name)}
             </AvatarFallback>
           </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-50">
-              {profile?.full_name ?? "User"}
-            </p>
-            <p className="truncate text-xs capitalize text-zinc-500">
-              {profile?.role ?? "member"}
-            </p>
-          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                {profile?.full_name ?? "User"}
+              </p>
+              <p className="truncate text-xs capitalize text-zinc-500">
+                {profile?.role ?? "member"}
+              </p>
+            </div>
+          )}
         </div>
         <button
           onClick={() => setConfirmOpen(true)}
-          className="flex w-full items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
+          title={collapsed ? "Cerrar sesión" : undefined}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-lg border border-zinc-200 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer",
+            collapsed ? "justify-center px-0" : "px-3"
+          )}
         >
           <LogOut className="h-4 w-4" />
-          Cerrar sesión
+          {!collapsed && "Cerrar sesión"}
         </button>
       </div>
 
