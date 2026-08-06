@@ -11,6 +11,7 @@ import { isMembershipActive } from "@/lib/utils"
 import {
   PAYMENT_STATUS_LABELS, PAYMENT_STATUS_CLASSES,
   PAYMENT_METHOD_LABELS, PAYMENT_METHOD_CLASSES,
+  isPlanCollectible,
   type PaymentStatus, type PaymentMethod,
 } from "@/lib/payments"
 import PlanCard from "@/components/planes/PlanCard"
@@ -18,6 +19,8 @@ import CreatePlanForMember from "@/components/members/CreatePlanForMember"
 import MemberPhysicalEdit from "@/components/members/MemberPhysicalEdit"
 import MemberContactEdit from "@/components/members/MemberContactEdit"
 import MemberMembershipEdit from "@/components/members/MemberMembershipEdit"
+import MemberCollectPayment from "@/components/members/MemberCollectPayment"
+import PaymentNoteInline from "@/components/members/PaymentNoteInline"
 import MemberTrainerEdit from "@/components/members/MemberTrainerEdit"
 import MemberWorkoutHistory from "@/components/members/MemberWorkoutHistory"
 import { cn } from "@/lib/utils"
@@ -42,7 +45,7 @@ type PlanRow = {
 }
 
 type CheckInRow = { id: string; checked_in_at: string; checked_out_at: string | null; method: "qr" | "manual" }
-type PaymentRow = { id: string; amount: number; status: string; method: string; created_at: string; mp_payment_id: string | null }
+type PaymentRow = { id: string; amount: number; status: string; method: string; created_at: string; mp_payment_id: string | null; recorded_by: string | null; notes: string | null }
 type SessionSetRow = { exercise_name: string; set_number: number; actual_reps: number | null; planned_reps: number | null; reps: number | null; weight_kg: number | null }
 type SessionRow = { id: string; day_name: string; completed_at: string; exercises_count: number; workout_session_sets: SessionSetRow[] }
 
@@ -59,13 +62,19 @@ export default async function MemberDetailPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const { data: currentProfile } = await supabase
-    .from("profiles").select("role, gym_id").eq("id", user!.id).single()
+    .from("profiles").select("role, gym_id, can_collect_payments").eq("id", user!.id).single()
 
-  const profile = currentProfile as { role: string; gym_id: string | null } | null
+  const profile = currentProfile as { role: string; gym_id: string | null; can_collect_payments: boolean } | null
   const role = profile?.role ?? ""
   const gymId = profile?.gym_id ?? null
   if (!["admin", "trainer"].includes(role)) redirect("/dashboard")
   if (!gymId) redirect("/dashboard")
+
+  // Cobrar y renovar: admin siempre, trainer solo si el admin le otorgó el
+  // permiso explícito (profiles.can_collect_payments). Distinto de "Editar
+  // membresía" (más abajo, admin-only sin excepción) — ver
+  // docs/superpowers/plans/2026-07-31-fix-profiles-column-privilege-updates.md
+  const canCollect = role === "admin" || (role === "trainer" && profile?.can_collect_payments === true)
 
   const { data: rawMember } = await supabase
     .from("profiles")
@@ -88,6 +97,7 @@ export default async function MemberDetailPage({ params }: Props) {
     { data: gymTrainers },
     { data: recentSessions },
     { count: activeNutritionPlanCount },
+    { data: gymStaff },
   ] = await Promise.all([
     supabase.from("workout_plans" as never).select(planSelect)
       .eq("assigned_to", params.id).eq("is_template", false)
@@ -103,7 +113,7 @@ export default async function MemberDetailPage({ params }: Props) {
     supabase.from("check_ins").select("*", { count: "exact", head: true })
       .eq("user_id", params.id).eq("gym_id", gymId),
 
-    supabase.from("payments").select("id, amount, status, method, created_at, mp_payment_id")
+    supabase.from("payments").select("id, amount, status, method, created_at, mp_payment_id, recorded_by, notes")
       .eq("member_id", params.id).eq("gym_id", gymId)
       .order("created_at", { ascending: false }).limit(5) as unknown as Promise<{ data: PaymentRow[] | null }>,
 
@@ -119,7 +129,14 @@ export default async function MemberDetailPage({ params }: Props) {
 
     supabase.from("nutrition_plans" as never).select("id", { count: "exact", head: true })
       .eq("member_id", params.id).eq("is_active", true),
+
+    // Para resolver "Cobrado por" en el historial de pagos — admin o
+    // trainer, a diferencia de gymTrainers (solo trainers, para asignación).
+    supabase.from("profiles").select("id, full_name")
+      .eq("gym_id", gymId).in("role", ["admin", "trainer"]) as unknown as Promise<{ data: { id: string; full_name: string | null }[] | null }>,
   ])
+
+  const staffNameById = new Map((gymStaff ?? []).map(s => [s.id, s.full_name ?? "Staff"]))
 
   const memberName = member.full_name ?? "Miembro"
   const active = isMembershipActive(member.membership_expires_at)
@@ -191,6 +208,14 @@ export default async function MemberDetailPage({ params }: Props) {
           </div>
         ))}
       </div>
+
+      {/* Cobrar y renovar — admin siempre, trainer solo con permiso otorgado */}
+      {canCollect && (
+        <MemberCollectPayment
+          memberId={params.id}
+          plans={(membershipPlans ?? []).filter(isPlanCollectible)}
+        />
+      )}
 
       {/* Membership (solo admin) + Physical */}
       <div className={`grid gap-4 ${role === "admin" ? "sm:grid-cols-2" : ""}`}>
@@ -273,27 +298,35 @@ export default async function MemberDetailPage({ params }: Props) {
               const statusCls   = PAYMENT_STATUS_CLASSES[p.status as PaymentStatus] ?? "text-zinc-400 bg-zinc-800"
               const methodLabel = PAYMENT_METHOD_LABELS[p.method as PaymentMethod] ?? p.method
               const methodCls   = PAYMENT_METHOD_CLASSES[p.method as PaymentMethod] ?? "text-zinc-400 bg-zinc-800"
+              const recorderName = p.recorded_by ? staffNameById.get(p.recorded_by) : null
+              const canEditNote = role === "admin" || (role === "trainer" && p.recorded_by === user!.id)
               return (
-                <li key={p.id} className="flex items-center justify-between rounded-xl bg-muted/50 px-4 py-2.5">
-                  <div className="flex items-center gap-3">
-                    {p.status === "approved"
-                      ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                      : <XCircle className="h-4 w-4 text-zinc-400 shrink-0" />}
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">
-                        ${Number(p.amount).toLocaleString("es-AR")}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{formatDate(p.created_at)}</p>
+                <li key={p.id} className="rounded-xl bg-muted/50 px-4 py-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {p.status === "approved"
+                        ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                        : <XCircle className="h-4 w-4 text-zinc-400 shrink-0" />}
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          ${Number(p.amount).toLocaleString("es-AR")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(p.created_at)}
+                          {recorderName && ` · Cobrado por ${recorderName}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", methodCls)}>
+                        {methodLabel}
+                      </span>
+                      <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", statusCls)}>
+                        {statusLabel}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", methodCls)}>
-                      {methodLabel}
-                    </span>
-                    <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", statusCls)}>
-                      {statusLabel}
-                    </span>
-                  </div>
+                  <PaymentNoteInline paymentId={p.id} initialNotes={p.notes} editable={canEditNote} />
                 </li>
               )
             })}

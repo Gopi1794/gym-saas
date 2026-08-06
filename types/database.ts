@@ -57,6 +57,7 @@ export interface Database {
           emergency_phone: string | null
           notification_hour: number
           onboarding_seen: boolean
+          can_collect_payments: boolean
         }
         Insert: {
           id: string
@@ -81,6 +82,7 @@ export interface Database {
           emergency_phone?: string | null
           notification_hour?: number
           onboarding_seen?: boolean
+          can_collect_payments?: boolean
         }
         Update: Partial<Omit<Database["public"]["Tables"]["profiles"]["Insert"], "id">>
         Relationships: []
@@ -422,6 +424,8 @@ export interface Database {
           status: "pending" | "approved" | "rejected" | "cancelled" | "refunded"
           method: "mercadopago" | "cash"
           mp_payment_id: string | null
+          recorded_by: string | null
+          notes: string | null
           created_at: string
         }
         Insert: {
@@ -432,6 +436,8 @@ export interface Database {
           status?: "pending" | "approved" | "rejected" | "cancelled" | "refunded"
           method?: "mercadopago" | "cash"
           mp_payment_id?: string | null
+          recorded_by?: string | null
+          notes?: string | null
           created_at?: string
         }
         Update: Partial<Database["public"]["Tables"]["payments"]["Insert"]>

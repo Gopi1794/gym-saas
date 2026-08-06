@@ -9,11 +9,13 @@ import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
 import { motion, AnimatePresence } from "framer-motion"
 import { todayAR } from "@/lib/date-ar"
+import TrainerPaymentAccessToggle from "@/components/staff/TrainerPaymentAccessToggle"
 
 interface Trainer {
   id: string
   full_name: string | null
   avatar_url: string | null
+  can_collect_payments: boolean
 }
 
 interface StaffCheckIn {
@@ -68,7 +70,7 @@ export default function StaffLog({ gymId }: StaffLogProps) {
     async function fetchData() {
       const nextDay = toDateStr(new Date(new Date(date).getTime() + 86400000))
       const [{ data: trainerData }, { data: ciData }, { data: planData }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, avatar_url").eq("gym_id", gymId).eq("role", "trainer"),
+        supabase.from("profiles").select("id, full_name, avatar_url, can_collect_payments").eq("gym_id", gymId).eq("role", "trainer"),
         supabase.from("check_ins").select("user_id, checked_in_at, checked_out_at").eq("gym_id", gymId).gte("checked_in_at", date).lt("checked_in_at", nextDay),
         supabase.from("workout_plans").select("created_by, assigned_to").eq("gym_id", gymId).filter("assigned_to", "not.is", "null").filter("created_by", "not.is", "null").limit(1000),
       ])
@@ -295,6 +297,14 @@ export default function StaffLog({ gymId }: StaffLogProps) {
                     ) : (
                       <div className="h-1.5 w-full rounded-full bg-zinc-800/50" />
                     )}
+
+                    {/* Row 3: permiso de cobro */}
+                    <div className="pt-1 border-t border-zinc-800/60 dark:border-white/5">
+                      <TrainerPaymentAccessToggle
+                        trainerId={trainer.id}
+                        initialValue={trainer.can_collect_payments}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
