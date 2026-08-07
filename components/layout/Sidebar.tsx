@@ -94,22 +94,22 @@ export default function Sidebar({ profile }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "hidden flex-col border-r border-zinc-200 bg-white transition-[width] duration-200 ease-in-out dark:border-zinc-800/60 dark:bg-zinc-950 md:flex",
+        "hidden flex-col rounded-[25px] border border-zinc-200 bg-white m-3 shadow-sm transition-[width] duration-200 ease-[var(--ease-in-out)] motion-reduce:transition-none dark:border-zinc-800/60 dark:bg-zinc-950 dark:shadow-[0_0_18px_rgba(213,0,0,0.4)] md:flex",
         collapsed ? "w-[72px]" : "w-64"
       )}
     >
       {/* Logo */}
       {collapsed ? (
         <div className="flex flex-col items-center gap-2 border-b border-zinc-200 py-3 dark:border-zinc-800">
-          <NotificationBell userId={profile?.id ?? ""} />
           <button
             onClick={toggleCollapsed}
             aria-label="Expandir menú"
             title="Expandir menú"
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
           >
-            <PanelLeftOpen className="h-4 w-4" />
+            <PanelLeftOpen className="h-5 w-5" />
           </button>
+          <NotificationBell userId={profile?.id ?? ""} />
         </div>
       ) : (
         <div className="flex h-16 items-center justify-between border-b border-zinc-200 px-5 dark:border-zinc-800">
@@ -121,16 +121,16 @@ export default function Sidebar({ profile }: SidebarProps) {
               onClick={toggleCollapsed}
               aria-label="Colapsar menú"
               title="Colapsar menú"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
             >
-              <PanelLeftClose className="h-4 w-4" />
+              <PanelLeftClose className="h-5 w-5" />
             </button>
           </div>
         </div>
       )}
 
       {/* Nav */}
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-4">
         {visibleItems.map((item) => {
           const isActive = pathname === item.href
           return (
@@ -139,19 +139,25 @@ export default function Sidebar({ profile }: SidebarProps) {
               href={item.href}
               title={collapsed ? item.label : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-lg py-2.5 font-heading text-sm tracking-wide transition-colors",
+                "group flex items-center gap-3 rounded-lg py-2.5 font-heading text-sm tracking-wide transition-colors",
                 collapsed ? "justify-center px-0" : "px-3",
                 isActive
                   ? "bg-brand-700/20 text-brand-500"
                   : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
               )}
             >
-              <item.icon className="h-4 w-4 shrink-0" />
+              <item.icon className="h-4 w-4 shrink-0 transition-transform duration-150 ease-[var(--ease-out)] group-hover:scale-110" />
               {!collapsed && item.label}
             </Link>
           )
         })}
       </nav>
+
+      {collapsed && (
+        <div className="flex justify-center py-2">
+          <GymFlowLogo size={18} iconOnly />
+        </div>
+      )}
 
       {/* User */}
       <div className={cn("border-t border-zinc-200 dark:border-zinc-800", collapsed ? "p-2" : "p-4")}>
