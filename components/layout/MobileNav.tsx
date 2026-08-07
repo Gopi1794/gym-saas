@@ -89,6 +89,11 @@ export default function MobileNav({ role }: MobileNavProps) {
         </div>
       )}
 
+      {/* Fade a todo el ancho detrás del nav — sin esto, el contenido se ve
+          "cortado" asomando por los márgenes transparentes de la pastilla
+          mientras se hace scroll, porque esos márgenes no tienen fondo. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-24 bg-gradient-to-t from-zinc-100 dark:from-black to-transparent md:hidden" />
+
       {/* Bottom nav */}
       <nav className="fixed inset-x-3 bottom-3 z-40 rounded-full border border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md shadow-lg md:hidden">
         <div className="flex items-center justify-around px-1 py-1.5">
