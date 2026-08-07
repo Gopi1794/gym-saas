@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import TabSwitcher from "@/components/ui/TabSwitcher"
 import PaymentsTable, { type PaymentRow } from "@/components/payments/PaymentsTable"
+import TrainerPaymentAccessPanel, { type TrainerAccessRow } from "@/components/payments/TrainerPaymentAccessPanel"
 import GymSettingsPanel from "@/components/admin/GymSettingsPanel"
 import MembershipPlansPanel from "@/components/admin/MembershipPlansPanel"
 import ExportPanel from "@/components/admin/ExportPanel"
@@ -70,9 +71,20 @@ export default async function AdminPage({
       .order("created_at", { ascending: false })
       .limit(100) as unknown as { data: PaymentRow[] | null }
 
+    const { data: trainers } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, can_collect_payments")
+      .eq("gym_id", gymId)
+      .eq("role", "trainer") as unknown as { data: TrainerAccessRow[] | null }
+
     content = (
-      <div data-tour="payments-table">
-        <PaymentsTable payments={payments ?? []} />
+      <div className="space-y-5">
+        {trainers && trainers.length > 0 && (
+          <TrainerPaymentAccessPanel trainers={trainers} />
+        )}
+        <div data-tour="payments-table">
+          <PaymentsTable payments={payments ?? []} />
+        </div>
       </div>
     )
   }
