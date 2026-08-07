@@ -280,12 +280,14 @@ export default function ProfileView({
               <div className="flex min-w-0 gap-4 sm:gap-5">
                 <div className="relative h-24 w-24 shrink-0 sm:h-28 sm:w-28">
                   <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-brand-500 to-brand-800 p-[2px] shadow-[0_18px_50px_rgba(213,0,0,0.28)]">
-                    <div className="h-full w-full overflow-hidden rounded-[1.35rem] bg-zinc-900">
+                    <div className="relative h-full w-full overflow-hidden rounded-[1.35rem] bg-zinc-900">
                       {avatarUrl ? (
-                        <img
+                        <Image
                           src={avatarUrl}
                           alt="avatar"
-                          className="h-full w-full object-cover"
+                          fill
+                          sizes="112px"
+                          className="object-cover"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-950 to-zinc-900 text-3xl font-black text-white">
