@@ -345,10 +345,10 @@ function CalorieRing({ planned, target }: { planned: number; target: number | nu
 
         {/* Overlay text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-black leading-none text-zinc-50">
+          <span className="text-xl font-black leading-none text-zinc-900 dark:text-zinc-50">
             {target ? Math.round(pct * 100) : 0}%
           </span>
-          <span className="mt-0.5 text-[9px] text-zinc-500">planificado</span>
+          <span className="mt-0.5 text-[9px] text-zinc-600 dark:text-zinc-500">planificado</span>
         </div>
       </div>
 
@@ -357,10 +357,10 @@ function CalorieRing({ planned, target }: { planned: number; target: number | nu
         <p className="leading-none">
           <span className="text-5xl font-black text-brand-500">{Math.round(planned)}</span>
         </p>
-        <p className="mt-1 text-sm text-zinc-400">
-          / <span className="font-semibold text-zinc-200">{target ?? "—"} kcal</span>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          / <span className="font-semibold text-zinc-700 dark:text-zinc-200">{target ?? "—"} kcal</span>
         </p>
-        <p className="mt-1 text-xs text-zinc-600">Meta diaria</p>
+        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">Meta diaria</p>
       </div>
     </div>
   )
@@ -858,7 +858,7 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
       {nutritionWarnings.length > 0 && (
         <div className="space-y-2">
           {nutritionWarnings.map((msg, i) => (
-            <div key={i} className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
+            <div key={i} className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
               {msg}
             </div>
           ))}
