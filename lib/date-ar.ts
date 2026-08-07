@@ -114,3 +114,18 @@ export function formatDayAR(
   const day = iso.split("T")[0]
   return new Date(`${day}T12:00:00Z`).toLocaleDateString("es-AR", { ...options, timeZone: "UTC" })
 }
+
+/**
+ * Formatea un instante real (created_at, paid_at, checked_in_at) en hora de
+ * Argentina. A diferencia de formatDayAR, acá sí hay que convertir de zona:
+ * el server de prod corre en UTC, así que sin `timeZone` explícito
+ * `toLocaleDateString` usa el calendario UTC — un pago hecho a las 22hs AR
+ * (madrugada UTC del día siguiente) se mostraba fechado un día para
+ * adelante.
+ */
+export function formatInstantAR(
+  iso: string,
+  options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short", year: "numeric" },
+): string {
+  return new Date(iso).toLocaleDateString("es-AR", { ...options, timeZone: TZ })
+}

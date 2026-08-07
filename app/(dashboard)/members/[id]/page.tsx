@@ -8,6 +8,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { isMembershipActive } from "@/lib/utils"
+import { formatInstantAR } from "@/lib/date-ar"
 import {
   PAYMENT_STATUS_LABELS, PAYMENT_STATUS_CLASSES,
   PAYMENT_METHOD_LABELS, PAYMENT_METHOD_CLASSES,
@@ -50,11 +51,11 @@ type SessionSetRow = { exercise_name: string; set_number: number; actual_reps: n
 type SessionRow = { id: string; day_name: string; completed_at: string; exercises_count: number; workout_session_sets: SessionSetRow[] }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })
+  return formatInstantAR(iso)
 }
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+  return formatInstantAR(iso, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
 }
 
 export default async function MemberDetailPage({ params }: Props) {
@@ -189,7 +190,7 @@ export default async function MemberDetailPage({ params }: Props) {
           {
             icon: <Clock className="h-4 w-4 text-blue-500" />,
             label: "Última visita",
-            value: lastVisit ? new Date(lastVisit).toLocaleDateString("es-AR", { day: "2-digit", month: "short" }) : "—",
+            value: lastVisit ? formatInstantAR(lastVisit, { day: "2-digit", month: "short" }) : "—",
           },
           {
             icon: <Zap className="h-4 w-4 text-amber-500" />,
