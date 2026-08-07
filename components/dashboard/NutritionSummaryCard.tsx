@@ -183,7 +183,6 @@ function WaterGlassSvg({ filled }: { filled: boolean }) {
           opacity="0.72"
         />
       )}
-      <path d="M5.2 7.2h7.6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.55" />
     </svg>
   )
 }
