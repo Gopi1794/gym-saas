@@ -206,7 +206,7 @@ export default function NutritionSummaryCard({ plan, streak, consumed, waterGlas
 
   return (
     <Link href="/nutricion" className="group block active:scale-[0.99] transition-transform duration-150 ease-out">
-      <section className="relative overflow-hidden rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-brand-700/20 dark:bg-zinc-900/60 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-6">
+      <section className="relative overflow-hidden rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-transparent dark:ring-1 dark:ring-inset dark:ring-brand-700/20 dark:bg-zinc-900/60 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-6">
         <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-zinc-950/10 to-transparent dark:via-white/20" />
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
