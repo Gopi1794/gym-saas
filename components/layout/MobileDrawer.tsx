@@ -93,14 +93,14 @@ export default function MobileDrawer({ profile }: MobileDrawerProps) {
           <div
             onClick={closeDrawer}
             className={cn(
-              "fixed inset-0 z-50 bg-black/60 transition-opacity duration-300 md:hidden",
+              "fixed inset-0 z-50 bg-black/60 transition-opacity duration-300 ease-[var(--ease-out)] md:hidden",
               open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
             )}
           />
 
           <div
             className={cn(
-              "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-zinc-200 bg-white transition-transform duration-300 ease-in-out dark:border-zinc-800/60 dark:bg-zinc-950 md:hidden",
+              "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-zinc-200 bg-white transition-transform duration-300 ease-[var(--ease-drawer)] motion-reduce:transition-none dark:border-zinc-800/60 dark:bg-zinc-950 md:hidden",
               open ? "translate-x-0" : "-translate-x-full"
             )}
           >
@@ -125,13 +125,13 @@ export default function MobileDrawer({ profile }: MobileDrawerProps) {
                       href={item.href}
                       onClick={closeDrawer}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+                        "group flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
                         isActive
                           ? "bg-brand-700/20 text-brand-500"
                           : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
                       )}
                     >
-                      <item.icon className="h-5 w-5 shrink-0" />
+                      <item.icon className="h-5 w-5 shrink-0 transition-transform duration-150 ease-[var(--ease-out)] group-hover:scale-110" />
                       {item.label}
                     </Link>
                   )
