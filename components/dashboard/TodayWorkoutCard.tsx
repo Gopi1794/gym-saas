@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, Dumbbell, Moon } from "lucide-react";
+import { ChevronRight, Dumbbell, Moon, ClipboardList } from "lucide-react";
 
 type Exercise = {
   name: string;
@@ -36,20 +36,34 @@ export default function TodayWorkoutCard({
     return (
       <Link
         href="/planes"
-        className="relative block overflow-hidden rounded-2xl border border-zinc-200 dark:border-brand-600/40 bg-white dark:bg-brand-900 p-6 active:scale-[0.99] transition-transform"
+        className="relative block overflow-hidden rounded-2xl border border-zinc-200 dark:border-none bg-white dark:bg-brand-950 p-6 active:scale-[0.99] transition-transform"
       >
-        <p className="text-sm font-medium text-brand-600 dark:text-brand-400">
-          Hoy · {dayName}
-        </p>
-        <p className="mt-2 text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
-          Sin rutina hoy
-        </p>
-        <p className="mt-1.5 text-sm text-zinc-500">
-          El entrenador no programó ejercicios para hoy. Tocá para ver tu plan.
-        </p>
-        <div className="absolute top-5 right-5 flex h-10 w-10 items-center justify-center rounded-full bg-brand-600/15 dark:bg-brand-700/20">
-          <Moon className="h-5 w-5 text-white" />
+        {/* Radial glow — solo dark, es donde vive la referencia */}
+        <div className="pointer-events-none absolute inset-0 hidden dark:block dark:bg-[radial-gradient(circle_at_75%_75%,rgba(213,0,0,0.55),transparent_60%)]" />
+
+        <div className="relative z-10 flex items-start justify-between">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-600/15 dark:bg-black/30">
+            <Moon className="h-5 w-5 text-brand-600 dark:text-white" />
+          </div>
+          <ChevronRight className="h-5 w-5 text-zinc-400 dark:text-white/70" />
         </div>
+
+        <div className="relative z-10 mt-5 max-w-[65%]">
+          <p className="text-sm font-medium text-brand-600 dark:text-white/60">
+            Hoy · {dayName}
+          </p>
+          <p className="mt-2 text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
+            Sin rutina hoy
+          </p>
+          <p className="mt-1.5 text-sm text-zinc-500 dark:text-white/70">
+            El entrenador no programó ejercicios para hoy. Tocá para ver tu plan.
+          </p>
+        </div>
+
+        <ClipboardList
+          strokeWidth={1}
+          className="pointer-events-none absolute -bottom-4 -right-4 z-0 hidden h-32 w-32 text-white/10 dark:block"
+        />
       </Link>
     );
   }
