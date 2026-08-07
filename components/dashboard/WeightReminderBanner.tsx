@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Scale, X } from "lucide-react"
+import { Scale, ArrowRight, X } from "lucide-react"
 import { logWeight } from "@/app/actions/nutrition-tracking"
 import { sileo } from "sileo"
 
@@ -17,9 +17,10 @@ export default function WeightReminderBanner({ daysSinceLastLog }: Props) {
   if (dismissed) return null
 
   const never = daysSinceLastLog === null
-  const message = never
-    ? "Registrá tu peso para hacer seguimiento de tu progreso"
-    : `Hace ${daysSinceLastLog} días que no registrás tu peso`
+  const title = never ? "Registrá tu peso" : `Hace ${daysSinceLastLog} días sin registrar`
+  const subtitle = never
+    ? "para hacer seguimiento de tu progreso"
+    : "Registrá tu peso para seguir tu progreso"
 
   function handleLog() {
     const kg = parseFloat(input)
@@ -36,46 +37,50 @@ export default function WeightReminderBanner({ daysSinceLastLog }: Props) {
   }
 
   return (
-    <div className="relative rounded-2xl border border-blue-500/30 bg-zinc-900 px-4 py-3">
+    <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+      <button
+        onClick={() => setDismissed(true)}
+        className="absolute right-3 top-3 text-zinc-600 transition-colors hover:text-zinc-400"
+        aria-label="Descartar"
+      >
+        <X className="h-4 w-4" />
+      </button>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Scale className="h-4 w-4 shrink-0 text-blue-400" />
+      <div className="flex flex-wrap items-center gap-3 pr-5">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-700">
+          <Scale className="h-5 w-5 text-white" />
+        </div>
 
-        <p className="flex-1 text-sm text-zinc-300">{message}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-white">{title}</p>
+          <p className="text-xs text-zinc-400">{subtitle}</p>
+        </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-1.5">
+        <div className="shrink-0">
+          <div className="flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-950/50 px-3 py-1.5">
             <input
               type="number"
               inputMode="decimal"
               step={0.1}
               min={20}
               max={300}
-              placeholder="Ej: 78.5"
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleLog()}
-              className="w-20 bg-transparent text-sm text-zinc-100 placeholder-zinc-600 outline-none"
-              autoFocus={false}
+              className="w-14 bg-transparent text-sm text-zinc-100 outline-none"
             />
             <span className="text-xs text-zinc-500">kg</span>
           </div>
-
-          <button
-            onClick={handleLog}
-            disabled={isPending || !input}
-            className="rounded-xl bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-blue-500 disabled:opacity-40"
-          >
-            {isPending ? "…" : "Guardar"}
-          </button>
+          <p className="mt-1 text-center text-[10px] text-zinc-500">Ej: 78.5 kg</p>
         </div>
 
         <button
-          onClick={() => setDismissed(true)}
-          className="text-zinc-600 transition-colors hover:text-zinc-400"
-          aria-label="Descartar"
+          onClick={handleLog}
+          disabled={isPending || !input}
+          aria-label="Guardar peso"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-700 text-white transition-colors hover:bg-brand-600 disabled:opacity-40"
         >
-          <X className="h-4 w-4" />
+          {isPending ? "…" : <ArrowRight className="h-4 w-4" />}
         </button>
       </div>
     </div>

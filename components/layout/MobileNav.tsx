@@ -60,7 +60,7 @@ export default function MobileNav({ role }: MobileNavProps) {
 
       {/* More sheet */}
       {moreOpen && (
-        <div className="fixed bottom-[56px] left-0 right-0 z-50 rounded-t-2xl border-t border-zinc-800 bg-zinc-950 px-4 pb-4 pt-3">
+        <div className="fixed bottom-[88px] left-3 right-3 z-50 rounded-2xl border border-zinc-800 bg-zinc-950 px-4 pb-4 pt-3 shadow-lg">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Más opciones</p>
             <button onClick={() => setMoreOpen(false)} className="rounded-full p-1 text-zinc-500 hover:text-zinc-300">
@@ -90,8 +90,8 @@ export default function MobileNav({ role }: MobileNavProps) {
       )}
 
       {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md md:hidden safe-bottom">
-        <div className="flex pb-safe">
+      <nav className="fixed inset-x-3 bottom-3 z-40 rounded-full border border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md shadow-lg md:hidden">
+        <div className="flex items-center justify-around px-1 py-1.5">
           {items.map((item) => {
             const isActive = pathname === item.href
             return (
@@ -99,8 +99,10 @@ export default function MobileNav({ role }: MobileNavProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors",
-                  isActive ? "text-brand-500" : "text-zinc-500 hover:text-zinc-300"
+                  "flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 text-[10px] font-medium transition-colors",
+                  isActive
+                    ? "bg-brand-700/20 text-brand-500 shadow-[0_0_12px_rgba(213,0,0,0.35)]"
+                    : "text-zinc-500 hover:text-zinc-300"
                 )}
               >
                 <item.icon className={cn("h-5 w-5", isActive && "text-brand-500")} />
@@ -113,8 +115,10 @@ export default function MobileNav({ role }: MobileNavProps) {
             <button
               onClick={() => setMoreOpen(v => !v)}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors",
-                moreActive || moreOpen ? "text-brand-500" : "text-zinc-500 hover:text-zinc-300"
+                "flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 text-[10px] font-medium transition-colors",
+                moreActive || moreOpen
+                  ? "bg-brand-700/20 text-brand-500 shadow-[0_0_12px_rgba(213,0,0,0.35)]"
+                  : "text-zinc-500 hover:text-zinc-300"
               )}
             >
               <MoreHorizontal className={cn("h-5 w-5", (moreActive || moreOpen) && "text-brand-500")} />
