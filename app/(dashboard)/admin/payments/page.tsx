@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import PaymentsTable, { type PaymentRow } from "@/components/payments/PaymentsTable"
+import TrainerPaymentAccessPanel, { type TrainerAccessRow } from "@/components/payments/TrainerPaymentAccessPanel"
 import PageTour from "@/components/onboarding/PageTour"
 import type { Step } from "react-joyride"
 
@@ -40,15 +41,27 @@ export default async function PaymentsPage() {
     .order("created_at", { ascending: false })
     .limit(100) as unknown as { data: PaymentRow[] | null }
 
+  const { data: trainers } = profile?.role === "admin"
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url, can_collect_payments")
+        .eq("gym_id", profile?.gym_id ?? "")
+        .eq("role", "trainer") as unknown as { data: TrainerAccessRow[] | null }
+    : { data: null }
+
   return (
     <div className="space-y-5 pb-2">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl text-white leading-tight">Pagos</h1>
+          <h1 className="font-display text-2xl text-zinc-900 dark:text-white leading-tight">Pagos</h1>
           <p className="text-xs text-zinc-500 mt-0.5">Historial de pagos del gimnasio</p>
         </div>
         <PageTour tourKey="payments" steps={PAYMENTS_TOUR_STEPS} />
       </div>
+
+      {trainers && trainers.length > 0 && (
+        <TrainerPaymentAccessPanel trainers={trainers} />
+      )}
 
       <div data-tour="payments-table">
         <PaymentsTable payments={payments ?? []} />
