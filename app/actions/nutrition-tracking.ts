@@ -92,6 +92,10 @@ export async function logMealWithItems(
     )
   }
 
+  const { data: profile } = await supabase.from("profiles").select("gym_id").eq("id", user.id).single()
+  checkDailyCalorieThreshold(user.id, (profile as { gym_id: string | null } | null)?.gym_id ?? null)
+    .catch(err => console.error("[logMealWithItems] threshold check:", err))
+
   revalidatePath("/nutricion")
 }
 
@@ -106,6 +110,10 @@ export async function removeMealLog(mealId: string, date: string): Promise<void>
     .eq("member_id", user.id)
     .eq("meal_id", mealId)
     .eq("log_date", date)
+
+  const { data: profile } = await supabase.from("profiles").select("gym_id").eq("id", user.id).single()
+  checkDailyCalorieThreshold(user.id, (profile as { gym_id: string | null } | null)?.gym_id ?? null)
+    .catch(err => console.error("[removeMealLog] threshold check:", err))
 
   revalidatePath("/nutricion")
 }
