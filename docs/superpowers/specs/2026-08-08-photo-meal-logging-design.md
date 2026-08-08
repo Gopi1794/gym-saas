@@ -55,6 +55,22 @@ Función pura (`lib/nutrition-photo-match.ts` o similar): dado un timestamp y la
 
 `time_label` con formato inválido o vacío se ignora silenciosamente para el matcheo (no rompe el cálculo del resto de las comidas).
 
+### 3.5. Bug preexistente que este subsistema debe arreglar de paso
+
+**Encontrado en autorevisión, a partir de un comentario del usuario recordando los bugs de timezone de hoy.** `saveQuickLogEntry` (`app/actions/nutrition-tracking.ts:413`) calcula el día así:
+
+```ts
+const today = new Date().toISOString().split("T")[0]
+```
+
+`toISOString()` devuelve la fecha en **UTC**, no en hora de Argentina — es el mismo bug que ya arreglamos hoy en los pagos (`formatInstantAR`). Alguien que registra entre las 21:00 y la medianoche hora AR queda archivado en `logged_at` del día siguiente, sin aviso. Esto ya rompe el sistema actual (aunque nadie lo reportó todavía), y **rompe directamente el cálculo de las alertas de este subsistema** si no se corrige: una foto de las 22hs computaría mal a qué día pertenece, y el total del día quedaría incompleto.
+
+Fix, dentro del alcance de este subsistema porque lo toca de lleno: cambiar esa línea a `todayAR()` de `lib/date-ar.ts` (mismo patrón ya establecido en el proyecto). Se corrige en el mismo commit que agrega `meal_id`/`photo_url`, no como cambio aparte.
+
+Segunda instancia del mismo bug, misma causa: `app/api/chat/member/route.ts:86` usa el mismo `new Date().toISOString().split("T")[0]` para armar el contexto de "cuánto ya consumió hoy" que se le pasa a Claude — justo el número que mi verificación de umbral necesita correcto. Se corrige junto con la anterior.
+
+Para contraste, `app/(dashboard)/nutricion/page.tsx:34` ya usa `todayAR()` bien — confirma que la utilidad correcta existe y está probada, el problema es que el fix no se aplicó en estos otros dos lugares cuando se hizo la primera vez.
+
 ### 4. Flujo del chat (`app/api/chat/member/route.ts`, `components/chat/MemberChat.tsx`)
 
 - Al recibir una foto de comida, además de lo que ya hace hoy (estimar macros), se corre el matcheo de horario contra el plan activo del miembro.
