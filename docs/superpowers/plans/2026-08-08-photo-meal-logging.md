@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - No modificar el comportamiento de `nutrition_logs`/`nutrition_log_items` (comidas planificadas tildadas a mano) salvo agregar la llamada a la verificación de umbral al final de `logMealWithItems` — sin tocar su guardado.
-- Todo cálculo de "hoy" o de hora del día usa `todayAR()`/`hourAR()` de `lib/date-ar.ts` — nunca `new Date().toISOString()` ni equivalentes en UTC.
+- Todo cálculo de "hoy" o de hora del día usa `todayAR()`/`hourAR()`/`nowMinutesOfDayAR()` de `lib/date-ar.ts` — nunca `new Date().toISOString()`, ni `new Date().getHours()`/`.getMinutes()` sobre un Date real, ni equivalentes en UTC. `.getHours()`/`.getMinutes()` de un `Date` real devuelven la hora del proceso — en un server desplegado en UTC eso NO es la hora de Argentina.
 - El bucket `food-photos` es privado — `photo_url` en `quick_log_entries` guarda un **path de Storage** (`{user_id}/{uuid}.jpg`), no una URL pública. Se resuelve a URL firmada recién al mostrarse.
 - Ventana de matcheo horario: ≤ 3 horas de diferencia con `time_label` de la comida más cercana.
 - Umbrales de alerta: se pasó si el total > 100% de `target_calories`; se quedó corto si, desde las 21:00 (`hourAR() >= 21`), el total < 70% de `target_calories`. Una sola notificación por umbral cruzado por día (vía `dedup_key`).
@@ -159,12 +159,36 @@ git commit -m "fix(nutricion): usar todayAR() en vez de UTC para registrar comid
 **Files:**
 - Create: `lib/nutrition-photo-match.ts`
 - Create: `lib/nutrition-photo-match.test.ts`
+- Modify: `lib/date-ar.ts` (agregar `nowMinutesOfDayAR`)
 
 **Interfaces:**
 - Consumes: nada externo (función pura).
-- Produces: `matchMealByTime(photoDate: Date, meals: { id: string; name: string; time_label: string | null }[]): { id: string; name: string } | null` — usado por Task 8.
+- Produces: `matchMealByTime(photoMinutes: number, meals: { id: string; name: string; time_label: string | null }[]): { id: string; name: string } | null` — usado por Task 8. `nowMinutesOfDayAR(): number` en `lib/date-ar.ts` — usado por Task 8 para obtener el argumento.
 
-- [ ] **Step 1: Escribir los tests primero**
+**Nota de autorevisión**: la primera versión de esta tarea recibía un `Date` (`photoDate: Date`) y hacía `photoDate.getHours()`/`.getMinutes()` adentro de la función. Eso es exactamente el bug de timezone que el resto del plan evita: `.getHours()`/`.getMinutes()` de un `Date` real devuelven la hora del **proceso**, no de Argentina — en un server desplegado en UTC, una foto sacada a las 21:00 AR se leería como si fuera a las 00:00 UTC del día siguiente, rompiendo el matcheo justo en el horario de cena. La función ahora recibe los minutos del día ya en hora de Argentina (`number`, 0–1439), calculados por quien la llama con la función nueva `nowMinutesOfDayAR()` — la función pura deja de tocar timezone por completo.
+
+- [ ] **Step 1: Agregar `nowMinutesOfDayAR()` a `lib/date-ar.ts`**
+
+Agregar, junto a `hourAR()` (mismo archivo, mismo patrón con `Intl.DateTimeFormat` y la constante `TZ` ya existente):
+
+```ts
+/** Minutos desde medianoche (0–1439) en hora de Argentina. */
+export function nowMinutesOfDayAR(): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ,
+    hour: "numeric",
+    minute: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(new Date())
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0)
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0)
+  return hour * 60 + minute
+}
+```
+
+(`hourCycle: "h23"` en vez de `hour12: false` a propósito — evita el caso conocido de algunos motores JS donde medianoche con `hour12: false` devuelve "24" en vez de "0". Código nuevo, sin necesidad de arrastrar esa ambigüedad.)
+
+- [ ] **Step 2: Escribir los tests de `matchMealByTime` primero**
 
 ```ts
 // lib/nutrition-photo-match.test.ts
@@ -179,8 +203,7 @@ const meals = [
 ]
 
 function atHour(h: number, m = 0) {
-  const d = new Date(2026, 0, 1, h, m)
-  return d
+  return h * 60 + m
 }
 
 describe("matchMealByTime", () => {
@@ -223,12 +246,12 @@ describe("matchMealByTime", () => {
 })
 ```
 
-- [ ] **Step 2: Correr los tests para verificar que fallan**
+- [ ] **Step 3: Correr los tests para verificar que fallan**
 
 Run: `npx vitest run lib/nutrition-photo-match.test.ts`
 Expected: FAIL — `Cannot find module './nutrition-photo-match'`
 
-- [ ] **Step 3: Implementar la función**
+- [ ] **Step 4: Implementar la función**
 
 ```ts
 // lib/nutrition-photo-match.ts
@@ -246,23 +269,28 @@ function parseTimeLabelToMinutes(timeLabel: string | null): number | null {
 }
 
 /**
- * Encuentra la comida del plan cuyo time_label está más cerca de la hora del
- * timestamp dado, dentro de una ventana de 3 horas. Fuera de esa ventana (o
- * sin comidas, o time_label inválido en todas), devuelve null — el registro
- * queda como "extra" en vez de forzar un match lejano.
+ * Encuentra la comida del plan cuyo time_label está más cerca de photoMinutes
+ * (minutos desde medianoche, YA en hora de Argentina — ver nowMinutesOfDayAR
+ * en lib/date-ar.ts), dentro de una ventana de 3 horas. Fuera de esa ventana
+ * (o sin comidas, o time_label inválido en todas), devuelve null — el
+ * registro queda como "extra" en vez de forzar un match lejano.
  *
- * Limitación conocida y aceptada: no hay wraparound de medianoche. Una foto
- * a las 00:15 se compara contra time_label en minutos-del-día (0-1439), no
- * contra la cena de las 21:00 del día anterior — para ese caso puntual
- * (comida tarde en la noche, ya pasada la medianoche) el registro queda
- * como "extra" en vez de matchear con la cena. Aceptable para esta versión.
+ * Función pura a propósito: no toca Date ni timezone. Quien la llama es
+ * responsable de convertir a minutos-del-día en hora de Argentina antes de
+ * invocarla — mezclar esa conversión acá adentro es cómo se cuela el bug de
+ * timezone (ver nota de autorevisión de esta tarea en el plan).
+ *
+ * Limitación conocida y aceptada: no hay wraparound de medianoche. photoMinutes
+ * cerca de 0 (poco después de medianoche) se compara contra time_label en
+ * minutos-del-día (0-1439), no contra la cena de las 21:00 del día anterior —
+ * para ese caso puntual (comida tarde en la noche, ya pasada la medianoche)
+ * el registro queda como "extra" en vez de matchear con la cena. Aceptable
+ * para esta versión.
  */
 export function matchMealByTime<T extends { id: string; name: string; time_label: string | null }>(
-  photoDate: Date,
+  photoMinutes: number,
   meals: T[]
 ): T | null {
-  const photoMinutes = photoDate.getHours() * 60 + photoDate.getMinutes()
-
   let closest: T | null = null
   let closestDiff = Infinity
 
@@ -282,15 +310,15 @@ export function matchMealByTime<T extends { id: string; name: string; time_label
 }
 ```
 
-- [ ] **Step 4: Correr los tests para verificar que pasan**
+- [ ] **Step 5: Correr los tests para verificar que pasan**
 
 Run: `npx vitest run lib/nutrition-photo-match.test.ts`
 Expected: PASS (7 tests)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add lib/nutrition-photo-match.ts lib/nutrition-photo-match.test.ts
+git add lib/nutrition-photo-match.ts lib/nutrition-photo-match.test.ts lib/date-ar.ts
 git commit -m "feat(nutricion): funcion de matcheo de foto por horario contra el plan"
 ```
 
@@ -767,7 +795,7 @@ git commit -m "feat(nutricion): saveQuickLogEntry acepta meal_id y sube la foto 
 - Modify: `app/api/chat/member/route.ts`
 
 **Interfaces:**
-- Consumes: `matchMealByTime` (Task 3).
+- Consumes: `matchMealByTime` y `nowMinutesOfDayAR` (Task 3).
 - Produces: bloque `[MEAL_MATCH]{...}[/MEAL_MATCH]` agregado al final del stream cuando la respuesta incluye un `[FOOD_LOG]` — consumido por Task 9.
 
 - [ ] **Step 1: Hoistear `plan` fuera del bloque condicional**
@@ -791,9 +819,10 @@ Hoy `const plan = await getMemberNutritionPlan(user.id)` vive dentro de `if (age
 
 - [ ] **Step 2: Agregar el bloque de matcheo al final del stream, cuando hay FOOD_LOG**
 
-Importar la función:
+Importar la función. `todayAR` ya se importa de `@/lib/date-ar` desde la Task 2 — sumar `nowMinutesOfDayAR` a esa misma línea, no una segunda `import` del mismo módulo:
 
 ```ts
+import { todayAR, nowMinutesOfDayAR } from "@/lib/date-ar"
 import { matchMealByTime } from "@/lib/nutrition-photo-match"
 ```
 
@@ -814,8 +843,10 @@ En el bloque `start(controller)` (líneas ~207-238), donde hoy se cierra el stre
         // Si la respuesta incluye un FOOD_LOG (foto de comida), matchear
         // contra el horario de las comidas del plan y mandar la sugerencia
         // como un bloque aparte, mismo protocolo de tags que ya usa FOOD_LOG.
+        // nowMinutesOfDayAR() (no new Date().getHours()) — el server corre en
+        // UTC, la hora real del proceso no es la hora de Argentina.
         if (image && assistantContent.includes("[FOOD_LOG]") && plan?.nutrition_meals) {
-          const matched = matchMealByTime(new Date(), plan.nutrition_meals)
+          const matched = matchMealByTime(nowMinutesOfDayAR(), plan.nutrition_meals)
           const matchBlock = `\n[MEAL_MATCH]${JSON.stringify({
             mealId: matched?.id ?? null,
             mealName: matched?.name ?? null,
