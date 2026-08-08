@@ -6,6 +6,7 @@ import { selectAgent, AGENTS } from "@/lib/chat/agents"
 import { getMemberNutritionPlan } from "@/app/actions/nutrition"
 import { getMealLogsForDate, getQuickLogTotalsForDate } from "@/app/actions/nutrition-tracking"
 import { todayAR } from "@/lib/date-ar"
+import { computeDailyTotals } from "@/lib/nutrition-totals"
 
 const anthropic = new Anthropic()
 
@@ -95,23 +96,8 @@ export async function POST(req: NextRequest) {
         getQuickLogTotalsForDate(user.id, today),
       ])
 
-      // Valores de foods son por 100g → ratio = actual_grams / 100
-      let totalCal = quickTotals.calories, totalProt = quickTotals.protein
-      let totalCarbs = quickTotals.carbs, totalFat = quickTotals.fat
-      for (const log of mealLogs) {
-        const meal = plan.nutrition_meals?.find(m => m.id === log.meal_id)
-        if (!meal) continue
-        for (const logItem of log.items) {
-          const mealItem = meal.nutrition_meal_items?.find(i => i.food_id === logItem.food_id)
-          if (!mealItem?.foods) continue
-          const f = mealItem.foods
-          const r = logItem.actual_grams / 100
-          totalCal   += (f.calories ?? 0) * r
-          totalProt  += (f.protein  ?? 0) * r
-          totalCarbs += (f.carbs    ?? 0) * r
-          totalFat   += (f.fat      ?? 0) * r
-        }
-      }
+      const { calories: totalCal, protein: totalProt, carbs: totalCarbs, fat: totalFat } =
+        computeDailyTotals(plan, mealLogs, quickTotals)
 
       const round = (n: number) => Math.round(n)
       const tc = plan.target_calories ?? 0
