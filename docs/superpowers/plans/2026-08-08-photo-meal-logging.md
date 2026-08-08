@@ -27,6 +27,8 @@
 **Interfaces:**
 - Produces: columnas `quick_log_entries.meal_id` (uuid, nullable, FK a `nutrition_meals(id)` con `on delete set null`), `quick_log_entries.photo_url` (text, nullable); bucket `food-photos`; valor `'calorie_alert'` habilitado en `notifications_type_check`.
 
+**Nota de autorevisión**: la primera versión de las policies de `food-photos` usaba `auth.uid()` pelado y no declaraba `to authenticated` — mismo patrón que `20260517_avatar_storage_policies.sql`, pero ese archivo es anterior a las reglas de seguridad actuales del proyecto (`(select auth.uid())` para evaluar una vez por query, `to` explícito para no caer en `PUBLIC`/`anon` por default). No se toca la migración vieja de avatar — está fuera de alcance — pero código nuevo debe salir ya corregido, no repetir el gap.
+
 - [ ] **Step 1: Escribir la migración completa**
 
 ```sql
@@ -47,25 +49,27 @@ drop policy if exists "Members manage their own food photos" on storage.objects;
 create policy "Members manage their own food photos"
 on storage.objects
 for all
+to authenticated
 using (
   bucket_id = 'food-photos'
-  and auth.uid()::text = (storage.foldername(name))[1]
+  and (select auth.uid())::text = (storage.foldername(name))[1]
 )
 with check (
   bucket_id = 'food-photos'
-  and auth.uid()::text = (storage.foldername(name))[1]
+  and (select auth.uid())::text = (storage.foldername(name))[1]
 );
 
 drop policy if exists "Staff read food photos of their own gym" on storage.objects;
 create policy "Staff read food photos of their own gym"
 on storage.objects
 for select
+to authenticated
 using (
   bucket_id = 'food-photos'
   and exists (
     select 1 from profiles caller
     join profiles owner on owner.gym_id = caller.gym_id
-    where caller.id = auth.uid()
+    where caller.id = (select auth.uid())
       and caller.role in ('admin', 'trainer')
       and owner.id::text = (storage.foldername(name))[1]
   )
@@ -208,8 +212,8 @@ describe("matchMealByTime", () => {
   })
 
   it("matchea justo en el límite de 3 horas (inclusive)", () => {
-    // 10:00 está a exactamente 2h de desayuno (08:00) y 3h de almuerzo (13:00)
-    expect(matchMealByTime(atHour(10, 0), meals)?.id).toBe("1")
+    // 05:00 está a exactamente 3h de desayuno (08:00, la única dentro de rango) -> límite exacto, debe matchear
+    expect(matchMealByTime(atHour(5, 0), meals)?.id).toBe("1")
   })
 
   it("devuelve null justo pasado el límite de 3 horas", () => {
@@ -1057,23 +1061,44 @@ export async function getQuickLogsForDate(userId: string, date: string): Promise
 
 - [ ] **Step 2: Resolver nombre de comida + URL firmada en la página**
 
-En `app/(dashboard)/nutricion/page.tsx`, donde hoy se llama `getQuickLogsForDate(user!.id, today)`, agregar la resolución de nombre de comida (contra `plan.nutrition_meals`, ya cargado en esa página) y de URL firmada:
+**Corrección tras autorevisión**: la primera versión de este paso declaraba `const supabase = createClient()` de nuevo — pero `supabase` ya existe como variable de función en `page.tsx:20` (`const supabase = createClient()`, usada más arriba para leer `profile`). Redeclararla es un error de compilación (`Cannot redeclare block-scoped variable`). También asumía una llamada suelta a `getQuickLogsForDate`, pero en el archivo real esa llamada ya vive dentro del `Promise.all` de la línea 38, junto a `plan`. La versión correcta reutiliza ambas cosas.
+
+En `app/(dashboard)/nutricion/page.tsx`, dentro del bloque `if (role === "member") { ... }` (líneas 37-57), renombrar el quinto elemento desestructurado del `Promise.all` de `quickLogs` a `quickLogsRaw`, y resolver `meal_name`/`photo_signed_url` después de `mealLogs`, antes del `return`:
 
 ```ts
-  const quickLogsRaw = await getQuickLogsForDate(user!.id, today)
-  const supabase = createClient()
-  const quickLogs = await Promise.all(quickLogsRaw.map(async (q) => {
-    const meal = plan?.nutrition_meals?.find(m => m.id === q.meal_id)
-    let photoSignedUrl: string | null = null
-    if (q.photo_url) {
-      const { data } = await supabase.storage.from("food-photos").createSignedUrl(q.photo_url, 3600)
-      photoSignedUrl = data?.signedUrl ?? null
-    }
-    return { ...q, meal_name: meal?.name ?? null, photo_signed_url: photoSignedUrl }
-  }))
+  if (role === "member") {
+    const [plan, waterGlasses, streak, weightHistory, quickLogsRaw] = await Promise.all([
+      getMemberNutritionPlan(user!.id),
+      getWaterToday(user!.id),
+      getNutritionStreak(user!.id),
+      getWeightHistory(user!.id, 60),
+      getQuickLogsForDate(user!.id, today),
+    ])
+    const mealLogs = plan ? await getMealLogsForDate(user!.id, today) : []
+    const quickLogs = await Promise.all(quickLogsRaw.map(async (q) => {
+      const meal = plan?.nutrition_meals?.find(m => m.id === q.meal_id)
+      let photoSignedUrl: string | null = null
+      if (q.photo_url) {
+        const { data } = await supabase.storage.from("food-photos").createSignedUrl(q.photo_url, 3600)
+        photoSignedUrl = data?.signedUrl ?? null
+      }
+      return { ...q, meal_name: meal?.name ?? null, photo_signed_url: photoSignedUrl }
+    }))
+    return (
+      <MemberNutritionView
+        plan={plan}
+        mealLogs={mealLogs}
+        waterGlasses={waterGlasses}
+        streak={streak}
+        today={today}
+        weightHistory={weightHistory}
+        quickLogs={quickLogs}
+      />
+    )
+  }
 ```
 
-(`plan` y `supabase`/`user` ya existen en esa página antes de este punto — confirmar el nombre exacto de la variable del plan al implementar, es la misma que se le pasa a `MemberNutritionView`.)
+(El resto de la función — la rama admin/trainer con tabs — queda exactamente igual.)
 
 - [ ] **Step 3: Extender el tipo `QuickLogEntry` con los campos resueltos, y pasarlos a la vista**
 
