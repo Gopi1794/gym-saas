@@ -22,6 +22,19 @@ export function hourAR(): number {
   )
 }
 
+/** Minutos desde medianoche (0–1439) en hora de Argentina. */
+export function nowMinutesOfDayAR(): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ,
+    hour: "numeric",
+    minute: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(new Date())
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0)
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0)
+  return hour * 60 + minute
+}
+
 /** Day of week in Argentina (0=Sun … 6=Sat), same convention as JS Date.getDay(). */
 export function dayOfWeekAR(): number {
   return todayDateAR().getDay()
