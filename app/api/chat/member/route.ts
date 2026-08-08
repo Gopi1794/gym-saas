@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { selectAgent, AGENTS } from "@/lib/chat/agents"
 import { getMemberNutritionPlan } from "@/app/actions/nutrition"
 import { getMealLogsForDate, getQuickLogTotalsForDate } from "@/app/actions/nutrition-tracking"
+import { todayAR } from "@/lib/date-ar"
 
 const anthropic = new Anthropic()
 
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
   // ── 5b. Contexto nutricional (solo si agente = nutrition) ───────────────────
   let nutritionContext = ""
   if (agentId === "nutrition") {
-    const today = new Date().toISOString().split("T")[0]
+    const today = todayAR()
     const plan = await getMemberNutritionPlan(user.id)
 
     if (!plan) {

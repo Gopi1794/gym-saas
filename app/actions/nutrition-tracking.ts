@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { calcNutritionTargets, CALORIE_MISMATCH_THRESHOLD } from "@/lib/nutrition"
 import { getMemberProfileForPlan } from "@/app/actions/nutrition"
+import { todayAR } from "@/lib/date-ar"
 import type { NutritionPlan } from "@/app/actions/nutrition"
 
 // ── Types ──────────────────────────────────────────────────────
@@ -410,7 +411,7 @@ export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<void> {
   const { data: profile } = await supabase
     .from("profiles").select("gym_id").eq("id", user.id).single()
 
-  const today = new Date().toISOString().split("T")[0]
+  const today = todayAR()
 
   await supabase.from("quick_log_entries" as never).insert({
     user_id: user.id,
