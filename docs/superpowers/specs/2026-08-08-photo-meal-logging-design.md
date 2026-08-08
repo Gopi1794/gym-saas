@@ -30,15 +30,28 @@ alter table quick_log_entries
   add column photo_url text;
 ```
 
-`on delete set null`: si se borra la comida del plan (ej. el trainer reordena/limpia el plan), el registro histórico del miembro no desaparece — solo pierde el vínculo y pasa a comportarse como "extra".
+`on delete set null`: si se borra la comida del plan (ej. el trainer reordena/limpia el plan), el registro histórico del miembro no desaparece — solo pierde el vínculo y pasa a comportarse como "extra". `meal_id` no es único: una misma comida puede tener varias fotos vinculadas (ej. plato principal + bebida en fotos separadas), no hay restricción de "una foto por comida".
 
 ### 2. Bucket `food-photos`
 
-Migración nueva creando el bucket (`insert into storage.buckets`) y sus policies — a diferencia de `machine-images` (que quedó sin IaC, creado a mano en el dashboard), este se define en SQL versionado como corresponde. Privado (no público como `avatar`/`exercise-images`, porque son fotos de comida de una persona, no algo pensado para mostrarse fuera de la app): política de insert/select restringida a `auth.uid()::text = (storage.foldername(name))[1]` para el propio miembro, más una policy adicional de `select` para `admin`/`trainer` del mismo gym (join contra `profiles`) para habilitar la auditoría futura.
+Migración nueva creando el bucket (`insert into storage.buckets`) y sus policies — a diferencia de `machine-images` (que quedó sin IaC, creado a mano en el dashboard), este se define en SQL versionado como corresponde. Privado (no público como `avatar`/`exercise-images`, porque son fotos de comida de una persona, no algo pensado para mostrarse fuera de la app): política de insert/select restringida a `auth.uid()::text = (storage.foldername(name))[1]` para el propio miembro.
+
+**Corrección tras autorevisión**: la policy de `admin`/`trainer` la había descrito como "join contra profiles" sin más detalle — no alcanza, porque hay que comparar el gym de quien llama contra el gym del *dueño de la carpeta* (dos profiles distintos), no contra el propio. La condición real necesita dos lookups:
+```sql
+exists (
+  select 1 from profiles caller
+  join profiles owner on owner.gym_id = caller.gym_id
+  where caller.id = auth.uid()
+    and caller.role in ('admin', 'trainer')
+    and owner.id::text = (storage.foldername(name))[1]
+)
+```
 
 ### 3. Matcheo de horario
 
-Función pura (`lib/nutrition-photo-match.ts` o similar): dado el timestamp de la foto y la lista de comidas del plan activo (`nutrition_meals` con su `time_label`), parsea cada `time_label` tipo `"HH:MM"` a minutos del día, calcula la diferencia contra la hora de la foto, y devuelve la comida más cercana **si la diferencia es ≤ 3 horas**. Si ninguna comida cae dentro de esa ventana (o el plan no tiene comidas, o el miembro no tiene plan activo), devuelve `null` → el registro queda como "extra".
+Función pura (`lib/nutrition-photo-match.ts` o similar): dado un timestamp y la lista de comidas del plan activo (`nutrition_meals` con su `time_label`), parsea cada `time_label` tipo `"HH:MM"` a minutos del día, calcula la diferencia contra la hora del timestamp, y devuelve la comida más cercana **si la diferencia es ≤ 3 horas**. Si ninguna comida cae dentro de esa ventana (o el plan no tiene comidas, o el miembro no tiene plan activo), devuelve `null` → el registro queda como "extra".
+
+**Corrección tras autorevisión**: la primera versión decía "el timestamp de la foto" sin aclarar de dónde sale ese dato. El pipeline actual (`MemberChat.tsx`) comprime la imagen en un canvas antes de mandarla — eso normalmente descarta los metadatos EXIF, así que no se puede confiar en la fecha de la foto original. El timestamp que se usa es el momento del **servidor** al procesar la confirmación (`now()` en el insert), no algo leído de la imagen ni mandado a mano por el cliente.
 
 `time_label` con formato inválido o vacío se ignora silenciosamente para el matcheo (no rompe el cálculo del resto de las comidas).
 
@@ -51,11 +64,15 @@ Función pura (`lib/nutrition-photo-match.ts` o similar): dado el timestamp de l
 
 ### 5. Alertas de calorías
 
+**Corrección tras autorevisión**: la primera versión de esta sección asumía que la verificación corre "después de cada registro confirmado (foto o comida planificada tildada)" — pero la sección "Fuera de alcance" dice que `nutrition_logs` (el tildado manual de comidas planificadas) no se toca. Esas dos frases se contradicen: si no se toca ese código, tildar una comida planificada nunca dispararía la verificación, y alguien que solo usa el checkbox (sin sacar fotos) no recibiría alertas nunca — un hueco que no tiene sentido dejar. Se resuelve así: se extrae la lógica de "recalcular total del día + verificar umbral + notificar" a una función compartida (ej. `checkDailyCalorieThreshold(memberId, date)`), y se llama desde **los dos** puntos de escritura — el insert nuevo de `quick_log_entries` (este subsistema) y el punto donde hoy se confirma un `nutrition_logs` (existente, se le agrega una llamada a esta función al final, sin tocar su lógica actual de guardado).
+
 Después de cada registro confirmado (foto o comida planificada tildada), se recalcula el total del día y se compara contra `nutrition_plans.target_calories` del plan activo:
 
 - **Se pasó**: si el acumulado supera el 100% del objetivo, dispara alerta.
-- **Se quedó corto**: solo se evalúa desde las 21:00 en adelante (hora del dispositivo/gym) — evita avisar "estás bajo" a media mañana, que es esperable. Si a esa hora el acumulado está por debajo del 70% del objetivo, dispara alerta.
+- **Se quedó corto**: solo se evalúa desde las 21:00 en adelante — usa `hourAR()` de `lib/date-ar.ts` (ya existe en el proyecto para esto exacto, no se inventa un mecanismo de hora nuevo). Si a esa hora el acumulado está por debajo del 70% del objetivo, dispara alerta.
 - **Una sola alerta por umbral cruzado por día** — no se reenvía en cada foto subsiguiente aunque el total siga subiendo o bajando. Se trackea con un campo simple (ej. `notified_over`/`notified_under` boolean del día, o un log de notificaciones ya enviadas hoy para ese miembro+tipo).
+
+**Ojo**: el 100%, el 70% y las 21:00 son valores que propuse yo — nunca se los confirmé al usuario, solo pregunté por dónde debía aparecer la alerta (canal), no en qué umbral. Quedan como default razonable, pero hay que confirmarlos antes de implementar, no darlos por cerrados.
 
 ### 6. Entrega de la alerta
 
@@ -78,4 +95,4 @@ La sección "Registrado por foto" pasa a mostrar, por cada entrada: miniatura de
 
 - Generar un plan nuevo a partir de una semana de fotos (subsistema 2, spec aparte).
 - UI para que el trainer/admin revise las fotos guardadas — el dato queda accesible (RLS ya contempla su lectura), pero construir esa pantalla es trabajo futuro, no de este subsistema.
-- Cambiar el comportamiento de `nutrition_logs` (comidas planificadas tildadas a mano) — sigue funcionando exactamente igual, en paralelo.
+- Cambiar el guardado/lógica de `nutrition_logs` (comidas planificadas tildadas a mano) — sigue exactamente igual. La única adición ahí es la llamada a `checkDailyCalorieThreshold` al final (sección 5), para que las alertas funcionen también para quien no usa fotos — no es un cambio de comportamiento del tildado en sí, es un hook nuevo después.
