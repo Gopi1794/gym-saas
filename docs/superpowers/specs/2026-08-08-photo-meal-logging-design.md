@@ -88,7 +88,7 @@ Después de cada registro confirmado (foto o comida planificada tildada), se rec
 - **Se quedó corto**: solo se evalúa desde las 21:00 en adelante — usa `hourAR()` de `lib/date-ar.ts` (ya existe en el proyecto para esto exacto, no se inventa un mecanismo de hora nuevo). Si a esa hora el acumulado está por debajo del 70% del objetivo, dispara alerta.
 - **Una sola alerta por umbral cruzado por día** — no se reenvía en cada foto subsiguiente aunque el total siga subiendo o bajando. Se trackea con un campo simple (ej. `notified_over`/`notified_under` boolean del día, o un log de notificaciones ya enviadas hoy para ese miembro+tipo).
 
-**Ojo**: el 100%, el 70% y las 21:00 son valores que propuse yo — nunca se los confirmé al usuario, solo pregunté por dónde debía aparecer la alerta (canal), no en qué umbral. Quedan como default razonable, pero hay que confirmarlos antes de implementar, no darlos por cerrados.
+**Confirmado**: el 100%/70%/21:00 eran una propuesta mía sin confirmar — el usuario los aprobó explícitamente como default razonable. Quedan cerrados para esta implementación; ajustarlos después es un cambio de una constante, no de arquitectura.
 
 ### 6. Entrega de la alerta
 
