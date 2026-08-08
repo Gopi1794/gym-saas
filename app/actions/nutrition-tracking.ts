@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { calcNutritionTargets, CALORIE_MISMATCH_THRESHOLD } from "@/lib/nutrition"
-import { getMemberProfileForPlan } from "@/app/actions/nutrition"
-import { todayAR } from "@/lib/date-ar"
+import { getMemberProfileForPlan, getMemberNutritionPlan } from "@/app/actions/nutrition"
+import { todayAR, hourAR } from "@/lib/date-ar"
+import { computeDailyTotals } from "@/lib/nutrition-totals"
 import type { NutritionPlan } from "@/app/actions/nutrition"
 
 // ── Types ──────────────────────────────────────────────────────
@@ -472,4 +473,74 @@ export async function getWeightHistory(memberId: string, days = 90): Promise<Wei
     .gte("log_date", since)
     .order("log_date", { ascending: true })
   return (data ?? []) as unknown as WeightLog[]
+}
+
+// ── Calorie threshold alerts ───────────────────────────────────
+
+const CALORIE_OVER_RATIO = 1.0
+const CALORIE_UNDER_RATIO = 0.7
+const CALORIE_UNDER_HOUR = 21
+
+/**
+ * Recalcula el total de calorías del día de un miembro y, si cruza el
+ * objetivo de su plan activo, dispara una notificación (una sola vez por
+ * umbral por día — dedup vía notifications.dedup_key). Se llama después de
+ * CUALQUIER escritura que pueda cambiar el total del día: un quick log por
+ * foto (Task 7) o una comida planificada tildada (Task 6).
+ */
+export async function checkDailyCalorieThreshold(
+  memberId: string,
+  gymId: string | null
+): Promise<{ alertMessage: string | null }> {
+  const plan = await getMemberNutritionPlan(memberId)
+  if (!plan?.target_calories) return { alertMessage: null }
+
+  const today = todayAR()
+  const [mealLogs, quickTotals] = await Promise.all([
+    getMealLogsForDate(memberId, today),
+    getQuickLogTotalsForDate(memberId, today),
+  ])
+  const totals = computeDailyTotals(plan, mealLogs, quickTotals)
+  const target = plan.target_calories
+
+  let notif: { type: "over" | "under"; title: string; body: string } | null = null
+
+  if (totals.calories > target * CALORIE_OVER_RATIO) {
+    notif = {
+      type: "over",
+      title: "Te pasaste de tu objetivo de hoy",
+      body: `Llevás ${Math.round(totals.calories)} kcal, ${Math.round(totals.calories - target)} kcal arriba de tu objetivo de ${target} kcal.`,
+    }
+  } else if (hourAR() >= CALORIE_UNDER_HOUR && totals.calories < target * CALORIE_UNDER_RATIO) {
+    notif = {
+      type: "under",
+      title: "Te quedaste corto con las calorías de hoy",
+      body: `Llevás ${Math.round(totals.calories)} kcal de tu objetivo de ${target} kcal — todavía estás a tiempo de sumar algo más.`,
+    }
+  }
+
+  if (!notif) return { alertMessage: null }
+
+  const admin = createAdminClient()
+  const { error } = await admin.from("notifications" as never).insert({
+    user_id: memberId,
+    gym_id: gymId,
+    type: "calorie_alert",
+    title: notif.title,
+    body: notif.body,
+    metadata: { calorie_type: notif.type, total: Math.round(totals.calories), target },
+    dedup_key: `calorie_alert:${notif.type}:${memberId}:${today}`,
+  } as never)
+
+  // 23505 = unique_violation en notifications_dedup_idx: ya se avisó hoy para
+  // este umbral — no es un error real, pero tampoco hay que repetir el
+  // mensaje en el chat (ya se mostró la primera vez que se cruzó).
+  if (error) {
+    if ((error as { code?: string }).code !== "23505") {
+      console.error("[checkDailyCalorieThreshold] notification insert:", error)
+    }
+    return { alertMessage: null }
+  }
+
+  return { alertMessage: notif.body }
 }
