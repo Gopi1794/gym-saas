@@ -5,8 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { selectAgent, AGENTS } from "@/lib/chat/agents"
 import { getMemberNutritionPlan } from "@/app/actions/nutrition"
 import { getMealLogsForDate, getQuickLogTotalsForDate } from "@/app/actions/nutrition-tracking"
-import { todayAR } from "@/lib/date-ar"
+import { todayAR, nowMinutesOfDayAR } from "@/lib/date-ar"
 import { computeDailyTotals } from "@/lib/nutrition-totals"
+import { matchMealByTime } from "@/lib/nutrition-photo-match"
 
 const anthropic = new Anthropic()
 
@@ -84,9 +85,10 @@ export async function POST(req: NextRequest) {
 
   // ── 5b. Contexto nutricional (solo si agente = nutrition) ───────────────────
   let nutritionContext = ""
+  let plan: Awaited<ReturnType<typeof getMemberNutritionPlan>> = null
   if (agentId === "nutrition") {
     const today = todayAR()
-    const plan = await getMemberNutritionPlan(user.id)
+    plan = await getMemberNutritionPlan(user.id)
 
     if (!plan) {
       nutritionContext = "\n\nESTADO NUTRICIONAL: El miembro no tiene plan nutricional asignado. El trainer puede crearle uno."
@@ -201,6 +203,22 @@ COMIDAS DEL PLAN: ${mealNames}`
             controller.enqueue(new TextEncoder().encode(event.delta.text))
           }
         }
+
+        // Si la respuesta incluye un FOOD_LOG (foto de comida), matchear
+        // contra el horario de las comidas del plan y mandar la sugerencia
+        // como un bloque aparte, mismo protocolo de tags que ya usa FOOD_LOG.
+        // nowMinutesOfDayAR() (no new Date().getHours()) — el server corre en
+        // UTC, la hora real del proceso no es la hora de Argentina.
+        if (image && assistantContent.includes("[FOOD_LOG]") && plan?.nutrition_meals) {
+          const matched = matchMealByTime(nowMinutesOfDayAR(), plan.nutrition_meals)
+          const matchBlock = `\n[MEAL_MATCH]${JSON.stringify({
+            mealId: matched?.id ?? null,
+            mealName: matched?.name ?? null,
+          })}[/MEAL_MATCH]`
+          assistantContent += matchBlock
+          controller.enqueue(new TextEncoder().encode(matchBlock))
+        }
+
         controller.close()
 
         // Log de respuesta del asistente (fire-and-forget)
