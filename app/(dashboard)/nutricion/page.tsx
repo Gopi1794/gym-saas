@@ -35,7 +35,7 @@ export default async function NutricionPage({
 
   // ── Miembro: vista directa sin tabs ──
   if (role === "member") {
-    const [plan, waterGlasses, streak, weightHistory, quickLogs] = await Promise.all([
+    const [plan, waterGlasses, streak, weightHistory, quickLogsRaw] = await Promise.all([
       getMemberNutritionPlan(user!.id),
       getWaterToday(user!.id),
       getNutritionStreak(user!.id),
@@ -43,6 +43,15 @@ export default async function NutricionPage({
       getQuickLogsForDate(user!.id, today),
     ])
     const mealLogs = plan ? await getMealLogsForDate(user!.id, today) : []
+    const quickLogs = await Promise.all(quickLogsRaw.map(async (q) => {
+      const meal = plan?.nutrition_meals?.find(m => m.id === q.meal_id)
+      let photoSignedUrl: string | null = null
+      if (q.photo_url) {
+        const { data } = await supabase.storage.from("food-photos").createSignedUrl(q.photo_url, 3600)
+        photoSignedUrl = data?.signedUrl ?? null
+      }
+      return { ...q, meal_name: meal?.name ?? null, photo_signed_url: photoSignedUrl }
+    }))
     return (
       <MemberNutritionView
         plan={plan}

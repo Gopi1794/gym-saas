@@ -413,6 +413,9 @@ export type QuickLogEntry = {
   meal_id?: string | null
   image_base64?: string
   image_media_type?: string
+  photo_url?: string | null
+  meal_name?: string | null
+  photo_signed_url?: string | null
 }
 
 export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<{ alertMessage: string | null }> {
@@ -475,7 +478,7 @@ export async function getQuickLogsForDate(userId: string, date: string): Promise
   const supabase = createClient()
   const { data } = await supabase
     .from("quick_log_entries" as never)
-    .select("description, calories, protein_g, carbs_g, fat_g, logged_at")
+    .select("description, calories, protein_g, carbs_g, fat_g, logged_at, meal_id, photo_url")
     .eq("user_id", userId)
     .eq("logged_at", date)
     .order("created_at", { ascending: false })
