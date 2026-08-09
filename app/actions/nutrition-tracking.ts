@@ -410,30 +410,65 @@ export type QuickLogEntry = {
   carbs_g: number
   fat_g: number
   logged_at?: string
+  meal_id?: string | null
+  image_base64?: string
+  image_media_type?: string
 }
 
-export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<void> {
+export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<{ alertMessage: string | null }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
 
   const { data: profile } = await supabase
     .from("profiles").select("gym_id").eq("id", user.id).single()
+  const gymId = (profile as { gym_id: string | null } | null)?.gym_id ?? null
 
   const today = todayAR()
 
+  let photoUrl: string | null = null
+  if (entry.image_base64 && entry.image_media_type) {
+    const ext = entry.image_media_type.split("/")[1] ?? "jpg"
+    const path = `${user.id}/${crypto.randomUUID()}.${ext}`
+    const bytes = Buffer.from(entry.image_base64, "base64")
+    const { error: uploadError } = await supabase.storage
+      .from("food-photos")
+      .upload(path, bytes, { contentType: entry.image_media_type })
+
+    // Un fallo de storage no debe bloquear el registro nutricional — se
+    // guarda igual, sin foto.
+    if (uploadError) {
+      console.error("[saveQuickLogEntry] photo upload:", uploadError)
+    } else {
+      photoUrl = path
+    }
+  }
+
   await supabase.from("quick_log_entries" as never).insert({
     user_id: user.id,
-    gym_id: (profile as { gym_id: string | null } | null)?.gym_id ?? null,
+    gym_id: gymId,
     description: entry.description,
     calories: entry.calories,
     protein_g: entry.protein_g,
     carbs_g: entry.carbs_g,
     fat_g: entry.fat_g,
     logged_at: entry.logged_at ?? today,
+    meal_id: entry.meal_id ?? null,
+    photo_url: photoUrl,
   } as never)
 
   revalidatePath("/nutricion")
+
+  // A diferencia de logMealWithItems (Task 6), acá SÍ se espera el resultado:
+  // este guardado viene del chat, y el texto de alerta (si hay) se muestra
+  // como si fuera un mensaje nuevo del asistente (Task 9) — no puede quedar
+  // fire-and-forget porque el cliente lo necesita para renderizarlo.
+  try {
+    return await checkDailyCalorieThreshold(user.id, gymId)
+  } catch (err) {
+    console.error("[saveQuickLogEntry] threshold check:", err)
+    return { alertMessage: null }
+  }
 }
 
 export async function getQuickLogsForDate(userId: string, date: string): Promise<QuickLogEntry[]> {
