@@ -21,6 +21,7 @@ tsconfig.tsbuildinfo
 CLAUDE.md
 .agents/
 .playwright-mcp/
+.worktrees/
 
 # supabase local dev (keep migrations, ignore local state)
 supabase/.temp/

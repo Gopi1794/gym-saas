@@ -15,13 +15,22 @@ type FoodLog = {
   fat: number
 }
 
+type MealMatch = {
+  mealId: string | null
+  mealName: string | null
+}
+
 type Message = {
   id: string
   role: "user" | "assistant"
   content: string
   imageUrl?: string
+  imageData?: { data: string; mediaType: string }
   foodLog?: FoodLog
+  mealMatch?: MealMatch
   foodLogSaved?: boolean
+  foodLogError?: string
+  linkedMealId?: string | null // permite al usuario desvincular antes de confirmar
 }
 
 async function compressImage(file: File): Promise<{ data: string; mediaType: string }> {
@@ -61,6 +70,20 @@ function parseFoodLog(text: string): FoodLog | null {
 
 function stripFoodLog(text: string): string {
   return text.replace(/\[FOOD_LOG\][\s\S]*?\[\/FOOD_LOG\]/, "").trim()
+}
+
+function parseMealMatch(text: string): MealMatch | null {
+  const match = text.match(/\[MEAL_MATCH\]([\s\S]*?)\[\/MEAL_MATCH\]/)
+  if (!match) return null
+  try {
+    return JSON.parse(match[1]) as MealMatch
+  } catch {
+    return null
+  }
+}
+
+function stripMealMatch(text: string): string {
+  return text.replace(/\[MEAL_MATCH\][\s\S]*?\[\/MEAL_MATCH\]/, "").trim()
 }
 
 const QUICK_ACTIONS = [
@@ -128,11 +151,13 @@ export default function MemberChat() {
     if ((!text && !pendingImage) || streaming) return
 
     const imageUrl = pendingImage?.previewUrl
+    const imageData = pendingImage ? { data: pendingImage.data, mediaType: pendingImage.mediaType } : undefined
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content: text || "📷 Foto de comida",
       imageUrl,
+      imageData,
     }
     const assistantId = crypto.randomUUID()
 
@@ -164,9 +189,12 @@ export default function MemberChat() {
         if (done) break
         accumulated += decoder.decode(value, { stream: true })
         const foodLog = parseFoodLog(accumulated)
-        const displayContent = stripFoodLog(accumulated)
+        const mealMatch = parseMealMatch(accumulated)
+        const displayContent = stripMealMatch(stripFoodLog(accumulated))
         setMessages((prev) =>
-          prev.map((m) => m.id === assistantId ? { ...m, content: displayContent, foodLog: foodLog ?? undefined } : m)
+          prev.map((m) => m.id === assistantId
+            ? { ...m, content: displayContent, foodLog: foodLog ?? undefined, mealMatch: mealMatch ?? undefined, linkedMealId: mealMatch?.mealId ?? m.linkedMealId }
+            : m)
         )
       }
     } catch {
@@ -181,17 +209,42 @@ export default function MemberChat() {
   }
 
   async function handleSaveFoodLog(msgId: string, foodLog: FoodLog) {
+    const assistantMsg = messages.find(m => m.id === msgId)
+    const msgIndex = messages.findIndex(m => m.id === msgId)
+    const userMsg = msgIndex > 0 ? messages[msgIndex - 1] : undefined
+
+    // Limpia el error de un intento anterior: si este reintento sale bien, no
+    // puede quedar el cartel rojo colgado abajo del "Registrado".
+    setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, foodLogError: undefined } : m))
+
     try {
-      await saveQuickLogEntry({
+      const { alertMessage } = await saveQuickLogEntry({
         description: foodLog.description,
         calories: foodLog.calories,
         protein_g: foodLog.protein,
         carbs_g: foodLog.carbs,
         fat_g: foodLog.fat,
+        meal_id: assistantMsg?.linkedMealId ?? null,
+        image_base64: userMsg?.imageData?.data,
+        image_media_type: userMsg?.imageData?.mediaType,
       })
-      setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, foodLogSaved: true } : m))
+      setMessages((prev) => {
+        const withSaved = prev.map((m) => m.id === msgId ? { ...m, foodLogSaved: true } : m)
+        // Canal 2 de la alerta (el canal 1, in-app, ya lo disparó el server
+        // action): un mensaje del asistente sintético, sin volver a llamar a
+        // Claude — el texto ya viene armado de checkDailyCalorieThreshold.
+        if (!alertMessage) return withSaved
+        return [...withSaved, { id: crypto.randomUUID(), role: "assistant" as const, content: alertMessage }]
+      })
     } catch {
-      // silently ignore — user can retry from nutrición page
+      // El guardado falló y NO quedó registrado en ningún lado: la página de
+      // nutrición no ofrece forma de reintentar esta foto puntual, así que
+      // tragarse el error dejaba al socio creyendo que registró la comida.
+      // Se avisa en la card y se deja el botón "Registrar" vivo para
+      // reintentar.
+      setMessages((prev) => prev.map((m) =>
+        m.id === msgId ? { ...m, foodLogError: "No se pudo registrar. Probá de nuevo." } : m
+      ))
     }
   }
 
@@ -328,6 +381,29 @@ export default function MemberChat() {
                                   <span className="text-emerald-600 dark:text-emerald-500">·</span>
                                   <span>{m.foodLog.fat}g grasas</span>
                                 </div>
+                                {!m.foodLogSaved && m.mealMatch?.mealName && (
+                                  <label className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400">
+                                    <input
+                                      type="checkbox"
+                                      checked={m.linkedMealId != null}
+                                      onChange={(e) => setMessages(prev => prev.map(msg =>
+                                        msg.id === m.id ? { ...msg, linkedMealId: e.target.checked ? (m.mealMatch?.mealId ?? null) : null } : msg
+                                      ))}
+                                    />
+                                    Sumar a tu {m.mealMatch.mealName}
+                                  </label>
+                                )}
+                                {!m.foodLogSaved && !m.mealMatch?.mealName && (
+                                  <p className="text-xs text-emerald-600/80 dark:text-emerald-500/70">
+                                    No coincide con ninguna comida programada — se suma como extra igual.
+                                  </p>
+                                )}
+                                {m.foodLogError && (
+                                  <p role="alert" className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                                    <XCircle className="h-3.5 w-3.5 shrink-0" />
+                                    {m.foodLogError}
+                                  </p>
+                                )}
                                 {m.foodLogSaved ? (
                                   <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                                     <CheckCircle2 className="h-3.5 w-3.5" />

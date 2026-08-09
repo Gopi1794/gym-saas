@@ -2,7 +2,7 @@
 // van acá una sola vez, como referencia — no se repiten en los tests que
 // sigan.
 import { describe, it, expect, afterEach, vi } from "vitest"
-import { daysUntilAR, formatDayAR } from "./date-ar"
+import { daysUntilAR, formatDayAR, nowMinutesOfDayAR } from "./date-ar"
 
 // `describe` agrupa los tests de una misma función bajo un nombre común.
 // Es solo organización: no cambia si un test pasa o falla, pero hace que el
@@ -101,6 +101,62 @@ describe("daysUntilAR", () => {
     vi.setSystemTime(new Date("2026-08-03T15:00:00Z"))
 
     expect(daysUntilAR("2026-08-08T00:00:00+00:00")).toBe(5)
+  })
+})
+
+describe("nowMinutesOfDayAR", () => {
+  // Misma técnica que arriba: se congela el instante con vi.setSystemTime y
+  // se verifica qué HORA ARGENTINA lee la función a partir de ese instante
+  // UTC. Es la única pieza del registro de comidas por foto que puede
+  // reintroducir el bug de timezone: con ella se decide a qué comida del plan
+  // corresponde la foto, comparando minutos del día.
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("mediodía en Argentina → 12:30 son 750 minutos", () => {
+    // 15:30 UTC = 12:30 en Argentina (UTC-3). Caso de control: acá el día
+    // UTC y el día argentino coinciden, así que cualquier implementación
+    // (bien o mal escrita) da lo mismo. Sirve de sanity check.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-09T15:30:00Z"))
+
+    expect(nowMinutesOfDayAR()).toBe(12 * 60 + 30)
+  })
+
+  it("la franja del bug: 02:00 UTC son las 23:00 del día anterior en Argentina, no las 02:00", () => {
+    // 02:00 UTC del 9 de agosto = 23:00 del 8 en Argentina. Es exactamente
+    // la franja 21:00–23:59 AR que ya rompió este proyecto varias veces:
+    // leer la hora en UTC daría 120 minutos (02:00) y mandaría la foto a la
+    // comida equivocada — el desayuno en vez de la cena.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-09T02:00:00Z"))
+
+    expect(nowMinutesOfDayAR()).toBe(23 * 60)
+  })
+
+  it("medianoche argentina exacta → 0, no 1440", () => {
+    // 03:00 UTC del 9 = 00:00 del 9 en Argentina. Este test es el que
+    // justifica el `hourCycle: "h23"` de la función: con `hour12: false`,
+    // Intl formatea la medianoche como "24" (ciclo h24), así que esto daría
+    // 1440 —un valor fuera del rango 0–1439— y toda comparación de rangos
+    // horarios contra la medianoche quedaría del lado equivocado. Si alguien
+    // cambia h23 por hour12: false "porque es lo mismo", este test lo frena.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-09T03:00:00Z"))
+
+    expect(nowMinutesOfDayAR()).toBe(0)
+  })
+
+  it("un minuto después de la medianoche argentina → 1", () => {
+    // Confirma que el 0 de arriba es la medianoche real y no un fallback
+    // silencioso: si formatToParts no encontrara las partes, la función
+    // devolvería 0 en los dos casos y el test anterior pasaría por la razón
+    // equivocada.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-09T03:01:00Z"))
+
+    expect(nowMinutesOfDayAR()).toBe(1)
   })
 })
 

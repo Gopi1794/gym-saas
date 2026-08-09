@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { calcNutritionTargets, CALORIE_MISMATCH_THRESHOLD } from "@/lib/nutrition"
-import { getMemberProfileForPlan } from "@/app/actions/nutrition"
+import { getMemberProfileForPlan, getMemberNutritionPlan } from "@/app/actions/nutrition"
+import { todayAR, hourAR } from "@/lib/date-ar"
+import { computeDailyTotals } from "@/lib/nutrition-totals"
 import type { NutritionPlan } from "@/app/actions/nutrition"
 
 // ── Types ──────────────────────────────────────────────────────
@@ -90,6 +92,17 @@ export async function logMealWithItems(
     )
   }
 
+  // Se espera el resultado a propósito: en un runtime serverless (Vercel) la
+  // ejecución puede congelarse apenas se manda la respuesta, así que una
+  // promesa sin await —con 2 queries más y un insert por delante— no tiene
+  // garantía de terminar. El try/catch mantiene el aislamiento original: un
+  // fallo del chequeo de umbral no puede tumbar el registro de la comida.
+  try {
+    await checkDailyCalorieThreshold(user.id)
+  } catch (err) {
+    console.error("[logMealWithItems] threshold check:", err)
+  }
+
   revalidatePath("/nutricion")
 }
 
@@ -104,6 +117,13 @@ export async function removeMealLog(mealId: string, date: string): Promise<void>
     .eq("member_id", user.id)
     .eq("meal_id", mealId)
     .eq("log_date", date)
+
+  // Mismo criterio que logMealWithItems: await + try/catch, no fire-and-forget.
+  try {
+    await checkDailyCalorieThreshold(user.id)
+  } catch (err) {
+    console.error("[removeMealLog] threshold check:", err)
+  }
 
   revalidatePath("/nutricion")
 }
@@ -400,37 +420,111 @@ export type QuickLogEntry = {
   carbs_g: number
   fat_g: number
   logged_at?: string
+  meal_id?: string | null
+  image_base64?: string
+  image_media_type?: string
+  photo_url?: string | null
+  meal_name?: string | null
+  photo_signed_url?: string | null
 }
 
-export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<void> {
+// Whitelist cerrada de tipos de imagen, espejo de allowed_mime_types del
+// bucket food-photos (20260808_quick_log_meal_photo.sql). La extensión no se
+// deriva partiendo el string del cliente: es input no validado y termina
+// dentro del path que se escribe en storage.
+const PHOTO_EXT_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+}
+
+export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<{ alertMessage: string | null }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
 
   const { data: profile } = await supabase
     .from("profiles").select("gym_id").eq("id", user.id).single()
+  const gymId = (profile as { gym_id: string | null } | null)?.gym_id ?? null
 
-  const today = new Date().toISOString().split("T")[0]
+  const today = todayAR()
 
-  await supabase.from("quick_log_entries" as never).insert({
+  let photoUrl: string | null = null
+  if (entry.image_base64 && entry.image_media_type) {
+    const ext = PHOTO_EXT_BY_MIME[entry.image_media_type] ?? "jpg"
+    const path = `${user.id}/${crypto.randomUUID()}.${ext}`
+    const bytes = Buffer.from(entry.image_base64, "base64")
+    const { error: uploadError } = await supabase.storage
+      .from("food-photos")
+      .upload(path, bytes, { contentType: entry.image_media_type })
+
+    // Un fallo de storage no debe bloquear el registro nutricional — se
+    // guarda igual, sin foto.
+    if (uploadError) {
+      console.error("[saveQuickLogEntry] photo upload:", uploadError)
+    } else {
+      photoUrl = path
+    }
+  }
+
+  // El meal_id lo sugiere el server vía [MEAL_MATCH], pero llega de vuelta
+  // desde el cliente (el usuario puede destildarlo, y el valor es
+  // manipulable). La FK a nutrition_meals solo garantiza que el UUID exista
+  // en algún lado — no que sea una comida del plan activo DE ESTE miembro.
+  // Si no pertenece al plan, se degrada a null: es exactamente el
+  // comportamiento ya definido para "no matcheó ninguna comida" (se registra
+  // como extra), así que no hace falta fallar.
+  let mealId: string | null = entry.meal_id ?? null
+  if (mealId) {
+    const plan = await getMemberNutritionPlan(user.id)
+    const belongsToPlan = plan?.nutrition_meals?.some(meal => meal.id === mealId) ?? false
+    if (!belongsToPlan) {
+      console.warn("[saveQuickLogEntry] meal_id ajeno al plan activo — se registra como extra")
+      mealId = null
+    }
+  }
+
+  const { error: insertError } = await supabase.from("quick_log_entries" as never).insert({
     user_id: user.id,
-    gym_id: (profile as { gym_id: string | null } | null)?.gym_id ?? null,
+    gym_id: gymId,
     description: entry.description,
     calories: entry.calories,
     protein_g: entry.protein_g,
     carbs_g: entry.carbs_g,
     fat_g: entry.fat_g,
     logged_at: entry.logged_at ?? today,
+    meal_id: mealId,
+    photo_url: photoUrl,
   } as never)
 
+  // A diferencia del upload de la foto (degradable), si esto falla no se
+  // registró nada: tirar el error es la única forma de que el cliente lo
+  // sepa. Misma convención que logMealWithItems ("Failed to save log").
+  if (insertError) {
+    console.error("[saveQuickLogEntry] insert:", insertError)
+    throw new Error("Failed to save quick log entry")
+  }
+
   revalidatePath("/nutricion")
+
+  // Acá el resultado además se USA: este guardado viene del chat, y el texto
+  // de alerta (si hay) se muestra como si fuera un mensaje nuevo del
+  // asistente (Task 9). En logMealWithItems/removeMealLog también se espera,
+  // pero solo por correctitud en serverless — ahí el alertMessage se ignora
+  // porque no hay chat abierto.
+  try {
+    return await checkDailyCalorieThreshold(user.id)
+  } catch (err) {
+    console.error("[saveQuickLogEntry] threshold check:", err)
+    return { alertMessage: null }
+  }
 }
 
 export async function getQuickLogsForDate(userId: string, date: string): Promise<QuickLogEntry[]> {
   const supabase = createClient()
   const { data } = await supabase
     .from("quick_log_entries" as never)
-    .select("description, calories, protein_g, carbs_g, fat_g, logged_at")
+    .select("description, calories, protein_g, carbs_g, fat_g, logged_at, meal_id, photo_url")
     .eq("user_id", userId)
     .eq("logged_at", date)
     .order("created_at", { ascending: false })
@@ -471,4 +565,98 @@ export async function getWeightHistory(memberId: string, days = 90): Promise<Wei
     .gte("log_date", since)
     .order("log_date", { ascending: true })
   return (data ?? []) as unknown as WeightLog[]
+}
+
+// ── Calorie threshold alerts ───────────────────────────────────
+
+const CALORIE_OVER_RATIO = 1.0
+
+// LIMITACIÓN CONOCIDA de la alerta "te quedaste corto": la cobertura NO es
+// simétrica con la de "te pasaste". Este chequeo corre únicamente como efecto
+// secundario de una escritura (registrar o borrar una comida), así que el
+// socio al que la alerta apunta —el que dejó de registrar— nunca la dispara:
+// si después de las 21:00 no toca nada, no hay escritura y no hay chequeo.
+// En la práctica solo la ve quien registra algo tarde y aun así quedó bajo el
+// 70% del objetivo. Cubrirlo de verdad exige un job programado (cron) que
+// barra a todos los miembros con plan activo, fuera del alcance de este
+// branch. No asumir que ambas alertas llegan igual de seguido.
+const CALORIE_UNDER_RATIO = 0.7
+const CALORIE_UNDER_HOUR = 21
+
+/**
+ * Recalcula el total de calorías del día de un miembro y, si cruza el
+ * objetivo de su plan activo, dispara una notificación (una sola vez por
+ * umbral por día — dedup vía notifications.dedup_key). Se llama después de
+ * CUALQUIER escritura que pueda cambiar el total del día: un quick log por
+ * foto (Task 7) o una comida planificada tildada (Task 6).
+ *
+ * NO se exporta a propósito: este archivo es "use server", así que exportarla
+ * la convertiría en un endpoint de Server Action invocable por cualquier
+ * usuario autenticado — y escribe en notifications con service_role, que
+ * saltea RLS. Sus 3 llamadores viven en este mismo módulo. Por lo mismo el
+ * gym_id se deriva acá adentro del perfil del miembro en vez de confiar en un
+ * parámetro del llamador.
+ */
+async function checkDailyCalorieThreshold(
+  memberId: string
+): Promise<{ alertMessage: string | null }> {
+  const plan = await getMemberNutritionPlan(memberId)
+  if (!plan?.target_calories) return { alertMessage: null }
+
+  const today = todayAR()
+  const [mealLogs, quickTotals] = await Promise.all([
+    getMealLogsForDate(memberId, today),
+    getQuickLogTotalsForDate(memberId, today),
+  ])
+  const totals = computeDailyTotals(plan, mealLogs, quickTotals)
+  const target = plan.target_calories
+
+  let notif: { type: "over" | "under"; title: string; body: string } | null = null
+
+  if (totals.calories > target * CALORIE_OVER_RATIO) {
+    notif = {
+      type: "over",
+      title: "Te pasaste de tu objetivo de hoy",
+      body: `Llevás ${Math.round(totals.calories)} kcal, ${Math.round(totals.calories - target)} kcal arriba de tu objetivo de ${target} kcal.`,
+    }
+  } else if (hourAR() >= CALORIE_UNDER_HOUR && totals.calories < target * CALORIE_UNDER_RATIO) {
+    notif = {
+      type: "under",
+      title: "Te quedaste corto con las calorías de hoy",
+      body: `Llevás ${Math.round(totals.calories)} kcal de tu objetivo de ${target} kcal — todavía estás a tiempo de sumar algo más.`,
+    }
+  }
+
+  if (!notif) return { alertMessage: null }
+
+  // Recién acá se busca el gym_id: es el camino menos frecuente (la mayoría
+  // de los registros no cruzan ningún umbral), y sale del perfil del propio
+  // miembro — nunca de un parámetro del llamador.
+  const supabase = createClient()
+  const { data: profile } = await supabase
+    .from("profiles").select("gym_id").eq("id", memberId).single()
+  const gymId = (profile as { gym_id: string | null } | null)?.gym_id ?? null
+
+  const admin = createAdminClient()
+  const { error } = await admin.from("notifications" as never).insert({
+    user_id: memberId,
+    gym_id: gymId,
+    type: "calorie_alert",
+    title: notif.title,
+    body: notif.body,
+    metadata: { calorie_type: notif.type, total: Math.round(totals.calories), target },
+    dedup_key: `calorie_alert:${notif.type}:${memberId}:${today}`,
+  } as never)
+
+  // 23505 = unique_violation en notifications_dedup_idx: ya se avisó hoy para
+  // este umbral — no es un error real, pero tampoco hay que repetir el
+  // mensaje en el chat (ya se mostró la primera vez que se cruzó).
+  if (error) {
+    if ((error as { code?: string }).code !== "23505") {
+      console.error("[checkDailyCalorieThreshold] notification insert:", error)
+    }
+    return { alertMessage: null }
+  }
+
+  return { alertMessage: notif.body }
 }

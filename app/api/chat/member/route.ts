@@ -5,6 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { selectAgent, AGENTS } from "@/lib/chat/agents"
 import { getMemberNutritionPlan } from "@/app/actions/nutrition"
 import { getMealLogsForDate, getQuickLogTotalsForDate } from "@/app/actions/nutrition-tracking"
+import { todayAR, nowMinutesOfDayAR } from "@/lib/date-ar"
+import { computeDailyTotals } from "@/lib/nutrition-totals"
+import { matchMealByTime } from "@/lib/nutrition-photo-match"
 
 const anthropic = new Anthropic()
 
@@ -82,9 +85,10 @@ export async function POST(req: NextRequest) {
 
   // ── 5b. Contexto nutricional (solo si agente = nutrition) ───────────────────
   let nutritionContext = ""
+  let plan: Awaited<ReturnType<typeof getMemberNutritionPlan>> = null
   if (agentId === "nutrition") {
-    const today = new Date().toISOString().split("T")[0]
-    const plan = await getMemberNutritionPlan(user.id)
+    const today = todayAR()
+    plan = await getMemberNutritionPlan(user.id)
 
     if (!plan) {
       nutritionContext = "\n\nESTADO NUTRICIONAL: El miembro no tiene plan nutricional asignado. El trainer puede crearle uno."
@@ -94,23 +98,8 @@ export async function POST(req: NextRequest) {
         getQuickLogTotalsForDate(user.id, today),
       ])
 
-      // Valores de foods son por 100g → ratio = actual_grams / 100
-      let totalCal = quickTotals.calories, totalProt = quickTotals.protein
-      let totalCarbs = quickTotals.carbs, totalFat = quickTotals.fat
-      for (const log of mealLogs) {
-        const meal = plan.nutrition_meals?.find(m => m.id === log.meal_id)
-        if (!meal) continue
-        for (const logItem of log.items) {
-          const mealItem = meal.nutrition_meal_items?.find(i => i.food_id === logItem.food_id)
-          if (!mealItem?.foods) continue
-          const f = mealItem.foods
-          const r = logItem.actual_grams / 100
-          totalCal   += (f.calories ?? 0) * r
-          totalProt  += (f.protein  ?? 0) * r
-          totalCarbs += (f.carbs    ?? 0) * r
-          totalFat   += (f.fat      ?? 0) * r
-        }
-      }
+      const { calories: totalCal, protein: totalProt, carbs: totalCarbs, fat: totalFat } =
+        computeDailyTotals(plan, mealLogs, quickTotals)
 
       const round = (n: number) => Math.round(n)
       const tc = plan.target_calories ?? 0
@@ -214,6 +203,22 @@ COMIDAS DEL PLAN: ${mealNames}`
             controller.enqueue(new TextEncoder().encode(event.delta.text))
           }
         }
+
+        // Si la respuesta incluye un FOOD_LOG (foto de comida), matchear
+        // contra el horario de las comidas del plan y mandar la sugerencia
+        // como un bloque aparte, mismo protocolo de tags que ya usa FOOD_LOG.
+        // nowMinutesOfDayAR() (no new Date().getHours()) — el server corre en
+        // UTC, la hora real del proceso no es la hora de Argentina.
+        if (image && assistantContent.includes("[FOOD_LOG]") && plan?.nutrition_meals) {
+          const matched = matchMealByTime(nowMinutesOfDayAR(), plan.nutrition_meals)
+          const matchBlock = `\n[MEAL_MATCH]${JSON.stringify({
+            mealId: matched?.id ?? null,
+            mealName: matched?.name ?? null,
+          })}[/MEAL_MATCH]`
+          assistantContent += matchBlock
+          controller.enqueue(new TextEncoder().encode(matchBlock))
+        }
+
         controller.close()
 
         // Log de respuesta del asistente (fire-and-forget)

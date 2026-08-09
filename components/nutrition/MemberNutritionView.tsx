@@ -449,7 +449,16 @@ export default function MemberNutritionView({ plan, mealLogs, waterGlasses, stre
           <div className="space-y-2">
             {quickLogs.map((q, i) => (
               <div key={i} className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
-                <p className="text-sm text-zinc-700 dark:text-zinc-300 capitalize flex-1 truncate">{q.description}</p>
+                {q.photo_signed_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={q.photo_signed_url} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300 capitalize truncate">{q.description}</p>
+                  {q.meal_name && (
+                    <p className="text-xs text-zinc-500">→ {q.meal_name}</p>
+                  )}
+                </div>
                 <div className="flex items-center gap-3 shrink-0 text-xs text-zinc-500">
                   <span className="font-semibold text-zinc-900 dark:text-zinc-50">{q.calories} kcal</span>
                   <span>{Math.round(Number(q.protein_g))}g prot</span>

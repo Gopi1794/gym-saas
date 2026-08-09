@@ -70,6 +70,14 @@ Cuando el plan contiene porcentajes de carga (ej: "al 50%", "al 70%"):
 4. En ambos casos incluís percent_1rm en workout_plan_set_configs si el campo lo soporta.
 </flujo_porcentajes_1rm>
 
+<flujo_plan_desde_descripcion>
+Cuando el usuario pide crear un plan a partir de una descripción corta (no un documento):
+1. ANTES de llamar a create_plan, mostrás un resumen de lo que vas a generar: deporte/actividad, objetivo, días de la semana elegidos, y notas si las hay.
+   "Voy a crear un plan de [deporte] para [Nombre], objetivo [objetivo], [X] días por semana ([días]). ¿Confirmás?"
+2. Solo llamás a create_plan (mode: "describe") después de la confirmación explícita — es una escritura completa, entra en la regla_maestra #3 igual que cualquier otra.
+3. Si el usuario no especificó algún dato relevante (días, objetivo), preguntás antes de proponer el resumen — no asumís valores por tu cuenta salvo que sean obvios del pedido.
+</flujo_plan_desde_descripcion>
+
 <flujo_plan_desde_documento>
 1. Estructurás el documento en días y ejercicios.
 2. ANTES de escribir nada, mostrás la estructura completa interpretada (días, ejercicios, sets, reps) y pedís confirmación.
@@ -103,6 +111,13 @@ Cuando el usuario pide reemplazar, corregir o eliminar ejercicios específicos d
 4. Recién después agregás los ejercicios correctos.
 5. Al finalizar, llamás get_member_training_plan nuevamente y mostrás el estado final del día para que el usuario confirme que todo está bien.
 </flujo_reemplazar_ejercicios>
+
+<flujo_copiar_plan>
+Cuando el usuario pide copiar el plan de un miembro a otro ("el mismo plan que X pero para Y"):
+1. Mostrás qué vas a hacer antes de ejecutar: "Voy a copiar el plan de [origen] a [destino], con todos sus días y ejercicios. ¿Confirmás?"
+2. Solo ejecutás copy_member_plan tras la confirmación explícita — crea un plan nuevo completo, entra en la regla_maestra #3 igual que cualquier otra escritura.
+3. Si [destino] ya tiene un plan de entrenamiento asignado, lo mencionás en el resumen antes de confirmar: la copia crea un plan nuevo, no reemplaza el existente, y el sistema pasa a usar el más reciente — el viejo queda huérfano pero no se borra.
+</flujo_copiar_plan>
 
 <confirmaciones>
 - Cuentan como confirmación: "sí", "dale", "confirmo", "ok", "hacelo" o equivalente claro.
@@ -221,6 +236,20 @@ async function findOrImportFood(supabase: any, gymId: string, foodNameEn: string
 const norm = (s: string) =>
   (s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
 
+// Match exacto primero; si no hay, un match difuso solo cuenta si es el
+// ÚNICO candidato. Se usa para nombres de ejercicio en varios tools —
+// evita que "sentadilla" pegue en "Sentadilla búlgara" cuando el usuario
+// quiso una distinta. Mejor no encontrar nada (y que el modelo pregunte)
+// que tocar o borrar el ejercicio equivocado.
+function findUniqueMatch<T>(items: T[], getName: (item: T) => string, searchTermNormalized: string): T | null {
+  const exact = items.find(item => norm(getName(item)) === searchTermNormalized)
+  if (exact) return exact
+  const fuzzy = items.filter(item =>
+    norm(getName(item)).includes(searchTermNormalized) || searchTermNormalized.includes(norm(getName(item)))
+  )
+  return fuzzy.length === 1 ? fuzzy[0] : null
+}
+
 async function resolveMemberPlan(
   db: ReturnType<typeof createAdminClient>,
   memberId: string,
@@ -255,13 +284,36 @@ async function resolveMemberPlan(
   return linked ?? null
 }
 
-const findMember = (members: { id: string; full_name: string }[] | null, name: string) => {
-  if (!name) return null
+type MemberRow = { id: string; full_name: string }
+
+function findMemberCandidates(members: MemberRow[] | null, name: string): MemberRow[] {
+  if (!name) return []
   const n = norm(name)
-  return members?.find(m =>
+  return (members ?? []).filter(m =>
     norm(m.full_name ?? "").includes(n) ||
-    norm(n).includes(norm(m.full_name ?? ""))
-  ) ?? null
+    n.includes(norm(m.full_name ?? ""))
+  )
+}
+
+// Resuelve un nombre a UN miembro o devuelve el texto de error/desambiguación
+// que el tool debe reenviarle al modelo. Evita que un match ambiguo (ej:
+// "Juan" con "Juan Pérez" y "Juan Pérez Gómez" en el gym) se resuelva en
+// silencio al primero — el <resolucion_de_miembro> del prompt le pide al
+// modelo que pregunte, pero eso solo puede pasar si la tool le informa
+// que hubo más de un candidato.
+function resolveMember(
+  members: MemberRow[] | null,
+  name: string
+): { member: MemberRow } | { text: string } {
+  const candidates = findMemberCandidates(members, name)
+  if (candidates.length === 0) {
+    return { text: `No encontré al miembro "${name}" en el gym. Verificá que esté registrado con rol "miembro".` }
+  }
+  if (candidates.length > 1) {
+    const names = candidates.map(c => c.full_name).join(", ")
+    return { text: `Hay varios miembros que coinciden con "${name}": ${names}. ¿A cuál te referís?` }
+  }
+  return { member: candidates[0] }
 }
 
 // ── Route ─────────────────────────────────────────────────────
@@ -536,9 +588,9 @@ export async function POST(req: NextRequest) {
         const i = input as { mode: "describe" | "document"; member_name?: string; sport?: string; goal?: string; days_of_week?: number[]; document_text?: string; extra_notes?: string }
         let memberId: string | null = null
         if (i.member_name && members) {
-          const found = findMember(members, i.member_name!)
-          if (!found) return { text: `No encontré al miembro "${i.member_name}" en el gym. Verificá que esté registrado con rol "miembro".` }
-          memberId = found.id
+          const resolved = resolveMember(members, i.member_name!)
+          if ("text" in resolved) return { text: resolved.text }
+          memberId = resolved.member.id
         }
         const planInput = i.mode === "document"
           ? { mode: "document" as const, memberId, documentText: i.document_text ?? "", gymId: profile.gym_id, trainerId: user.id }
@@ -552,8 +604,9 @@ export async function POST(req: NextRequest) {
       if (name === "create_nutrition_plan") {
         const i = input as { member_name: string; goal: "volumen" | "definicion" | "mantenimiento" | "recomposicion" | "rendimiento" | "perdida_moderada"; plan_name?: string; target_calories?: number; notes?: string }
         if (!i.member_name) return { text: "Falta el nombre del miembro." }
-        const match = findMember(members ?? null, i.member_name)
-        if (!match) return { text: `No encontré al miembro "${i.member_name}" en el gym.` }
+        const resolved = resolveMember(members ?? null, i.member_name)
+        if ("text" in resolved) return { text: resolved.text }
+        const match = resolved.member
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: mp } = await (supabase as any).from("profiles").select("weight_kg, height_cm, date_of_birth, training_frequency").eq("id", match.id).single() as { data: MemberProfile | null }
         const targets = calculateNutritionTargets(mp, i.goal, i.target_calories)
@@ -590,8 +643,9 @@ export async function POST(req: NextRequest) {
       if (name === "get_member_plans") {
         const i = input as { member_name: string }
         if (!i.member_name) return { text: "Falta el nombre del miembro." }
-        const match = findMember(members ?? null, i.member_name)
-        if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
+        const resolved = resolveMember(members ?? null, i.member_name)
+        if ("text" in resolved) return { text: resolved.text }
+        const match = resolved.member
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: plans } = await (supabase as any).from("nutrition_plans").select("id, name, goal, is_active").eq("member_id", match.id).eq("gym_id", profile.gym_id).order("created_at", { ascending: false }) as { data: { id: string; name: string; goal: string; is_active: boolean }[] | null }
         if (!plans || plans.length === 0) return { text: `${match.full_name} no tiene planes nutricionales.` }
@@ -620,8 +674,9 @@ export async function POST(req: NextRequest) {
       // get_member_maxes
       if (name === "get_member_maxes") {
         const i = input as { member_name: string }
-        const match = findMember(members ?? null, i.member_name)
-        if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
+        const resolved = resolveMember(members ?? null, i.member_name)
+        if ("text" in resolved) return { text: resolved.text }
+        const match = resolved.member
         const { data: maxes } = await adminDb
           .from("exercise_maxes" as never)
           .select("weight_kg, recorded_at, exercises(name)")
@@ -644,8 +699,9 @@ export async function POST(req: NextRequest) {
       if (name === "get_member_training_plan") {
         const i = input as { member_name: string }
         if (!i.member_name) return { text: "Falta el nombre del miembro." }
-        const match = findMember(members ?? null, i.member_name)
-        if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
+        const resolved = resolveMember(members ?? null, i.member_name)
+        if ("text" in resolved) return { text: resolved.text }
+        const match = resolved.member
         const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
         if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
         const { data: days } = await adminDb.from("workout_plan_days" as never).select("id, day_of_week, workout_plan_exercises(order_index, sets, reps, reps_max, duration_seconds, rest_seconds, phase, notes, exercises(name, category, muscle_groups))").eq("plan_id", plan.id).order("day_of_week") as { data: { id: string; day_of_week: number; workout_plan_exercises: { order_index: number; sets: number; reps: number | null; reps_max: number | null; duration_seconds: number | null; rest_seconds: number | null; phase: string; notes: string | null; exercises: { name: string; category: string; muscle_groups: string[] } }[] }[] | null }
@@ -667,8 +723,9 @@ export async function POST(req: NextRequest) {
       // remove_exercises_from_day
       if (name === "remove_exercises_from_day") {
         const i = input as { member_name: string; day_of_week: number; exercise_names: string[] }
-        const match = findMember(members ?? null, i.member_name)
-        if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
+        const resolved = resolveMember(members ?? null, i.member_name)
+        if ("text" in resolved) return { text: resolved.text }
+        const match = resolved.member
         const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
         if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
         const { data: planDay } = await adminDb
@@ -688,7 +745,7 @@ export async function POST(req: NextRequest) {
         const notFound: string[] = []
 
         for (const exName of i.exercise_names) {
-          const match2 = planExercises?.find(pe => norm(pe.exercises?.name ?? "") === norm(exName) || norm(pe.exercises?.name ?? "").includes(norm(exName)))
+          const match2 = findUniqueMatch(planExercises ?? [], pe => pe.exercises?.name ?? "", norm(exName))
           if (!match2) { notFound.push(exName); continue }
           await adminDb.from("workout_plan_exercises" as never).delete().eq("id", match2.id)
           removed.push(exName)
@@ -702,8 +759,9 @@ export async function POST(req: NextRequest) {
       // reorder_exercises_in_day
       if (name === "reorder_exercises_in_day") {
         const i = input as { member_name: string; day_of_week: number; phase: string; ordered_exercise_names: string[] }
-        const match = findMember(members ?? null, i.member_name)
-        if (!match) return { text: `No encontré al miembro "${i.member_name}".` }
+        const resolved = resolveMember(members ?? null, i.member_name)
+        if ("text" in resolved) return { text: resolved.text }
+        const match = resolved.member
         const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
         if (!plan) return { text: `${match.full_name} no tiene un plan de entrenamiento asignado.` }
         const { data: planDay } = await adminDb
@@ -728,7 +786,7 @@ export async function POST(req: NextRequest) {
 
         const updates: { id: string; order_index: number }[] = []
         for (const [pos, exName] of i.ordered_exercise_names.entries()) {
-          const found = phaseExs.find(pe => norm(pe.exercises?.name ?? "").includes(norm(exName)) || norm(exName).includes(norm(pe.exercises?.name ?? "")))
+          const found = findUniqueMatch(phaseExs, pe => pe.exercises?.name ?? "", norm(exName))
           if (found) updates.push({ id: found.id, order_index: baseIndex + pos })
         }
 
@@ -741,10 +799,15 @@ export async function POST(req: NextRequest) {
         const i = input as { member_id?: string; member_name?: string; day_of_week: number; exercises: { name: string; category?: string; phase?: string; muscle_groups?: string[]; sets?: number; reps?: number; reps_max?: number; rest_seconds?: number; duration_seconds?: number; notes?: string }[] }
         console.log("[trainer-chat] add_exercises_to_plan_day LLAMADO:", JSON.stringify({ member_name: i.member_name, member_id: i.member_id, day: i.day_of_week, exercises: i.exercises.map(e => ({ name: e.name, category: e.category, phase: e.phase, sets: e.sets, reps: e.reps, duration_seconds: e.duration_seconds })) }))
         if (!i.member_name && !i.member_id) return { text: "Falta el nombre del miembro." }
-        const match = i.member_id
-          ? (members ?? []).find(m => m.id === i.member_id) ?? null
-          : findMember(members ?? null, i.member_name ?? "")
-        if (!match) return { text: `No encontré al miembro "${i.member_name ?? i.member_id}".` }
+        let match: MemberRow | null
+        if (i.member_id) {
+          match = (members ?? []).find(m => m.id === i.member_id) ?? null
+          if (!match) return { text: `No encontré al miembro con id "${i.member_id}".` }
+        } else {
+          const resolved = resolveMember(members ?? null, i.member_name ?? "")
+          if ("text" in resolved) return { text: resolved.text }
+          match = resolved.member
+        }
 
         // Use adminDb throughout to avoid RLS blocking plan/day/exercise operations
         const plan = await resolveMemberPlan(adminDb, match.id, profile.gym_id)
@@ -761,14 +824,26 @@ export async function POST(req: NextRequest) {
         let orderIndex = existingEx?.[0] ? existingEx[0].order_index + 1 : 0
         const added: string[] = [], created: string[] = [], failed: string[] = []
 
-        // Cache exercise library once for this batch (avoid N queries of 500 rows)
-        const { data: exerciseLibrary } = await adminDb.from("exercises" as never).select("id, name").limit(500) as { data: { id: string; name: string }[] | null }
+        // Cache exercise library once for this batch (avoid N queries per exercise).
+        // 3000 cubre con margen cualquier catálogo real de un gym.
+        const { data: exerciseLibrary } = await adminDb.from("exercises" as never).select("id, name").limit(3000) as { data: { id: string; name: string }[] | null }
 
         for (const ex of i.exercises) {
           // Normalize search term: remove accents so "movilizacion" matches "Movilización"
           const searchTerm = norm(ex.name)
 
-          let exercise: { id: string } | null = exerciseLibrary?.find(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? null
+          // Exact match primero (siempre seguro). Si no hay exacto, un match
+          // difuso solo cuenta si es el ÚNICO candidato — con 2+ candidatos
+          // (ej: "sentadilla" contra "Sentadilla" y "Sentadilla búlgara") no
+          // hay forma de saber cuál quiso el usuario, así que se trata como
+          // "no existe" y se crea el ejercicio nuevo en vez de reusar uno
+          // que podría ser el incorrecto.
+          const exactMatch = exerciseLibrary?.find(e => norm(e.name) === searchTerm) ?? null
+          let exercise: { id: string } | null = exactMatch
+          if (!exercise) {
+            const fuzzyCandidates = exerciseLibrary?.filter(e => norm(e.name).includes(searchTerm) || searchTerm.includes(norm(e.name))) ?? []
+            exercise = fuzzyCandidates.length === 1 ? fuzzyCandidates[0] : null
+          }
 
           if (!exercise) {
             const resolvedCategory = ex.category ?? (ex.phase === "cooldown" ? "flexibility" : ex.phase === "warmup" ? "cardio" : "strength")
@@ -818,10 +893,12 @@ export async function POST(req: NextRequest) {
       if (name === "copy_member_plan") {
         const i = input as { source_member_name: string; target_member_name: string; plan_name?: string }
 
-        const source = findMember(members ?? null, i.source_member_name)
-        if (!source) return { text: `No encontré al miembro "${i.source_member_name}".` }
-        const target = findMember(members ?? null, i.target_member_name)
-        if (!target) return { text: `No encontré al miembro "${i.target_member_name}".` }
+        const resolvedSource = resolveMember(members ?? null, i.source_member_name)
+        if ("text" in resolvedSource) return { text: resolvedSource.text }
+        const source = resolvedSource.member
+        const resolvedTarget = resolveMember(members ?? null, i.target_member_name)
+        if ("text" in resolvedTarget) return { text: resolvedTarget.text }
+        const target = resolvedTarget.member
 
         const sourcePlan = await resolveMemberPlan(adminDb, source.id, profile.gym_id)
         if (!sourcePlan) return { text: `${source.full_name} no tiene un plan de entrenamiento asignado.` }
@@ -938,7 +1015,7 @@ export async function POST(req: NextRequest) {
     // para evitar que el modelo genere texto sin ejecutar el tool
     const lastIncomingMsg = body.messages[body.messages.length - 1]
     const isConfirmation = lastIncomingMsg?.role === "user" &&
-      /^(sí|si|dale|ok|okay|confirmo|hacelo|listo|perfecto|va|bueno|sigue|adelante)\s*[!.]*$/i.test(
+      /^(sí|si|dale|ok|okay|confirmo|hacelo|listo|perfecto|va|bueno|sigue|adelante|correcto|exacto)\b/i.test(
         (typeof lastIncomingMsg.content === "string" ? lastIncomingMsg.content : "").trim()
       )
 
@@ -976,7 +1053,7 @@ export async function POST(req: NextRequest) {
       ]
     }
 
-    return respond({ reply: "No pude completar la operación. Intentá de nuevo." })
+    return respond({ reply: "No pude completar la operación. Intentá de nuevo.", planId: lastPlanId, nutritionPlanId: lastNutritionPlanId })
 
   } catch (err) {
     console.error("[trainer-chat]", err)
