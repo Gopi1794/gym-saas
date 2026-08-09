@@ -92,9 +92,16 @@ export async function logMealWithItems(
     )
   }
 
-  const { data: profile } = await supabase.from("profiles").select("gym_id").eq("id", user.id).single()
-  checkDailyCalorieThreshold(user.id, (profile as { gym_id: string | null } | null)?.gym_id ?? null)
-    .catch(err => console.error("[logMealWithItems] threshold check:", err))
+  // Se espera el resultado a propósito: en un runtime serverless (Vercel) la
+  // ejecución puede congelarse apenas se manda la respuesta, así que una
+  // promesa sin await —con 2 queries más y un insert por delante— no tiene
+  // garantía de terminar. El try/catch mantiene el aislamiento original: un
+  // fallo del chequeo de umbral no puede tumbar el registro de la comida.
+  try {
+    await checkDailyCalorieThreshold(user.id)
+  } catch (err) {
+    console.error("[logMealWithItems] threshold check:", err)
+  }
 
   revalidatePath("/nutricion")
 }
@@ -111,9 +118,12 @@ export async function removeMealLog(mealId: string, date: string): Promise<void>
     .eq("meal_id", mealId)
     .eq("log_date", date)
 
-  const { data: profile } = await supabase.from("profiles").select("gym_id").eq("id", user.id).single()
-  checkDailyCalorieThreshold(user.id, (profile as { gym_id: string | null } | null)?.gym_id ?? null)
-    .catch(err => console.error("[removeMealLog] threshold check:", err))
+  // Mismo criterio que logMealWithItems: await + try/catch, no fire-and-forget.
+  try {
+    await checkDailyCalorieThreshold(user.id)
+  } catch (err) {
+    console.error("[removeMealLog] threshold check:", err)
+  }
 
   revalidatePath("/nutricion")
 }
@@ -418,6 +428,16 @@ export type QuickLogEntry = {
   photo_signed_url?: string | null
 }
 
+// Whitelist cerrada de tipos de imagen, espejo de allowed_mime_types del
+// bucket food-photos (20260808_quick_log_meal_photo.sql). La extensión no se
+// deriva partiendo el string del cliente: es input no validado y termina
+// dentro del path que se escribe en storage.
+const PHOTO_EXT_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+}
+
 export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<{ alertMessage: string | null }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -431,7 +451,7 @@ export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<{ alertMe
 
   let photoUrl: string | null = null
   if (entry.image_base64 && entry.image_media_type) {
-    const ext = entry.image_media_type.split("/")[1] ?? "jpg"
+    const ext = PHOTO_EXT_BY_MIME[entry.image_media_type] ?? "jpg"
     const path = `${user.id}/${crypto.randomUUID()}.${ext}`
     const bytes = Buffer.from(entry.image_base64, "base64")
     const { error: uploadError } = await supabase.storage
@@ -447,7 +467,24 @@ export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<{ alertMe
     }
   }
 
-  await supabase.from("quick_log_entries" as never).insert({
+  // El meal_id lo sugiere el server vía [MEAL_MATCH], pero llega de vuelta
+  // desde el cliente (el usuario puede destildarlo, y el valor es
+  // manipulable). La FK a nutrition_meals solo garantiza que el UUID exista
+  // en algún lado — no que sea una comida del plan activo DE ESTE miembro.
+  // Si no pertenece al plan, se degrada a null: es exactamente el
+  // comportamiento ya definido para "no matcheó ninguna comida" (se registra
+  // como extra), así que no hace falta fallar.
+  let mealId: string | null = entry.meal_id ?? null
+  if (mealId) {
+    const plan = await getMemberNutritionPlan(user.id)
+    const belongsToPlan = plan?.nutrition_meals?.some(meal => meal.id === mealId) ?? false
+    if (!belongsToPlan) {
+      console.warn("[saveQuickLogEntry] meal_id ajeno al plan activo — se registra como extra")
+      mealId = null
+    }
+  }
+
+  const { error: insertError } = await supabase.from("quick_log_entries" as never).insert({
     user_id: user.id,
     gym_id: gymId,
     description: entry.description,
@@ -456,18 +493,27 @@ export async function saveQuickLogEntry(entry: QuickLogEntry): Promise<{ alertMe
     carbs_g: entry.carbs_g,
     fat_g: entry.fat_g,
     logged_at: entry.logged_at ?? today,
-    meal_id: entry.meal_id ?? null,
+    meal_id: mealId,
     photo_url: photoUrl,
   } as never)
 
+  // A diferencia del upload de la foto (degradable), si esto falla no se
+  // registró nada: tirar el error es la única forma de que el cliente lo
+  // sepa. Misma convención que logMealWithItems ("Failed to save log").
+  if (insertError) {
+    console.error("[saveQuickLogEntry] insert:", insertError)
+    throw new Error("Failed to save quick log entry")
+  }
+
   revalidatePath("/nutricion")
 
-  // A diferencia de logMealWithItems (Task 6), acá SÍ se espera el resultado:
-  // este guardado viene del chat, y el texto de alerta (si hay) se muestra
-  // como si fuera un mensaje nuevo del asistente (Task 9) — no puede quedar
-  // fire-and-forget porque el cliente lo necesita para renderizarlo.
+  // Acá el resultado además se USA: este guardado viene del chat, y el texto
+  // de alerta (si hay) se muestra como si fuera un mensaje nuevo del
+  // asistente (Task 9). En logMealWithItems/removeMealLog también se espera,
+  // pero solo por correctitud en serverless — ahí el alertMessage se ignora
+  // porque no hay chat abierto.
   try {
-    return await checkDailyCalorieThreshold(user.id, gymId)
+    return await checkDailyCalorieThreshold(user.id)
   } catch (err) {
     console.error("[saveQuickLogEntry] threshold check:", err)
     return { alertMessage: null }
@@ -524,6 +570,16 @@ export async function getWeightHistory(memberId: string, days = 90): Promise<Wei
 // ── Calorie threshold alerts ───────────────────────────────────
 
 const CALORIE_OVER_RATIO = 1.0
+
+// LIMITACIÓN CONOCIDA de la alerta "te quedaste corto": la cobertura NO es
+// simétrica con la de "te pasaste". Este chequeo corre únicamente como efecto
+// secundario de una escritura (registrar o borrar una comida), así que el
+// socio al que la alerta apunta —el que dejó de registrar— nunca la dispara:
+// si después de las 21:00 no toca nada, no hay escritura y no hay chequeo.
+// En la práctica solo la ve quien registra algo tarde y aun así quedó bajo el
+// 70% del objetivo. Cubrirlo de verdad exige un job programado (cron) que
+// barra a todos los miembros con plan activo, fuera del alcance de este
+// branch. No asumir que ambas alertas llegan igual de seguido.
 const CALORIE_UNDER_RATIO = 0.7
 const CALORIE_UNDER_HOUR = 21
 
@@ -533,10 +589,16 @@ const CALORIE_UNDER_HOUR = 21
  * umbral por día — dedup vía notifications.dedup_key). Se llama después de
  * CUALQUIER escritura que pueda cambiar el total del día: un quick log por
  * foto (Task 7) o una comida planificada tildada (Task 6).
+ *
+ * NO se exporta a propósito: este archivo es "use server", así que exportarla
+ * la convertiría en un endpoint de Server Action invocable por cualquier
+ * usuario autenticado — y escribe en notifications con service_role, que
+ * saltea RLS. Sus 3 llamadores viven en este mismo módulo. Por lo mismo el
+ * gym_id se deriva acá adentro del perfil del miembro en vez de confiar en un
+ * parámetro del llamador.
  */
-export async function checkDailyCalorieThreshold(
-  memberId: string,
-  gymId: string | null
+async function checkDailyCalorieThreshold(
+  memberId: string
 ): Promise<{ alertMessage: string | null }> {
   const plan = await getMemberNutritionPlan(memberId)
   if (!plan?.target_calories) return { alertMessage: null }
@@ -566,6 +628,14 @@ export async function checkDailyCalorieThreshold(
   }
 
   if (!notif) return { alertMessage: null }
+
+  // Recién acá se busca el gym_id: es el camino menos frecuente (la mayoría
+  // de los registros no cruzan ningún umbral), y sale del perfil del propio
+  // miembro — nunca de un parámetro del llamador.
+  const supabase = createClient()
+  const { data: profile } = await supabase
+    .from("profiles").select("gym_id").eq("id", memberId).single()
+  const gymId = (profile as { gym_id: string | null } | null)?.gym_id ?? null
 
   const admin = createAdminClient()
   const { error } = await admin.from("notifications" as never).insert({

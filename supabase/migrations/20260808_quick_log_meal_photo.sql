@@ -6,10 +6,19 @@ alter table quick_log_entries
   add column photo_url text;
 
 -- 2. Bucket food-photos — privado (a diferencia de avatar/exercise-images).
--- Path: {user_id}/{uuid}.jpg
-insert into storage.buckets (id, name, public)
-values ('food-photos', 'food-photos', false)
-on conflict (id) do update set public = false;
+-- Path: {user_id}/{uuid}.{jpg|png|webp}
+--
+-- file_size_limit y allowed_mime_types los aplica Storage del lado del
+-- servidor: son el único techo real, porque la compresión a 1024px que hace
+-- el cliente (MemberChat.compressImage) es sugerencia, no control. 5 MB sobra
+-- para una foto de comida comprimida. La whitelist de MIME está espejada en
+-- PHOTO_EXT_BY_MIME (app/actions/nutrition-tracking.ts).
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('food-photos', 'food-photos', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set
+  public = false,
+  file_size_limit = 5242880,
+  allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
 
 drop policy if exists "Members manage their own food photos" on storage.objects;
 create policy "Members manage their own food photos"

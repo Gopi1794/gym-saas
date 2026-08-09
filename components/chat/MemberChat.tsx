@@ -29,6 +29,7 @@ type Message = {
   foodLog?: FoodLog
   mealMatch?: MealMatch
   foodLogSaved?: boolean
+  foodLogError?: string
   linkedMealId?: string | null // permite al usuario desvincular antes de confirmar
 }
 
@@ -212,6 +213,10 @@ export default function MemberChat() {
     const msgIndex = messages.findIndex(m => m.id === msgId)
     const userMsg = msgIndex > 0 ? messages[msgIndex - 1] : undefined
 
+    // Limpia el error de un intento anterior: si este reintento sale bien, no
+    // puede quedar el cartel rojo colgado abajo del "Registrado".
+    setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, foodLogError: undefined } : m))
+
     try {
       const { alertMessage } = await saveQuickLogEntry({
         description: foodLog.description,
@@ -232,7 +237,14 @@ export default function MemberChat() {
         return [...withSaved, { id: crypto.randomUUID(), role: "assistant" as const, content: alertMessage }]
       })
     } catch {
-      // silently ignore — user can retry from nutrición page
+      // El guardado falló y NO quedó registrado en ningún lado: la página de
+      // nutrición no ofrece forma de reintentar esta foto puntual, así que
+      // tragarse el error dejaba al socio creyendo que registró la comida.
+      // Se avisa en la card y se deja el botón "Registrar" vivo para
+      // reintentar.
+      setMessages((prev) => prev.map((m) =>
+        m.id === msgId ? { ...m, foodLogError: "No se pudo registrar. Probá de nuevo." } : m
+      ))
     }
   }
 
@@ -384,6 +396,12 @@ export default function MemberChat() {
                                 {!m.foodLogSaved && !m.mealMatch?.mealName && (
                                   <p className="text-xs text-emerald-600/80 dark:text-emerald-500/70">
                                     No coincide con ninguna comida programada — se suma como extra igual.
+                                  </p>
+                                )}
+                                {m.foodLogError && (
+                                  <p role="alert" className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                                    <XCircle className="h-3.5 w-3.5 shrink-0" />
+                                    {m.foodLogError}
                                   </p>
                                 )}
                                 {m.foodLogSaved ? (
