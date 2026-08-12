@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, AlertTriangle, ChevronRight, X, MessageCircle, UserRoundPlus, CheckCircle2 } from "lucide-react"
+import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, AlertTriangle, Flame, ChevronRight, X, MessageCircle, UserRoundPlus, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { formatDayAR } from "@/lib/date-ar"
@@ -14,7 +14,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js"
 // (Date.now() puede repetirse en la misma ms; un contador nunca se repite)
 let _channelSeq = 0
 
-type NotificationType = "new_member" | "check_in" | "achievement" | "plan_assigned" | "membership_expiring" | "churn_alert" | "weight_drift"
+type NotificationType = "new_member" | "check_in" | "achievement" | "plan_assigned" | "membership_expiring" | "churn_alert" | "weight_drift" | "calorie_alert"
 
 interface Notification {
   id: string
@@ -43,6 +43,7 @@ const TYPE_ICON: Record<NotificationType, React.ElementType> = {
   membership_expiring: Clock,
   churn_alert:         AlertTriangle,
   weight_drift:        Scale,
+  calorie_alert:       Flame,
 }
 
 const TYPE_COLOR: Record<NotificationType, string> = {
@@ -53,6 +54,7 @@ const TYPE_COLOR: Record<NotificationType, string> = {
   membership_expiring: "bg-red-500/15 text-red-400",
   churn_alert:         "bg-orange-500/15 text-orange-400",
   weight_drift:        "bg-amber-500/15 text-amber-400",
+  calorie_alert:       "bg-red-500/15 text-red-400",
 }
 
 // Categoría — grano grueso, para el tag de cada card y los chips de filtro.
@@ -67,6 +69,7 @@ const TYPE_CATEGORY: Record<NotificationType, CategoryKey> = {
   membership_expiring: "system",
   churn_alert:         "system",
   weight_drift:        "system",
+  calorie_alert:       "system",
   achievement:         "achievement",
 }
 
@@ -99,6 +102,8 @@ function getNotificationHref(n: Notification): string | null {
       const planId = n.metadata?.plan_id
       return typeof planId === "string" ? `/nutricion/${planId}` : null
     }
+    case "calorie_alert":
+      return "/nutricion"
     default:
       return null
   }
