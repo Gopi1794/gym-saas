@@ -1022,12 +1022,27 @@ export async function POST(req: NextRequest) {
     for (let iter = 0; iter < 5; iter++) {
       const response = await anthropic.messages.create({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2048,
+        max_tokens: 8192,
         system: dynamicSystem,
         tools,
         messages: agentMessages,
         ...(isConfirmation && iter === 0 ? { tool_choice: { type: "any" as const } } : {}),
       })
+
+      // Pedidos grandes (ej: agregar ejercicios a los 5 días de la semana en
+      // una sola confirmación) pueden necesitar más tokens de los que hay
+      // disponibles incluso con el límite ya subido — el modelo se corta a
+      // mitad de un tool_use y stop_reason da "max_tokens", no "tool_use".
+      // Sin este chequeo, el código de abajo devolvía el texto parcial que
+      // alcanzó a escribir (algo como "Dale, voy a agregar los ejercicios
+      // ahora") como si fuera la respuesta final, sin ejecutar ningún tool
+      // y sin avisar que se truncó — el usuario veía un "Procesando…" que
+      // nunca terminaba de verdad.
+      if (response.stop_reason === "max_tokens") {
+        const reply = "La respuesta se cortó por ser demasiado larga — probá pedir menos días o ejercicios por mensaje (por ejemplo, un día a la vez) y volvé a confirmar."
+        logChat("assistant", reply)
+        return Response.json({ reply, planId: lastPlanId, nutritionPlanId: lastNutritionPlanId })
+      }
 
       if (response.stop_reason !== "tool_use") {
         const replyText = response.content.find(b => b.type === "text")?.text ?? ""
@@ -1057,6 +1072,23 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     console.error("[trainer-chat]", err)
+
+    // Errores de la API de Anthropic tienen forma conocida (status + message)
+    // — se le puede dar info real al usuario en el chat en vez de mandarlo a
+    // buscar en los logs de Vercel algo que ya sabemos qué es.
+    if (err instanceof Anthropic.APIError) {
+      if (err.status === 400 && /credit balance/i.test(err.message)) {
+        return Response.json({ reply: "No queda saldo en la cuenta de la API de Claude. Hay que cargar crédito en console.anthropic.com antes de seguir usando el chat." }, { status: 500 })
+      }
+      if (err.status === 401) {
+        return Response.json({ reply: "La API key de Claude no es válida o no está configurada. Revisá la variable de entorno ANTHROPIC_API_KEY en Vercel." }, { status: 500 })
+      }
+      if (err.status === 429) {
+        return Response.json({ reply: "Se alcanzó el límite de uso de la API de Claude por ahora. Esperá un momento y probá de nuevo." }, { status: 500 })
+      }
+      return Response.json({ reply: `Error de la API de Claude: ${err.message}` }, { status: 500 })
+    }
+
     return Response.json({ reply: "Ocurrió un error interno. Revisá los logs del servidor." }, { status: 500 })
   }
 }
