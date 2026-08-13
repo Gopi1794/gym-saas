@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import ProfileView from "@/components/profile/ProfileView"
+import ChangePasswordCard from "@/components/profile/ChangePasswordCard"
 import BadgeGrid from "@/components/profile/BadgeGrid"
 import NotificationPreferences from "@/components/profile/NotificationPreferences"
 import MembershipStatusCard from "@/components/profile/MembershipStatusCard"
@@ -106,6 +107,8 @@ export default async function ProfilePage() {
         totalFavorites={totalFavorites ?? 0}
         totalPlans={totalPlans ?? 0}
       />
+
+      <ChangePasswordCard email={user!.email ?? ""} />
 
       {p.role === "member" && (
         <BadgeGrid
