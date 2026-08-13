@@ -20,10 +20,10 @@ import type { Profile } from "@/types"
 
 const NAV_ITEMS = [
   { href: "/dashboard",     label: "Dashboard",     icon: LayoutDashboard },
-  { href: "/personas",      label: "Personas",      icon: Users,         adminOnly: true },
+  { href: "/personas",      label: "Personas",      icon: Users,         staffOnly: true },
   { href: "/entrenamiento", label: "Entrenamiento", icon: Dumbbell },
   { href: "/progress",      label: "Progreso",      icon: TrendingUp,    memberOnly: true },
-  { href: "/achievements",  label: "Logros",        icon: Trophy,        adminOnly: true },
+  { href: "/achievements",  label: "Logros",        icon: Trophy,        staffOnly: true },
   { href: "/check-in",      label: "Check-in",      icon: QrCode },
   { href: "/reports",       label: "Reportes",      icon: BarChart2,     adminOnly: true },
   { href: "/admin",         label: "Administración",icon: Settings,      adminOnly: true },
@@ -58,7 +58,8 @@ export default function MobileDrawer({ profile }: MobileDrawerProps) {
   const isAdminOrTrainer = role === "admin" || role === "trainer"
 
   const visibleItems = NAV_ITEMS.filter((item) => {
-    if (item.adminOnly && !isAdminOrTrainer) return false
+    if ((item as { adminOnly?: boolean }).adminOnly && role !== "admin") return false
+    if ((item as { staffOnly?: boolean }).staffOnly && !isAdminOrTrainer) return false
     if ((item as { memberOnly?: boolean }).memberOnly && role !== "member") return false
     return true
   })
