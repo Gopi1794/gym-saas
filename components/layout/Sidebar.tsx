@@ -106,7 +106,7 @@ export default function Sidebar({ profile }: SidebarProps) {
             onClick={toggleCollapsed}
             aria-label="Expandir menú"
             title="Expandir menú"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 shadow-sm transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:shadow-black/40 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
           >
             <PanelLeftOpen className="h-5 w-5" />
           </button>
@@ -122,7 +122,7 @@ export default function Sidebar({ profile }: SidebarProps) {
               onClick={toggleCollapsed}
               aria-label="Colapsar menú"
               title="Colapsar menú"
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 shadow-sm transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:shadow-black/40 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
             >
               <PanelLeftClose className="h-5 w-5" />
             </button>
