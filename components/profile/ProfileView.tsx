@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { getInitials } from "@/lib/utils";
+import { formatInstantAR } from "@/lib/date-ar";
 import {
   Camera,
   Edit3,
@@ -42,6 +43,8 @@ interface ProfileViewProps {
   totalFavorites: number;
   totalPlans: number;
   assignedClientsCount?: number;
+  lastSignInAt: string | null;
+  emailConfirmed: boolean;
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -185,6 +188,8 @@ export default function ProfileView({
   totalFavorites,
   totalPlans,
   assignedClientsCount = 0,
+  lastSignInAt,
+  emailConfirmed,
 }: ProfileViewProps) {
   const [editing, setEditing] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -210,6 +215,9 @@ export default function ProfileView({
     month: "2-digit",
     year: "numeric",
   });
+  const lastSignInLabel = lastSignInAt
+    ? formatInstantAR(lastSignInAt, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+    : null;
   const tierStyle = MEMBERSHIP_STYLE[membership] ?? MEMBERSHIP_STYLE.basic;
   const nextMedal = MEDALS.find(
     (m) => m.required > 0 && totalCheckIns < m.required,
@@ -528,6 +536,27 @@ export default function ProfileView({
               </div>
               <p className="text-sm font-semibold text-zinc-100">
                 {memberSince}
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="mb-2 flex items-center gap-2 text-zinc-400">
+                <ShieldCheck className="h-4 w-4 text-brand-400" />
+                <span className="text-xs font-bold uppercase tracking-[0.18em]">
+                  Último acceso
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-zinc-100">
+                {lastSignInLabel ?? "Sin registro"}
+              </p>
+              <p className="mt-2 text-xs text-zinc-500">
+                {emailConfirmed ? (
+                  <span className="inline-flex items-center gap-1 text-emerald-400">
+                    <CheckCircle2 className="h-3 w-3" /> Email verificado
+                  </span>
+                ) : (
+                  "Email sin verificar"
+                )}
               </p>
             </div>
           </aside>

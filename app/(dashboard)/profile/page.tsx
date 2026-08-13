@@ -115,6 +115,8 @@ export default async function ProfilePage() {
         totalFavorites={totalFavorites ?? 0}
         totalPlans={totalPlans ?? 0}
         assignedClientsCount={assignedClientsCount ?? 0}
+        lastSignInAt={user!.last_sign_in_at ?? null}
+        emailConfirmed={!!user!.email_confirmed_at}
       />
 
       <ChangePasswordCard email={user!.email ?? ""} />
