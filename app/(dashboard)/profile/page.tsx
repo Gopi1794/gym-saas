@@ -130,7 +130,9 @@ export default async function ProfilePage() {
         />
       )}
 
-      <NotificationPreferences currentHour={(profile as { notification_hour?: number }).notification_hour ?? 7} />
+      {p.role === "member" && (
+        <NotificationPreferences currentHour={(profile as { notification_hour?: number }).notification_hour ?? 7} />
+      )}
     </div>
   )
 }
