@@ -95,7 +95,7 @@ export default function Sidebar({ profile }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "hidden flex-col rounded-[25px] border border-zinc-200 bg-white m-3 shadow-sm transition-[width] duration-200 ease-[var(--ease-in-out)] motion-reduce:transition-none dark:border-zinc-800/60 dark:bg-zinc-950 dark:shadow-[0_0_18px_rgba(213,0,0,0.4)] md:flex",
+        "hidden flex-col rounded-[25px] border border-zinc-200 bg-white m-3 shadow-sm transition-[width] duration-200 ease-[var(--ease-in-out)] motion-reduce:transition-none dark:border-zinc-800/60 dark:bg-zinc-950 md:flex",
         collapsed ? "w-[72px]" : "w-64"
       )}
     >
