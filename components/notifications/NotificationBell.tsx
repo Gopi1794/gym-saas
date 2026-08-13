@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, AlertTriangle, Flame, ChevronRight, X, MessageCircle, UserRoundPlus, CheckCircle2 } from "lucide-react"
+import { AnimatePresence, motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { formatDayAR } from "@/lib/date-ar"
@@ -349,14 +350,38 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Notificaciones"
-        className="relative flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 cursor-pointer"
+        className={cn(
+          "relative flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 text-zinc-500 transition-[box-shadow,background-color,color] duration-300 hover:bg-zinc-200 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 cursor-pointer",
+          unreadCount > 0
+            ? "shadow-[0_0_0_1px_rgba(220,38,38,0.25),0_6px_16px_-2px_rgba(220,38,38,0.45)] dark:shadow-[0_0_0_1px_rgba(248,113,113,0.3),0_6px_18px_-2px_rgba(220,38,38,0.55)]"
+            : "shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_6px_-1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(0,0,0,0.2),0_2px_6px_-1px_rgba(0,0,0,0.35)]"
+        )}
       >
         <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white leading-none">
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        )}
+        <AnimatePresence>
+          {unreadCount > 0 && (
+            <motion.span
+              key="badge"
+              initial={{ scale: 0.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.4, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 450, damping: 22 }}
+              className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center overflow-hidden rounded-full bg-brand-600 text-[10px] font-bold text-white leading-none"
+            >
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={unreadCount}
+                  initial={{ y: -8, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 8, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </motion.span>
+              </AnimatePresence>
+            </motion.span>
+          )}
+        </AnimatePresence>
       </button>
 
       {/* Panel */}
