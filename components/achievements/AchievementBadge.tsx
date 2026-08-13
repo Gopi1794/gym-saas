@@ -185,7 +185,7 @@ export default function AchievementPanel({
 
           {/* CONDITION PILL */}
           {achievement.description && (
-            <div className="mt-3 rounded-full border border-red-500/20 bg-red-500/10 px-4 py-1.5 text-xs font-medium text-red-300">
+            <div className="mt-3 rounded-full border border-red-500/20 bg-red-500/10 px-4 py-1.5 text-xs font-medium text-red-700 dark:text-red-300">
               {achievement.description}
             </div>
           )}

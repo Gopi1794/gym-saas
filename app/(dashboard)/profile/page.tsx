@@ -59,7 +59,7 @@ export default async function ProfilePage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Profile</h1>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Profile</h1>
           <p className="text-zinc-400">Setting up your profile…</p>
         </div>
         <p className="text-sm text-zinc-500">
@@ -83,7 +83,7 @@ export default async function ProfilePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Mi Perfil</h1>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Mi Perfil</h1>
           <p className="text-zinc-400">Tu tarjeta de entrenador</p>
         </div>
         <div className="md:hidden">

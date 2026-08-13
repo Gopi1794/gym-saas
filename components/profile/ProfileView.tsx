@@ -862,7 +862,7 @@ export default function ProfileView({
           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-200">Editar nombre</p>
           <button
             onClick={() => setEditing(!editing)}
-            className="text-zinc-500 transition-colors hover:text-zinc-200"
+            className="text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-zinc-200"
           >
             <Edit3 className="h-4 w-4" />
           </button>
@@ -875,8 +875,8 @@ export default function ProfileView({
               className="w-full"
               placeholder="Tu nombre completo"
             />
-            <div className="flex items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2">
-              <label className="text-xs text-zinc-400 whitespace-nowrap">Peso (kg)</label>
+            <div className="flex items-center gap-3 rounded-xl border border-zinc-300 bg-zinc-100 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/60">
+              <label className="text-xs text-zinc-500 whitespace-nowrap dark:text-zinc-400">Peso (kg)</label>
               <input
                 type="number"
                 inputMode="decimal"
@@ -886,7 +886,7 @@ export default function ProfileView({
                 value={weightKg}
                 onChange={(e) => setWeightKg(e.target.value)}
                 placeholder="—"
-                className="flex-1 bg-transparent text-right text-sm font-semibold text-zinc-100 placeholder-zinc-600 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                className="flex-1 bg-transparent text-right text-sm font-semibold text-zinc-900 placeholder-zinc-400 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none dark:text-zinc-100 dark:placeholder-zinc-600"
               />
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -898,8 +898,8 @@ export default function ProfileView({
                   className={[
                     "rounded-xl border py-2 text-xs font-semibold transition-all",
                     gender === g
-                      ? "border-brand-500 bg-brand-700/20 text-brand-400"
-                      : "border-zinc-700 bg-zinc-800/60 text-zinc-400 hover:border-zinc-500",
+                      ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-400"
+                      : "border-zinc-300 bg-zinc-100 text-zinc-500 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:border-zinc-500",
                   ].join(" ")}
                 >
                   {g === "male" ? "Hombre" : g === "female" ? "Mujer" : "Otro"}

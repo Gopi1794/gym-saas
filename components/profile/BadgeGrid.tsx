@@ -129,9 +129,8 @@ function AchievementCard({
         "group relative flex flex-col items-center rounded-2xl border p-5 text-left outline-none ring-brand-500/40",
         "transition-all duration-150 focus-visible:ring-2",
         earned
-          ? "border-[#2a2a30] bg-[#18181c] hover:border-brand-500/30 hover:bg-[#1e1a1a] dark:border-[#2a2a30] dark:bg-[#18181c]"
-          : "border-[#222228] bg-[#141418] hover:bg-[#18181c] dark:border-[#222228] dark:bg-[#141418]",
-        "light:border-zinc-200 light:bg-white",
+          ? "border-zinc-200 bg-white hover:border-brand-300 hover:bg-zinc-50 dark:border-[#2a2a30] dark:bg-[#18181c] dark:hover:border-brand-500/30 dark:hover:bg-[#1e1a1a]"
+          : "border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-[#222228] dark:bg-[#141418] dark:hover:bg-[#18181c]",
       )}
     >
       {earned && (
@@ -146,7 +145,7 @@ function AchievementCard({
 
       <p className={cn(
         "mt-3 text-center text-[15px] font-bold leading-snug",
-        earned ? "text-white" : "text-zinc-500",
+        earned ? "text-zinc-900 dark:text-white" : "text-zinc-400 dark:text-zinc-500",
       )}>
         {achievement.name}
       </p>
@@ -160,14 +159,14 @@ function AchievementCard({
       <div className="mt-4 w-full">
         {earned ? (
           <div className="flex items-center justify-center gap-2 rounded-full border border-brand-500/35 bg-brand-500/[0.08] px-4 py-2">
-            <Calendar className="h-3.5 w-3.5 text-brand-400" />
-            <span className="text-[13px] font-semibold text-brand-400">
+            <Calendar className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
+            <span className="text-[13px] font-semibold text-brand-600 dark:text-brand-400">
               {formatDate(earnedAt)}
             </span>
           </div>
         ) : target > 0 ? (
           <div className="space-y-2">
-            <div className="h-2 overflow-hidden rounded-full bg-[#2a2a30]">
+            <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-[#2a2a30]">
               <div
                 className="h-full rounded-full bg-brand-500 transition-all duration-700"
                 style={{ width: `${pct}%` }}
