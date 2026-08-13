@@ -72,6 +72,14 @@ export default async function ProfilePage() {
 
   const p = profile as Profile
 
+  const { count: assignedClientsCount } =
+    p.role === "trainer"
+      ? await supabase
+          .from("profiles")
+          .select("*", { count: "exact", head: true })
+          .eq("trainer_id" as never, p.id)
+      : { count: null }
+
   type MembershipPlanRow = { type: "basic" | "premium" | "vip"; label: string; price: number; duration_days: number; is_active: boolean }
   const { data: membershipPlans } = p.gym_id
     ? await supabase
@@ -106,6 +114,7 @@ export default async function ProfilePage() {
         totalCheckIns={totalCheckIns ?? 0}
         totalFavorites={totalFavorites ?? 0}
         totalPlans={totalPlans ?? 0}
+        assignedClientsCount={assignedClientsCount ?? 0}
       />
 
       <ChangePasswordCard email={user!.email ?? ""} />

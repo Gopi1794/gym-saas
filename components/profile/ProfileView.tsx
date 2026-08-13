@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { GymFlowLogo } from "@/components/ui/GymFlowLogo";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,8 @@ import {
   BarChart2,
   CheckCircle2,
   ChevronsRight,
+  Users,
+  ArrowRight,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -38,6 +41,7 @@ interface ProfileViewProps {
   totalCheckIns: number;
   totalFavorites: number;
   totalPlans: number;
+  assignedClientsCount?: number;
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -180,6 +184,7 @@ export default function ProfileView({
   totalCheckIns,
   totalFavorites,
   totalPlans,
+  assignedClientsCount = 0,
 }: ProfileViewProps) {
   const [editing, setEditing] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -465,6 +470,28 @@ export default function ProfileView({
                   </div>
                 </div>
               </>
+            )}
+
+            {profile.role === "trainer" && (
+              <Link
+                href="/personas"
+                className="mt-7 flex items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-zinc-100 p-4 transition-colors hover:bg-zinc-200 dark:border-white/10 dark:bg-zinc-900/45 dark:hover:bg-zinc-900/70"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-700/15 text-brand-400">
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
+                      {assignedClientsCount}
+                    </p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                      Clientes asignados
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 shrink-0 text-zinc-400" />
+              </Link>
             )}
           </div>
 
