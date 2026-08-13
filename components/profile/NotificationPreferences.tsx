@@ -29,13 +29,13 @@ export default function NotificationPreferences({ currentHour }: Props) {
   }
 
   return (
-    <div className="rounded-2xl border border-white/8 bg-zinc-900/60 p-5 space-y-4">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 space-y-4 dark:border-white/8 dark:bg-zinc-900/60">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800">
-          <Bell className="h-4 w-4 text-zinc-400" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
+          <Bell className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-zinc-100">Notificaciones de membresía</p>
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Notificaciones de membresía</p>
           <p className="text-xs text-zinc-500">Hora en que recibís el aviso de vencimiento</p>
         </div>
       </div>
@@ -44,7 +44,7 @@ export default function NotificationPreferences({ currentHour }: Props) {
         <select
           value={selected}
           onChange={(e) => { setSelected(Number(e.target.value)); setSaved(false) }}
-          className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+          className="flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
           aria-label="Hora de notificación"
         >
           {HOURS.map(({ value, label }) => (
@@ -68,7 +68,7 @@ export default function NotificationPreferences({ currentHour }: Props) {
         </button>
       </div>
 
-      <p className="text-xs text-zinc-600">
+      <p className="text-xs text-zinc-500 dark:text-zinc-600">
         Hora Argentina (UTC−3). Recibirás un aviso 3 días antes de que venza tu membresía.
       </p>
     </div>
