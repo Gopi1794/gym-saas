@@ -148,3 +148,28 @@ export const NUTRITION_GOAL_OPTIONS: { value: NutritionPlan["goal"]; label: stri
 export const NUTRITION_GOAL_LABELS: Partial<Record<NutritionPlan["goal"], string>> = Object.fromEntries(
   NUTRITION_GOALS.map(g => [g.value, g.label])
 )
+
+// ── Adherencia ──────────────────────────────────────────────────
+// Compartido entre el panel de trainers (NutritionAdherencePanel) y la
+// tarjeta de nutrición en el detalle de un socio (members/[id]) — antes
+// vivía duplicado solo en el panel.
+
+export function getAdherenceStatus(daysLogged: number, lastLog: string | null) {
+  if (daysLogged === 0 || !lastLog) return { label: "Sin registros", color: "bg-zinc-800 text-zinc-500" }
+  const today = new Date().toISOString().split("T")[0]
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0]
+  const isRecent = lastLog === today || lastLog === yesterday
+  if (daysLogged >= 5 && isRecent) return { label: "Al día", color: "bg-emerald-500/15 text-emerald-400" }
+  if (daysLogged >= 3) return { label: "Regular", color: "bg-amber-500/15 text-amber-400" }
+  return { label: "Atrasado", color: "bg-red-500/15 text-red-400" }
+}
+
+export function relativeLogDate(dateStr: string | null) {
+  if (!dateStr) return "—"
+  const today = new Date().toISOString().split("T")[0]
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0]
+  if (dateStr === today) return "Hoy"
+  if (dateStr === yesterday) return "Ayer"
+  const diff = Math.round((new Date(today).getTime() - new Date(dateStr).getTime()) / 86400000)
+  return `Hace ${diff} días`
+}
