@@ -131,6 +131,7 @@ export default function AddExerciseDialog() {
               onChange={(e) => setName(e.target.value)}
               placeholder="ej. Sentadilla con barra"
               required
+              className="border-zinc-700 bg-zinc-900 text-zinc-50 placeholder:text-zinc-500"
             />
           </div>
 
@@ -163,6 +164,7 @@ export default function AddExerciseDialog() {
               value={muscles}
               onChange={(e) => setMuscles(e.target.value)}
               placeholder="ej. Cuádriceps, Glúteos, Core"
+              className="border-zinc-700 bg-zinc-900 text-zinc-50 placeholder:text-zinc-500"
             />
           </div>
 

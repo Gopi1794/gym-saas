@@ -97,6 +97,7 @@ export default function GymSettingsPanel() {
                   id="confirm-password"
                   type="password"
                   placeholder="Tu contraseña"
+                  className="border-zinc-700 bg-zinc-900 text-zinc-50 placeholder:text-zinc-500"
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setPasswordError(null); }}
                   autoFocus

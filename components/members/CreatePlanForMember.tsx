@@ -68,6 +68,7 @@ export default function CreatePlanForMember({ memberId, memberName, trainerId, g
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              className="border-zinc-700 bg-zinc-900 text-zinc-50 placeholder:text-zinc-500"
             />
           </div>
           <div className="space-y-1.5">
