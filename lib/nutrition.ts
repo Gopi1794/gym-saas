@@ -1,4 +1,4 @@
-import type { MealItem, Meal, NutritionPlan } from "@/app/actions/nutrition"
+import type { MealItem, Meal, NutritionPlan, GymNutritionDefaults } from "@/app/actions/nutrition"
 
 export function calcMacros(items: MealItem[]) {
   return items.reduce(
@@ -24,20 +24,25 @@ export function calcPlanMacros(meals: Meal[]) {
 // Returns { calories, protein, carbs, fat } daily targets
 // or null if required data is missing.
 
-type MemberProfile = {
-  weight_kg:          number | null
-  height_cm:          number | null
-  date_of_birth:      string | null       // ISO date "YYYY-MM-DD"
-  gender:             "male" | "female" | "other" | null
-  training_frequency: "never" | "1-2" | "3-4" | "5+" | null
-  goal?:              string | null
+export type MemberProfile = {
+  weight_kg:           number | null
+  height_cm:           number | null
+  date_of_birth:       string | null       // ISO date "YYYY-MM-DD"
+  gender:              "male" | "female" | "other" | null
+  training_frequency:  "never" | "1-2" | "3-4" | "5+" | null
+  daily_activity:      "sedentary" | "moderate" | "active" | null
+  metabolic_reference: "male" | "female" | null
+  goal?:               string | null
 }
 
-const ACTIVITY_FACTOR: Record<string, number> = {
-  never: 1.2,
-  "1-2": 1.375,
-  "3-4": 1.55,
-  "5+":  1.725,
+// Actividad × frecuencia. La fila "moderate" es idéntica, valor por valor, a
+// la tabla 1D que existía antes de este cambio — así un perfil sin
+// daily_activity (cae a "moderate" más abajo) calcula exactamente lo mismo
+// que calculaba antes.
+const ACTIVITY_FACTOR: Record<string, Record<string, number>> = {
+  sedentary: { never: 1.2, "1-2": 1.3,   "3-4": 1.45,  "5+": 1.6   },
+  moderate:  { never: 1.2, "1-2": 1.375, "3-4": 1.55,  "5+": 1.725 },
+  active:    { never: 1.3, "1-2": 1.45,  "3-4": 1.65,  "5+": 1.8   },
 }
 
 function ageFromDob(dob: string): number {
@@ -49,64 +54,93 @@ function ageFromDob(dob: string): number {
   return age
 }
 
-export function calcNutritionTargets(
-  profile: MemberProfile,
-  goal: NutritionPlan["goal"]
-): { calories: number; protein: number; carbs: number; fat: number } | null {
-  const { weight_kg, height_cm, date_of_birth, gender, training_frequency } = profile
+// Metabolismo basal (Mifflin-St Jeor). Separado de calcNutritionTargets
+// porque validateNutritionSafety necesita el TMB de forma independiente del
+// resto del cálculo (para chequear que el objetivo final no quede por
+// debajo de él).
+export function calcTmb(
+  profile: Pick<MemberProfile, "weight_kg" | "height_cm" | "date_of_birth" | "gender" | "metabolic_reference">
+): number | null {
+  const { weight_kg, height_cm, date_of_birth, gender, metabolic_reference } = profile
   if (!weight_kg || !height_cm || !date_of_birth) return null
 
   const age = ageFromDob(date_of_birth)
   if (age < 10 || age > 100) return null
 
-  // gender null/other → average of male (+5) and female (-161) intercepts = -78
-  const intercept = gender === "male" ? 5 : gender === "female" ? -161 : -78
-  const tmb = 10 * weight_kg + 6.25 * height_cm - 5 * age + intercept
+  // gender 'male'/'female' manda siempre. Si no, hace falta que el trainer
+  // haya elegido una referencia metabólica explícita — nunca se promedia
+  // un intercepto (antes esto hacía "-78" para 'other', un promedio sin
+  // base fisiológica).
+  let intercept: number
+  if (gender === "male") intercept = 5
+  else if (gender === "female") intercept = -161
+  else if (metabolic_reference === "male") intercept = 5
+  else if (metabolic_reference === "female") intercept = -161
+  else return null
 
-  const factor = ACTIVITY_FACTOR[training_frequency ?? "3-4"] ?? 1.55
+  return 10 * weight_kg + 6.25 * height_cm - 5 * age + intercept
+}
+
+// Defaults de proteína/ajuste calórico/grasa por objetivo. Punto de partida
+// configurable — gym_nutrition_defaults (por gym) y calcNutritionTargets's
+// `overrides` (por plan) pueden reemplazar calorieAdjustmentPct/proteinPerKg;
+// fatPerKg siempre sale de acá (no se expone como input, ver spec sección 4).
+export function defaultNutritionSettingsForGoal(goal: NutritionPlan["goal"]): {
+  calorieAdjustmentPct: number
+  proteinPerKg: number
+  fatPerKg: number
+} {
+  switch (goal) {
+    case "volumen":          return { calorieAdjustmentPct: 12,  proteinPerKg: 1.8, fatPerKg: 1.0 }
+    case "definicion":       return { calorieAdjustmentPct: -18, proteinPerKg: 2.2, fatPerKg: 0.8 }
+    case "recomposicion":    return { calorieAdjustmentPct: 0,   proteinPerKg: 2.0, fatPerKg: 0.8 }
+    case "rendimiento":      return { calorieAdjustmentPct: 8,   proteinPerKg: 1.8, fatPerKg: 1.0 }
+    case "perdida_moderada": return { calorieAdjustmentPct: -10, proteinPerKg: 2.0, fatPerKg: 0.9 }
+    case "mantenimiento":
+    default:                 return { calorieAdjustmentPct: 0,   proteinPerKg: 1.7, fatPerKg: 0.9 }
+  }
+}
+
+// Misma tabla que defaultNutritionSettingsForGoal, pero leída desde la
+// configuración del gym (editable por el admin) en vez de los hardcodeados
+// de arriba. Usada por la UI para precargar los inputs editables al crear
+// un plan — ver NutritionPlansPanel.tsx (Task 6).
+export function gymDefaultsForGoal(
+  defaults: GymNutritionDefaults,
+  goal: NutritionPlan["goal"]
+): { pct: number; protein: number } {
+  switch (goal) {
+    case "volumen":          return { pct: defaults.volumen_pct,          protein: defaults.volumen_protein }
+    case "rendimiento":      return { pct: defaults.rendimiento_pct,      protein: defaults.rendimiento_protein }
+    case "recomposicion":    return { pct: 0,                             protein: defaults.recomposicion_protein }
+    case "perdida_moderada": return { pct: defaults.perdida_moderada_pct, protein: defaults.perdida_moderada_protein }
+    case "definicion":       return { pct: defaults.definicion_pct,       protein: defaults.definicion_protein }
+    case "mantenimiento":
+    default:                 return { pct: 0,                             protein: defaults.mantenimiento_protein }
+  }
+}
+
+export function calcNutritionTargets(
+  profile: MemberProfile,
+  goal: NutritionPlan["goal"],
+  overrides?: { calorieAdjustmentPct?: number; proteinPerKg?: number }
+): { calories: number; protein: number; carbs: number; fat: number } | null {
+  const tmb = calcTmb(profile)
+  if (tmb == null) return null
+
+  const activityRow = ACTIVITY_FACTOR[profile.daily_activity ?? "moderate"] ?? ACTIVITY_FACTOR.moderate
+  const factor = activityRow[profile.training_frequency ?? "3-4"] ?? activityRow["3-4"]
   const tdee = Math.round(tmb * factor)
 
-  // Goal adjustments
-  let targetCalories: number
-  let proteinPerKg: number
-  let fatPerKg: number
+  const defaults = defaultNutritionSettingsForGoal(goal)
+  const calorieAdjustmentPct = overrides?.calorieAdjustmentPct ?? defaults.calorieAdjustmentPct
+  const proteinPerKg = overrides?.proteinPerKg ?? defaults.proteinPerKg
+  const fatPerKg = defaults.fatPerKg
 
-  switch (goal) {
-    case "volumen":
-      targetCalories = Math.round(tdee * 1.12)
-      proteinPerKg   = 1.8
-      fatPerKg       = 1.0
-      break
-    case "definicion":
-      targetCalories = Math.round(tdee * 0.82)
-      proteinPerKg   = 2.2
-      fatPerKg       = 0.8
-      break
-    case "recomposicion":
-      targetCalories = tdee
-      proteinPerKg   = 2.5
-      fatPerKg       = 0.8
-      break
-    case "rendimiento":
-      targetCalories = Math.round(tdee * 1.08)
-      proteinPerKg   = 1.8
-      fatPerKg       = 1.0
-      break
-    case "perdida_moderada":
-      targetCalories = Math.round(tdee * 0.90)
-      proteinPerKg   = 2.0
-      fatPerKg       = 0.9
-      break
-    case "mantenimiento":
-    default:
-      targetCalories = tdee
-      proteinPerKg   = 1.7
-      fatPerKg       = 0.9
-      break
-  }
-
-  const protein = Math.round(proteinPerKg * weight_kg)
-  const fat     = Math.round(fatPerKg * weight_kg)
+  const targetCalories = Math.round(tdee * (1 + calorieAdjustmentPct / 100))
+  const weightKg = profile.weight_kg as number // calcTmb ya validó que no es null/0
+  const protein = Math.round(proteinPerKg * weightKg)
+  const fat     = Math.round(fatPerKg * weightKg)
   // Remaining calories go to carbs (1g protein = 4 kcal, 1g fat = 9 kcal, 1g carbs = 4 kcal)
   const carbsKcal = targetCalories - protein * 4 - fat * 9
   const carbs = Math.max(0, Math.round(carbsKcal / 4))
@@ -114,15 +148,46 @@ export function calcNutritionTargets(
   return { calories: targetCalories, protein, carbs, fat }
 }
 
+// Límites de seguridad no bloqueantes — ver spec sección 5. No impide
+// guardar el plan; solo marca needs_review para que el trainer lo revise.
+export function validateNutritionSafety(
+  targets: { calories: number; protein: number },
+  tmb: number,
+  calorieAdjustmentPct: number,
+  proteinPerKg: number
+): { needsReview: boolean; reason: string | null } {
+  const reasons: string[] = []
+  if (targets.calories < tmb) reasons.push("El objetivo calórico queda por debajo del metabolismo basal (TMB).")
+  if (targets.calories < 1200) reasons.push("El objetivo calórico queda por debajo de 1200 kcal.")
+  if (calorieAdjustmentPct < -25) reasons.push("El déficit supera el 25%.")
+  if (calorieAdjustmentPct > 20) reasons.push("El superávit supera el 20%.")
+  if (proteinPerKg < 1.2) reasons.push("La proteína queda por debajo de 1.2 g/kg.")
+  if (proteinPerKg > 3.0) reasons.push("La proteína supera 3.0 g/kg.")
+  return { needsReview: reasons.length > 0, reason: reasons.length > 0 ? reasons.join(" ") : null }
+}
+
 export const CALORIE_MISMATCH_THRESHOLD = 0.10
 
 export function missingTargetFields(
-  profile: { weight_kg: number | null; height_cm: number | null; date_of_birth: string | null } | null
+  profile: {
+    weight_kg: number | null
+    height_cm: number | null
+    date_of_birth: string | null
+    gender?: "male" | "female" | "other" | null
+    metabolic_reference?: "male" | "female" | null
+  } | null
 ): string[] {
+  const needsMetabolicReference =
+    profile != null &&
+    profile.gender !== "male" &&
+    profile.gender !== "female" &&
+    !profile.metabolic_reference
+
   return [
     !profile?.weight_kg && "peso",
     !profile?.height_cm && "altura",
     !profile?.date_of_birth && "fecha de nacimiento",
+    needsMetabolicReference && "referencia metabólica",
   ].filter(Boolean) as string[]
 }
 
