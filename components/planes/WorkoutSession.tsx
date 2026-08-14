@@ -212,6 +212,9 @@ export default function WorkoutSession({
 
   const savedRef = useRef(false);
   const submittingSetRef = useRef(false);
+  // Se inicializa una sola vez, al primer render — Date.now() en el
+  // inicializador de useRef no se vuelve a evaluar en renders posteriores.
+  const sessionStartedAtRef = useRef(Date.now());
   // Copia local de exerciseMaxes: la prop es la foto del server al cargar la página y
   // nunca se actualiza — sin esto, la serie 2 de un ejercicio comparaba contra el 1RM
   // viejo aunque la serie 1 ya hubiera guardado uno nuevo.
@@ -293,6 +296,7 @@ export default function WorkoutSession({
 
     async function finish() {
       setCompleting(true);
+      const durationSeconds = Math.round((Date.now() - sessionStartedAtRef.current) / 1000);
       const result = await completeWorkoutSession({
         plan_id: planId,
         day_of_week: dayOfWeek,
@@ -300,6 +304,7 @@ export default function WorkoutSession({
         exercises_count: sortedExercises.length,
         rest_skips: restSkips,
         sets: collectedSets,
+        duration_seconds: durationSeconds,
       });
       setSessionResult(result);
       setCompleting(false);
