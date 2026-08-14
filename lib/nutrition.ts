@@ -30,8 +30,8 @@ export type MemberProfile = {
   date_of_birth:       string | null       // ISO date "YYYY-MM-DD"
   gender:              "male" | "female" | "other" | null
   training_frequency:  "never" | "1-2" | "3-4" | "5+" | null
-  daily_activity:      "sedentary" | "moderate" | "active" | null
-  metabolic_reference: "male" | "female" | null
+  daily_activity?:     "sedentary" | "moderate" | "active" | null
+  metabolic_reference?: "male" | "female" | null
   goal?:               string | null
 }
 
