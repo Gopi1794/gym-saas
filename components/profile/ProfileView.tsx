@@ -1,14 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { GymFlowLogo } from "@/components/ui/GymFlowLogo";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { getInitials } from "@/lib/utils";
+import { formatInstantAR } from "@/lib/date-ar";
 import {
   Camera,
   Edit3,
@@ -28,7 +29,8 @@ import {
   BarChart2,
   CheckCircle2,
   ChevronsRight,
-  LogOut,
+  Users,
+  ArrowRight,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -40,6 +42,9 @@ interface ProfileViewProps {
   totalCheckIns: number;
   totalFavorites: number;
   totalPlans: number;
+  assignedClientsCount?: number;
+  lastSignInAt: string | null;
+  emailConfirmed: boolean;
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -182,6 +187,9 @@ export default function ProfileView({
   totalCheckIns,
   totalFavorites,
   totalPlans,
+  assignedClientsCount = 0,
+  lastSignInAt,
+  emailConfirmed,
 }: ProfileViewProps) {
   const [editing, setEditing] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -190,15 +198,13 @@ export default function ProfileView({
   const [gender, setGender] = useState<"male" | "female" | "other" | null>(
     (profile.gender as "male" | "female" | "other" | null) ?? null,
   );
-  const [weightKg, setWeightKg] = useState(String(profile.weight_kg ?? ""));
   const [loading, setLoading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
-  const router = useRouter();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
+  const isStaff = profile.role === "admin" || profile.role === "trainer";
   const { level, xpInLevel } = computeLevel(totalCheckIns);
   const cardId = generateId(profile.created_at, profile.id);
   const membership = profile.membership_type ?? "basic";
@@ -208,6 +214,9 @@ export default function ProfileView({
     month: "2-digit",
     year: "numeric",
   });
+  const lastSignInLabel = lastSignInAt
+    ? formatInstantAR(lastSignInAt, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+    : null;
   const tierStyle = MEMBERSHIP_STYLE[membership] ?? MEMBERSHIP_STYLE.basic;
   const nextMedal = MEDALS.find(
     (m) => m.required > 0 && totalCheckIns < m.required,
@@ -216,18 +225,11 @@ export default function ProfileView({
     ? `${nextMedal.label} Avanzada`
     : "Leyenda del Gym";
 
-  async function handleSignOut() {
-    setSigningOut(true);
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
-
   async function handleSave() {
     setLoading(true);
     await supabase
       .from("profiles")
-      .update({ full_name: fullName, gender, weight_kg: weightKg !== "" ? parseFloat(weightKg) : null } as never)
+      .update({ full_name: fullName, gender } as never)
       .eq("id", profile.id);
     setLoading(false);
     setEditing(false);
@@ -320,9 +322,11 @@ export default function ProfileView({
 
                 <div className="min-w-0 pt-1">
                   <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-brand-500/25 bg-brand-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-brand-300">
-                      Nivel {level}
-                    </span>
+                    {!isStaff && (
+                      <span className="rounded-full border border-brand-500/25 bg-brand-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-brand-300">
+                        Nivel {level}
+                      </span>
+                    )}
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold text-zinc-300">
                       {ROLE_LABEL[profile.role ?? "member"]}
                     </span>
@@ -332,22 +336,24 @@ export default function ProfileView({
                   </h2>
                   <p className="mt-2 truncate text-sm text-zinc-400">{email}</p>
 
-                  <div className="mt-5 max-w-md">
-                    <div className="mb-2 flex items-center justify-between text-xs">
-                      <span className="font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                        Progreso XP
-                      </span>
-                      <span className="font-bold text-brand-300">
-                        {xpInLevel}/5 asistencias
-                      </span>
+                  {!isStaff && (
+                    <div className="mt-5 max-w-md">
+                      <div className="mb-2 flex items-center justify-between text-xs">
+                        <span className="font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                          Progreso XP
+                        </span>
+                        <span className="font-bold text-brand-300">
+                          {xpInLevel}/5 asistencias
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-brand-700 via-brand-500 to-red-400 shadow-[0_0_18px_rgba(213,0,0,0.55)]"
+                          style={{ width: `${(xpInLevel / 5) * 100}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-brand-700 via-brand-500 to-red-400 shadow-[0_0_18px_rgba(213,0,0,0.55)]"
-                        style={{ width: `${(xpInLevel / 5) * 100}%` }}
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -364,110 +370,136 @@ export default function ProfileView({
               </div>
             </div>
 
-            <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {[
-                { label: "Asistencias", value: totalCheckIns, Icon: Activity },
-                { label: "Favoritos", value: totalFavorites, Icon: Heart },
-                { label: "Planes", value: totalPlans, Icon: Star },
-              ].map(({ label, value, Icon }) => (
-                <div
-                  key={label}
-                  className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition-colors hover:bg-white/[0.055]"
-                >
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-sm font-medium text-zinc-400">{label}</p>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-700/15 text-brand-400">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                  </div>
-                  <p className="text-3xl font-black tabular-nums tracking-tight text-white">
-                    {value}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.15fr]">
-              <div className={cn("rounded-2xl border p-4", tierStyle.border, tierStyle.bg, tierStyle.glow)}>
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-brand-400" />
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-400">
-                      Membresía
-                    </p>
-                  </div>
-                  <span className={cn("rounded-full border px-2.5 py-0.5 text-[9px] font-black tracking-[0.15em]", tierStyle.chip)}>
-                    {tierStyle.tier}
-                  </span>
-                </div>
-                <p className={cn("text-xl font-black tracking-tight", tierStyle.labelColor)}>
-                  {MEMBERSHIP_LABEL[membership]}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {training.map(({ Icon, label, iconColor, pillBg }) => (
-                    <span
+            {!isStaff && (
+              <>
+                <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {[
+                    { label: "Asistencias", value: totalCheckIns, Icon: Activity },
+                    { label: "Favoritos", value: totalFavorites, Icon: Heart },
+                    { label: "Planes", value: totalPlans, Icon: Star },
+                  ].map(({ label, value, Icon }) => (
+                    <div
                       key={label}
-                      className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200", pillBg)}
+                      className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition-colors hover:bg-white/[0.055]"
                     >
-                      <Icon className={cn("h-3.5 w-3.5", iconColor)} />
-                      {label}
-                    </span>
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="text-sm font-medium text-zinc-400">{label}</p>
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-700/15 text-brand-400">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                      </div>
+                      <p className="text-3xl font-black tabular-nums tracking-tight text-white">
+                        {value}
+                      </p>
+                    </div>
                   ))}
                 </div>
-              </div>
 
-              <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-900/45 p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Target className="h-4 w-4 text-brand-400" />
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-400">
-                      Próximo objetivo
+                <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.15fr]">
+                  <div className={cn("rounded-2xl border p-4", tierStyle.border, tierStyle.bg, tierStyle.glow)}>
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-brand-400" />
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-400">
+                          Membresía
+                        </p>
+                      </div>
+                      <span className={cn("rounded-full border px-2.5 py-0.5 text-[9px] font-black tracking-[0.15em]", tierStyle.chip)}>
+                        {tierStyle.tier}
+                      </span>
+                    </div>
+                    <p className={cn("text-xl font-black tracking-tight", tierStyle.labelColor)}>
+                      {MEMBERSHIP_LABEL[membership]}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {training.map(({ Icon, label, iconColor, pillBg }) => (
+                        <span
+                          key={label}
+                          className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200", pillBg)}
+                        >
+                          <Icon className={cn("h-3.5 w-3.5", iconColor)} />
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-900/45 p-4">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Target className="h-4 w-4 text-brand-400" />
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-400">
+                          Próximo objetivo
+                        </p>
+                      </div>
+                      <span className="text-xs text-zinc-500">
+                        Desde {memberSince}
+                      </span>
+                    </div>
+                    <p className="text-lg font-black text-zinc-900 dark:text-white">{nextObjective}</p>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      {MEDALS.map((medal) => {
+                        const earned = totalCheckIns >= medal.required;
+                        const remaining = Math.max(
+                          medal.required - totalCheckIns,
+                          0,
+                        );
+                        return (
+                          <button
+                            key={medal.id}
+                            type="button"
+                            onClick={() => setSelectedMedal(medal)}
+                            className={cn(
+                              "group flex items-center gap-2 rounded-2xl border px-3 py-2 text-left transition-[transform,background-color,border-color] duration-150 hover:-translate-y-0.5 active:scale-[0.98]",
+                              earned
+                                ? "border-zinc-300 bg-zinc-50 text-zinc-800 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200"
+                                : "border-zinc-200 bg-zinc-50/50 text-zinc-500 hover:text-zinc-700 dark:border-white/5 dark:bg-white/[0.02] dark:text-zinc-600 dark:hover:text-zinc-400",
+                            )}
+                            aria-label={`Ver detalle de medalla ${medal.label}${earned ? "" : `. Faltan ${remaining} asistencias`}`}
+                          >
+                            <Image
+                              src={medal.image}
+                              alt={medal.label}
+                              width={28}
+                              height={28}
+                              className={cn(
+                                "object-contain transition-transform duration-150 group-hover:scale-105",
+                                !earned && "grayscale opacity-35",
+                              )}
+                            />
+                            <span className="text-xs font-semibold">
+                              {medal.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {profile.role === "trainer" && (
+              <Link
+                href="/personas"
+                className="mt-7 flex items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-zinc-100 p-4 transition-colors hover:bg-zinc-200 dark:border-white/10 dark:bg-zinc-900/45 dark:hover:bg-zinc-900/70"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-700/15 text-brand-400">
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
+                      {assignedClientsCount}
+                    </p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                      Clientes asignados
                     </p>
                   </div>
-                  <span className="text-xs text-zinc-500">
-                    Desde {memberSince}
-                  </span>
                 </div>
-                <p className="text-lg font-black text-zinc-900 dark:text-white">{nextObjective}</p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {MEDALS.map((medal) => {
-                    const earned = totalCheckIns >= medal.required;
-                    const remaining = Math.max(
-                      medal.required - totalCheckIns,
-                      0,
-                    );
-                    return (
-                      <button
-                        key={medal.id}
-                        type="button"
-                        onClick={() => setSelectedMedal(medal)}
-                        className={cn(
-                          "group flex items-center gap-2 rounded-2xl border px-3 py-2 text-left transition-[transform,background-color,border-color] duration-150 hover:-translate-y-0.5 active:scale-[0.98]",
-                          earned
-                            ? "border-zinc-300 bg-zinc-50 text-zinc-800 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200"
-                            : "border-zinc-200 bg-zinc-50/50 text-zinc-500 hover:text-zinc-700 dark:border-white/5 dark:bg-white/[0.02] dark:text-zinc-600 dark:hover:text-zinc-400",
-                        )}
-                        aria-label={`Ver detalle de medalla ${medal.label}${earned ? "" : `. Faltan ${remaining} asistencias`}`}
-                      >
-                        <Image
-                          src={medal.image}
-                          alt={medal.label}
-                          width={28}
-                          height={28}
-                          className={cn(
-                            "object-contain transition-transform duration-150 group-hover:scale-105",
-                            !earned && "grayscale opacity-35",
-                          )}
-                        />
-                        <span className="text-xs font-semibold">
-                          {medal.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+                <ArrowRight className="h-4 w-4 shrink-0 text-zinc-400" />
+              </Link>
+            )}
           </div>
 
           <aside className="border-t border-white/10 bg-zinc-950 p-5 sm:p-7 lg:border-l lg:border-t-0">
@@ -503,6 +535,27 @@ export default function ProfileView({
               </div>
               <p className="text-sm font-semibold text-zinc-100">
                 {memberSince}
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="mb-2 flex items-center gap-2 text-zinc-400">
+                <ShieldCheck className="h-4 w-4 text-brand-400" />
+                <span className="text-xs font-bold uppercase tracking-[0.18em]">
+                  Último acceso
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-zinc-100">
+                {lastSignInLabel ?? "Sin registro"}
+              </p>
+              <p className="mt-2 text-xs text-zinc-500">
+                {emailConfirmed ? (
+                  <span className="inline-flex items-center gap-1 text-emerald-400">
+                    <CheckCircle2 className="h-3 w-3" /> Email verificado
+                  </span>
+                ) : (
+                  "Email sin verificar"
+                )}
               </p>
             </div>
           </aside>
@@ -864,7 +917,7 @@ export default function ProfileView({
           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-200">Editar nombre</p>
           <button
             onClick={() => setEditing(!editing)}
-            className="text-zinc-500 transition-colors hover:text-zinc-200"
+            className="text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-zinc-200"
           >
             <Edit3 className="h-4 w-4" />
           </button>
@@ -874,23 +927,9 @@ export default function ProfileView({
             <Input
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full"
+              className="w-full bg-white border-zinc-300 text-zinc-900 placeholder:text-zinc-400 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-50 dark:placeholder:text-zinc-500"
               placeholder="Tu nombre completo"
             />
-            <div className="flex items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2">
-              <label className="text-xs text-zinc-400 whitespace-nowrap">Peso (kg)</label>
-              <input
-                type="number"
-                inputMode="decimal"
-                min={30}
-                max={300}
-                step={0.5}
-                value={weightKg}
-                onChange={(e) => setWeightKg(e.target.value)}
-                placeholder="—"
-                className="flex-1 bg-transparent text-right text-sm font-semibold text-zinc-100 placeholder-zinc-600 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
             <div className="grid grid-cols-3 gap-2">
               {(["male", "female", "other"] as const).map((g) => (
                 <button
@@ -900,8 +939,8 @@ export default function ProfileView({
                   className={[
                     "rounded-xl border py-2 text-xs font-semibold transition-all",
                     gender === g
-                      ? "border-brand-500 bg-brand-700/20 text-brand-400"
-                      : "border-zinc-700 bg-zinc-800/60 text-zinc-400 hover:border-zinc-500",
+                      ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-400"
+                      : "border-zinc-300 bg-zinc-100 text-zinc-500 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:border-zinc-500",
                   ].join(" ")}
                 >
                   {g === "male" ? "Hombre" : g === "female" ? "Mujer" : "Otro"}
@@ -923,25 +962,9 @@ export default function ProfileView({
         ) : (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             {profile.full_name ?? "Sin nombre"} · {email}
-            {profile.weight_kg && <span className="ml-2 text-zinc-500">· {profile.weight_kg}kg</span>}
           </p>
         )}
       </div>
-
-      {/* Cerrar sesión — siempre al fondo */}
-      <button
-        type="button"
-        onClick={handleSignOut}
-        disabled={signingOut}
-        className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 text-sm font-semibold text-zinc-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400 dark:hover:border-red-900/50 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-      >
-        {signingOut ? (
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-        ) : (
-          <LogOut className="h-4 w-4" />
-        )}
-        Cerrar sesión
-      </button>
     </div>
   );
 }

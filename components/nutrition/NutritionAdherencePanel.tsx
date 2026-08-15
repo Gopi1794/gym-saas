@@ -5,27 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/lib/utils"
 import type { AdherenceEntry } from "@/app/actions/nutrition-tracking"
 import type { NutritionPlan } from "@/app/actions/nutrition"
-import { NUTRITION_GOAL_LABELS as GOAL_LABELS } from "@/lib/nutrition"
-
-function statusFor(days: number, lastLog: string | null) {
-  if (days === 0 || !lastLog) return { label: "Sin registros", color: "bg-zinc-800 text-zinc-500" }
-  const today = new Date().toISOString().split("T")[0]
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0]
-  const isRecent = lastLog === today || lastLog === yesterday
-  if (days >= 5 && isRecent) return { label: "Al día", color: "bg-emerald-500/15 text-emerald-400" }
-  if (days >= 3) return { label: "Regular", color: "bg-amber-500/15 text-amber-400" }
-  return { label: "Atrasado", color: "bg-red-500/15 text-red-400" }
-}
-
-function relativeDate(dateStr: string | null) {
-  if (!dateStr) return "—"
-  const today = new Date().toISOString().split("T")[0]
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0]
-  if (dateStr === today) return "Hoy"
-  if (dateStr === yesterday) return "Ayer"
-  const diff = Math.round((new Date(today).getTime() - new Date(dateStr).getTime()) / 86400000)
-  return `Hace ${diff} días`
-}
+import { NUTRITION_GOAL_LABELS as GOAL_LABELS, getAdherenceStatus, relativeLogDate } from "@/lib/nutrition"
 
 export default function NutritionAdherencePanel({ entries }: { entries: AdherenceEntry[] }) {
   if (entries.length === 0) {
@@ -36,7 +16,7 @@ export default function NutritionAdherencePanel({ entries }: { entries: Adherenc
     )
   }
 
-  const atDay = entries.filter(e => statusFor(e.days_logged, e.last_log).label === "Al día").length
+  const atDay = entries.filter(e => getAdherenceStatus(e.days_logged, e.last_log).label === "Al día").length
   const total = entries.length
 
   return (
@@ -83,7 +63,7 @@ export default function NutritionAdherencePanel({ entries }: { entries: Adherenc
           </thead>
           <tbody className="divide-y divide-zinc-800 bg-zinc-900">
             {entries.map(entry => {
-              const status = statusFor(entry.days_logged, entry.last_log)
+              const status = getAdherenceStatus(entry.days_logged, entry.last_log)
               return (
                 <tr key={entry.plan_id} className="hover:bg-zinc-800/40 transition-colors">
                   <td className="px-4 py-3">
@@ -112,7 +92,7 @@ export default function NutritionAdherencePanel({ entries }: { entries: Adherenc
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-sm text-zinc-400">{relativeDate(entry.last_log)}</span>
+                    <span className="text-sm text-zinc-400">{relativeLogDate(entry.last_log)}</span>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${status.color}`}>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import ProfileView from "@/components/profile/ProfileView"
+import ChangePasswordCard from "@/components/profile/ChangePasswordCard"
 import BadgeGrid from "@/components/profile/BadgeGrid"
 import NotificationPreferences from "@/components/profile/NotificationPreferences"
 import MembershipStatusCard from "@/components/profile/MembershipStatusCard"
@@ -59,7 +60,7 @@ export default async function ProfilePage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Profile</h1>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Profile</h1>
           <p className="text-zinc-400">Setting up your profile…</p>
         </div>
         <p className="text-sm text-zinc-500">
@@ -70,6 +71,14 @@ export default async function ProfilePage() {
   }
 
   const p = profile as Profile
+
+  const { count: assignedClientsCount } =
+    p.role === "trainer"
+      ? await supabase
+          .from("profiles")
+          .select("*", { count: "exact", head: true })
+          .eq("trainer_id" as never, p.id)
+      : { count: null }
 
   type MembershipPlanRow = { type: "basic" | "premium" | "vip"; label: string; price: number; duration_days: number; is_active: boolean }
   const { data: membershipPlans } = p.gym_id
@@ -83,7 +92,7 @@ export default async function ProfilePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Mi Perfil</h1>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Mi Perfil</h1>
           <p className="text-zinc-400">Tu tarjeta de entrenador</p>
         </div>
         <div className="md:hidden">
@@ -105,16 +114,25 @@ export default async function ProfilePage() {
         totalCheckIns={totalCheckIns ?? 0}
         totalFavorites={totalFavorites ?? 0}
         totalPlans={totalPlans ?? 0}
+        assignedClientsCount={assignedClientsCount ?? 0}
+        lastSignInAt={user!.last_sign_in_at ?? null}
+        emailConfirmed={!!user!.email_confirmed_at}
       />
 
-      <BadgeGrid
-        all={gymAchievements ?? []}
-        earned={earnedMap}
-        totalCheckIns={totalCheckIns ?? 0}
-        userName={p.full_name?.split(" ")[0] ?? undefined}
-      />
+      <ChangePasswordCard email={user!.email ?? ""} />
 
-      <NotificationPreferences currentHour={(profile as { notification_hour?: number }).notification_hour ?? 7} />
+      {p.role === "member" && (
+        <BadgeGrid
+          all={gymAchievements ?? []}
+          earned={earnedMap}
+          totalCheckIns={totalCheckIns ?? 0}
+          userName={p.full_name?.split(" ")[0] ?? undefined}
+        />
+      )}
+
+      {p.role === "member" && (
+        <NotificationPreferences currentHour={(profile as { notification_hour?: number }).notification_hour ?? 7} />
+      )}
     </div>
   )
 }

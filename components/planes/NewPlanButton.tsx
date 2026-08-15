@@ -138,6 +138,7 @@ export default function NewPlanButton({ trainerId, gymId, members = [], defaultM
               onChange={(e) => setName(e.target.value)}
               placeholder="ej. Full body avanzado"
               required
+              className="border-zinc-700 bg-zinc-900 text-zinc-50 placeholder:text-zinc-500"
             />
           </div>
 

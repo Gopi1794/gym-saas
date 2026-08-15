@@ -33,11 +33,11 @@ import type { Profile } from "@/types"
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/personas", label: "Personas", icon: Users, adminOnly: true },
+  { href: "/personas", label: "Personas", icon: Users, staffOnly: true },
   { href: "/entrenamiento", label: "Entrenamiento", icon: Dumbbell },
   { href: "/nutricion", label: "Nutrición", icon: Apple },
   { href: "/progress", label: "Progreso", icon: TrendingUp, memberOnly: true },
-  { href: "/achievements", label: "Logros", icon: Trophy, adminOnly: true },
+  { href: "/achievements", label: "Logros", icon: Trophy, staffOnly: true },
   { href: "/check-in", label: "Check-in", icon: QrCode },
   { href: "/reports", label: "Reportes", icon: BarChart2, adminOnly: true },
   { href: "/admin", label: "Administración", icon: Settings, adminOnly: true },
@@ -86,7 +86,8 @@ export default function Sidebar({ profile }: SidebarProps) {
   }
 
   const visibleItems = NAV_ITEMS.filter((item) => {
-    if (item.adminOnly && !isAdminOrTrainer) return false
+    if ((item as { adminOnly?: boolean }).adminOnly && role !== "admin") return false
+    if ((item as { staffOnly?: boolean }).staffOnly && !isAdminOrTrainer) return false
     if ((item as { memberOnly?: boolean }).memberOnly && role !== "member") return false
     return true
   })
@@ -94,7 +95,7 @@ export default function Sidebar({ profile }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "hidden flex-col rounded-[25px] border border-zinc-200 bg-white m-3 shadow-sm transition-[width] duration-200 ease-[var(--ease-in-out)] motion-reduce:transition-none dark:border-zinc-800/60 dark:bg-zinc-950 dark:shadow-[0_0_18px_rgba(213,0,0,0.4)] md:flex",
+        "hidden flex-col rounded-[25px] border border-zinc-200 bg-white m-3 shadow-sm transition-[width] duration-200 ease-[var(--ease-in-out)] motion-reduce:transition-none dark:border-zinc-800/60 dark:bg-zinc-950 md:flex",
         collapsed ? "w-[72px]" : "w-64"
       )}
     >
@@ -105,7 +106,7 @@ export default function Sidebar({ profile }: SidebarProps) {
             onClick={toggleCollapsed}
             aria-label="Expandir menú"
             title="Expandir menú"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 shadow-sm transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:shadow-black/40 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
           >
             <PanelLeftOpen className="h-5 w-5" />
           </button>
@@ -121,7 +122,7 @@ export default function Sidebar({ profile }: SidebarProps) {
               onClick={toggleCollapsed}
               aria-label="Colapsar menú"
               title="Colapsar menú"
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 shadow-sm transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:shadow-black/40 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 cursor-pointer"
             >
               <PanelLeftClose className="h-5 w-5" />
             </button>

@@ -3,7 +3,7 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import {
   ArrowLeft, Dumbbell, User, Clock, QrCode, Hand, CheckCircle2,
-  XCircle, Zap, Activity, CreditCard,
+  XCircle, Zap, Activity, CreditCard, Apple,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +15,7 @@ import {
   isPlanCollectible,
   type PaymentStatus, type PaymentMethod,
 } from "@/lib/payments"
+import { NUTRITION_GOAL_LABELS, getAdherenceStatus, relativeLogDate } from "@/lib/nutrition"
 import PlanCard from "@/components/planes/PlanCard"
 import CreatePlanForMember from "@/components/members/CreatePlanForMember"
 import MemberPhysicalEdit from "@/components/members/MemberPhysicalEdit"
@@ -45,6 +46,7 @@ type PlanRow = {
   workout_plan_days: { id: string; day_of_week: number; workout_plan_exercises: { id: string }[] }[]
 }
 
+type NutritionPlanRow = { id: string; name: string; goal: string; target_calories: number | null }
 type CheckInRow = { id: string; checked_in_at: string; checked_out_at: string | null; method: "qr" | "manual" }
 type PaymentRow = { id: string; amount: number; status: string; method: string; created_at: string; mp_payment_id: string | null; recorded_by: string | null; notes: string | null }
 type SessionSetRow = { exercise_name: string; set_number: number; actual_reps: number | null; planned_reps: number | null; reps: number | null; weight_kg: number | null }
@@ -89,6 +91,8 @@ export default async function MemberDetailPage({ params }: Props) {
 
   const planSelect = `id, name, description, created_at, assigned_to, workout_plan_days(id, day_of_week, workout_plan_exercises(id))`
 
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0]
+
   const [
     { data: rawPlan },
     { data: membershipPlans },
@@ -97,7 +101,8 @@ export default async function MemberDetailPage({ params }: Props) {
     { data: recentPayments },
     { data: gymTrainers },
     { data: recentSessions },
-    { count: activeNutritionPlanCount },
+    { data: nutritionPlan },
+    { data: nutritionLogs },
     { data: gymStaff },
   ] = await Promise.all([
     supabase.from("workout_plans" as never).select(planSelect)
@@ -128,8 +133,12 @@ export default async function MemberDetailPage({ params }: Props) {
       .order("completed_at", { ascending: false })
       .limit(5) as unknown as Promise<{ data: SessionRow[] | null }>,
 
-    supabase.from("nutrition_plans" as never).select("id", { count: "exact", head: true })
-      .eq("member_id", params.id).eq("is_active", true),
+    supabase.from("nutrition_plans" as never).select("id, name, goal, target_calories")
+      .eq("member_id", params.id).eq("is_active", true)
+      .maybeSingle() as unknown as Promise<{ data: NutritionPlanRow | null }>,
+
+    supabase.from("nutrition_logs" as never).select("log_date")
+      .eq("member_id", params.id).gte("log_date", sevenDaysAgo) as unknown as Promise<{ data: { log_date: string }[] | null }>,
 
     // Para resolver "Cobrado por" en el historial de pagos — admin o
     // trainer, a diferencia de gymTrainers (solo trainers, para asignación).
@@ -142,6 +151,11 @@ export default async function MemberDetailPage({ params }: Props) {
   const memberName = member.full_name ?? "Miembro"
   const active = isMembershipActive(member.membership_expires_at)
   const lastVisit = recentCheckIns?.[0]?.checked_in_at ?? null
+
+  const nutritionLogDates = [...new Set((nutritionLogs ?? []).map((l) => l.log_date))].sort()
+  const nutritionDaysLogged = nutritionLogDates.length
+  const lastNutritionLog = nutritionLogDates[nutritionLogDates.length - 1] ?? null
+  const nutritionStatus = getAdherenceStatus(nutritionDaysLogged, lastNutritionLog)
 
   return (
     <div className="space-y-6 pb-8">
@@ -232,7 +246,7 @@ export default async function MemberDetailPage({ params }: Props) {
           memberId={params.id}
           initialWeight={member.weight_kg}
           initialHeight={member.height_cm}
-          hasActiveNutritionPlan={(activeNutritionPlanCount ?? 0) > 0}
+          hasActiveNutritionPlan={!!nutritionPlan}
         />
       </div>
 
@@ -379,6 +393,62 @@ export default async function MemberDetailPage({ params }: Props) {
             </div>
             <p className="text-sm text-muted-foreground">Creá un plan personalizado para {memberName}</p>
           </div>
+        )}
+      </div>
+
+      {/* Nutrition plan */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Plan de nutrición</h2>
+          <p className="text-sm text-muted-foreground">
+            {nutritionPlan ? "Plan activo actualmente" : "Este miembro no tiene un plan nutricional activo"}
+          </p>
+        </div>
+
+        {nutritionPlan ? (
+          <Link
+            href={`/nutricion/${nutritionPlan.id}`}
+            className="block max-w-sm space-y-3 rounded-2xl border border-border bg-card p-5 transition-colors hover:border-brand-500/40"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-700/15 text-brand-500">
+                  <Apple className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{nutritionPlan.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {NUTRITION_GOAL_LABELS[nutritionPlan.goal as keyof typeof NUTRITION_GOAL_LABELS] ?? nutritionPlan.goal}
+                  </p>
+                </div>
+              </div>
+              <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold", nutritionStatus.color)}>
+                {nutritionStatus.label}
+              </span>
+            </div>
+
+            {nutritionPlan.target_calories && (
+              <p className="text-sm text-foreground">
+                <span className="font-bold">{nutritionPlan.target_calories}</span>{" "}
+                <span className="text-muted-foreground">kcal objetivo/día</span>
+              </p>
+            )}
+
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{nutritionDaysLogged}/7 días registrados esta semana</span>
+              <span>Último: {relativeLogDate(lastNutritionLog)}</span>
+            </div>
+          </Link>
+        ) : (
+          <Link
+            href="/nutricion"
+            className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border py-16 text-center transition-colors hover:border-brand-500/40"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Apple className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground">Crear un plan nutricional para {memberName}</p>
+          </Link>
         )}
       </div>
     </div>

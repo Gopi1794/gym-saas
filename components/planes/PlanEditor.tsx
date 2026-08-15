@@ -1154,7 +1154,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
           <div className="relative mt-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
             <Input
-              className="pl-9"
+              className="pl-9 border-zinc-700 bg-zinc-900 text-zinc-50 placeholder:text-zinc-500"
               placeholder="Buscar ejercicio…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
