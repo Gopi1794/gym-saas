@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import type { SessionSet } from "@/lib/achievements/types"
+import { isDraftStale } from "@/lib/workout-draft"
 
 export type WorkoutDraft = {
   plan_id: string
@@ -52,6 +53,16 @@ export async function loadWorkoutDraft(planId: string): Promise<WorkoutDraft | n
     .maybeSingle() as unknown as Promise<{ data: Record<string, unknown> | null }>)
 
   if (!data) return null
+
+  if (isDraftStale(data.updated_at as string)) {
+    await supabase
+      .from("workout_session_drafts" as never)
+      .delete()
+      .eq("user_id", user.id)
+      .eq("plan_id", planId)
+      .eq("day_of_week", data.day_of_week as number)
+    return null
+  }
 
   return {
     plan_id: data.plan_id as string,
