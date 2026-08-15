@@ -41,7 +41,7 @@ export default function GymNutritionDefaultsPanel({ gymId }: Props) {
     if (!defaults) return
     setSaving(true)
     try {
-      const { gym_id, ...updates } = defaults
+      const { gym_id: _gym_id, ...updates } = defaults
       const result = await saveGymNutritionDefaults(gymId, updates)
       if ("error" in result) {
         sileo.error({ title: "No se pudo guardar", description: result.error, duration: 4000 })
