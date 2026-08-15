@@ -13,6 +13,8 @@ export type CompleteSessionInput = {
   /** Must be >= 0. The server coerces NULL to 0 in the RPC, but we validate here too. */
   rest_skips: number
   sets?: SessionSet[]
+  /** Segundos reales transcurridos desde que se abrió la sesión hasta completarla. */
+  duration_seconds?: number
 }
 
 /**
@@ -53,6 +55,7 @@ export async function completeWorkoutSession(
     p_exercises_count: input.exercises_count,
     p_rest_skips: input.rest_skips,
     p_sets: input.sets ?? [],
+    p_duration_seconds: input.duration_seconds ?? null,
   })
 
   if (error) {

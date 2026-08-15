@@ -220,7 +220,10 @@ export async function setWaterToday(glasses: number): Promise<void> {
 
 async function notifyTrainerOfWeightDrift(
   memberId: string,
-  plan: { id: string; gym_id: string; target_calories: number; goal: NutritionPlan["goal"] },
+  plan: {
+    id: string; gym_id: string; target_calories: number; goal: NutritionPlan["goal"]
+    calorie_adjustment_pct: number | null; protein_per_kg: number | null
+  },
   newProfile: {
     weight_kg: number | null
     height_cm: number | null
@@ -231,7 +234,10 @@ async function notifyTrainerOfWeightDrift(
   oldWeight: number | null,
   newWeight: number
 ): Promise<void> {
-  const newTargets = calcNutritionTargets(newProfile, plan.goal)
+  const planOverrides = plan.calorie_adjustment_pct != null && plan.protein_per_kg != null
+    ? { calorieAdjustmentPct: plan.calorie_adjustment_pct, proteinPerKg: plan.protein_per_kg }
+    : undefined
+  const newTargets = calcNutritionTargets(newProfile, plan.goal, planOverrides)
   if (!newTargets) return
 
   const diff = Math.abs((plan.target_calories - newTargets.calories) / newTargets.calories)
@@ -314,13 +320,16 @@ export async function logWeight(weightKg: number, notes?: string): Promise<void>
   // perfil de más en el camino más frecuente.
   const { data: activePlan } = await supabase
     .from("nutrition_plans" as never)
-    .select("id, gym_id, target_calories, goal")
+    .select("id, gym_id, target_calories, goal, calorie_adjustment_pct, protein_per_kg")
     .eq("member_id", user.id)
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle() as unknown as {
-      data: { id: string; gym_id: string; target_calories: number | null; goal: NutritionPlan["goal"] } | null
+      data: {
+        id: string; gym_id: string; target_calories: number | null; goal: NutritionPlan["goal"]
+        calorie_adjustment_pct: number | null; protein_per_kg: number | null
+      } | null
     }
   const needsDriftCheck = !!activePlan?.target_calories
 
@@ -340,7 +349,10 @@ export async function logWeight(weightKg: number, notes?: string): Promise<void>
     try {
       await notifyTrainerOfWeightDrift(
         user.id,
-        activePlan as { id: string; gym_id: string; target_calories: number; goal: NutritionPlan["goal"] },
+        activePlan as {
+          id: string; gym_id: string; target_calories: number; goal: NutritionPlan["goal"]
+          calorie_adjustment_pct: number | null; protein_per_kg: number | null
+        },
         { ...profileBefore, weight_kg: weightKg },
         oldWeight,
         weightKg

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, AlertTriangle, Flame, ChevronRight, X, MessageCircle, UserRoundPlus, CheckCircle2 } from "lucide-react"
+import { Bell, Users, QrCode, Trophy, Dumbbell, Clock, Scale, AlertTriangle, Flame, ChevronRight, X, MessageCircle, UserRoundPlus, CheckCircle2, Timer } from "lucide-react"
 import { AnimatePresence, motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -15,7 +15,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js"
 // (Date.now() puede repetirse en la misma ms; un contador nunca se repite)
 let _channelSeq = 0
 
-type NotificationType = "new_member" | "check_in" | "achievement" | "plan_assigned" | "membership_expiring" | "churn_alert" | "weight_drift" | "calorie_alert"
+type NotificationType = "new_member" | "check_in" | "achievement" | "plan_assigned" | "membership_expiring" | "churn_alert" | "weight_drift" | "calorie_alert" | "nutrition_duration_ready"
 
 interface Notification {
   id: string
@@ -45,6 +45,7 @@ const TYPE_ICON: Record<NotificationType, React.ElementType> = {
   churn_alert:         AlertTriangle,
   weight_drift:        Scale,
   calorie_alert:       Flame,
+  nutrition_duration_ready: Timer,
 }
 
 const TYPE_COLOR: Record<NotificationType, string> = {
@@ -56,6 +57,7 @@ const TYPE_COLOR: Record<NotificationType, string> = {
   churn_alert:         "bg-orange-500/15 text-orange-400",
   weight_drift:        "bg-amber-500/15 text-amber-400",
   calorie_alert:       "bg-red-500/15 text-red-400",
+  nutrition_duration_ready: "bg-indigo-500/15 text-indigo-400",
 }
 
 // Categoría — grano grueso, para el tag de cada card y los chips de filtro.
@@ -71,6 +73,7 @@ const TYPE_CATEGORY: Record<NotificationType, CategoryKey> = {
   churn_alert:         "system",
   weight_drift:        "system",
   calorie_alert:       "system",
+  nutrition_duration_ready: "system",
   achievement:         "achievement",
 }
 
@@ -105,6 +108,10 @@ function getNotificationHref(n: Notification): string | null {
     }
     case "calorie_alert":
       return "/nutricion"
+    case "nutrition_duration_ready": {
+      const memberId = n.metadata?.member_id
+      return typeof memberId === "string" ? `/members/${memberId}` : null
+    }
     default:
       return null
   }
@@ -470,7 +477,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                 visibleNotifications.map((n) => {
                   const Icon = TYPE_ICON[n.type] ?? Bell
                   const href = getNotificationHref(n)
-                  const category = CATEGORY_META[TYPE_CATEGORY[n.type]]
+                  const category = CATEGORY_META[TYPE_CATEGORY[n.type]] ?? CATEGORY_META.system
                   const contact = getContactState(n, memberSnapshots)
                   const contactPhone = contact?.phone ? normalizePhoneAR(contact.phone) : null
                   return (
@@ -504,7 +511,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                       {/* Icon */}
                       <div className={cn(
                         "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                        TYPE_COLOR[n.type]
+                        TYPE_COLOR[n.type] ?? "bg-zinc-700/40 text-zinc-400"
                       )}>
                         <Icon className="h-4 w-4" />
                       </div>

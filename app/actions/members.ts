@@ -58,6 +58,7 @@ export type MemberContactInput = {
   gender: "male" | "female" | "other" | null
   goal: "lose_weight" | "gain_muscle" | "performance" | "maintain" | null
   trainingFrequency: "never" | "1-2" | "3-4" | "5+" | null
+  dailyActivity: "sedentary" | "moderate" | "active" | null
   emergencyName: string | null
   emergencyPhone: string | null
 }
@@ -103,6 +104,7 @@ export async function updateMemberContact(input: MemberContactInput) {
       gender: input.gender,
       goal: input.goal,
       training_frequency: input.trainingFrequency,
+      daily_activity: input.dailyActivity,
       emergency_name: input.emergencyName,
       emergency_phone: input.emergencyPhone,
     } as never)

@@ -7,6 +7,7 @@ import TrainerPaymentAccessPanel, { type TrainerAccessRow } from "@/components/p
 import GymSettingsPanel from "@/components/admin/GymSettingsPanel"
 import MembershipPlansPanel from "@/components/admin/MembershipPlansPanel"
 import ExportPanel from "@/components/admin/ExportPanel"
+import GymNutritionDefaultsPanel from "@/components/admin/GymNutritionDefaultsPanel"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Administración" }
@@ -33,6 +34,7 @@ export default async function AdminPage({
   const tabs = [
     { key: "pagos",          label: "Pagos" },
     { key: "membresias",     label: "Membresías" },
+    { key: "nutricion",      label: "Nutrición" },
     { key: "exportaciones",  label: "Exportaciones" },
     { key: "configuracion",  label: "Configuración" },
   ]
@@ -63,6 +65,8 @@ export default async function AdminPage({
     }
 
     content = <MembershipPlansPanel initialPlans={plans ?? []} memberCounts={memberCounts} />
+  } else if (tab === "nutricion") {
+    content = <GymNutritionDefaultsPanel gymId={gymId} />
   } else {
     const { data: payments } = await supabase
       .from("payments")

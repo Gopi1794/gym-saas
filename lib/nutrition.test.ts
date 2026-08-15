@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import type { MealItem } from "@/app/actions/nutrition"
-import { calcMacros, calcNutritionTargets, missingTargetFields } from "./nutrition"
+import { calcMacros, calcNutritionTargets, missingTargetFields, validateNutritionSafety } from "./nutrition"
 
 describe("calcMacros", () => {
   it("suma los macros de varios items, escalados por los gramos de cada uno sobre 100", () => {
@@ -28,7 +28,9 @@ describe("calcMacros", () => {
 
 describe("missingTargetFields", () => {
   it("con el perfil completo, no falta nada", () => {
-    expect(missingTargetFields({ weight_kg: 80, height_cm: 180, date_of_birth: "1990-01-01" })).toEqual([])
+    // gender: "male" es necesario acá — sin él, la nueva regla de
+    // referencia metabólica (ver abajo) lo marcaría como faltante.
+    expect(missingTargetFields({ weight_kg: 80, height_cm: 180, date_of_birth: "1990-01-01", gender: "male" })).toEqual([])
   })
 
   it("con el perfil vacío (null), faltan los tres campos", () => {
@@ -36,7 +38,25 @@ describe("missingTargetFields", () => {
   })
 
   it("con un solo campo faltante, devuelve solo ese campo", () => {
-    expect(missingTargetFields({ weight_kg: null, height_cm: 180, date_of_birth: "1990-01-01" })).toEqual(["peso"])
+    expect(missingTargetFields({ weight_kg: null, height_cm: 180, date_of_birth: "1990-01-01", gender: "male" })).toEqual(["peso"])
+  })
+
+  it("con género 'other' y sin referencia metabólica elegida, falta la referencia", () => {
+    expect(missingTargetFields({
+      weight_kg: 80, height_cm: 180, date_of_birth: "1990-01-01", gender: "other", metabolic_reference: null,
+    })).toEqual(["referencia metabólica"])
+  })
+
+  it("con género 'other' pero con referencia metabólica ya elegida, no falta nada", () => {
+    expect(missingTargetFields({
+      weight_kg: 80, height_cm: 180, date_of_birth: "1990-01-01", gender: "other", metabolic_reference: "female",
+    })).toEqual([])
+  })
+
+  it("sin género (null) y sin referencia metabólica, falta la referencia", () => {
+    expect(missingTargetFields({
+      weight_kg: 80, height_cm: 180, date_of_birth: "1990-01-01", gender: null, metabolic_reference: null,
+    })).toEqual(["referencia metabólica"])
   })
 })
 
@@ -102,5 +122,83 @@ describe("calcNutritionTargets", () => {
 
   it("con una edad mayor a 100 años, devuelve null", () => {
     expect(calcNutritionTargets({ ...baseProfile, date_of_birth: "1900-01-01" }, "mantenimiento")).toBeNull()
+  })
+
+  it("con género 'other' y sin referencia metabólica, devuelve null", () => {
+    expect(calcNutritionTargets({ ...baseProfile, gender: "other", metabolic_reference: null }, "mantenimiento")).toBeNull()
+  })
+
+  it("con género 'other' y referencia metabólica 'male', usa el mismo intercepto que género 'male'", () => {
+    const conOther = calcNutritionTargets({ ...baseProfile, gender: "other", metabolic_reference: "male" }, "mantenimiento")
+    const conMale  = calcNutritionTargets({ ...baseProfile, gender: "male" }, "mantenimiento")
+    expect(conOther).toEqual(conMale)
+  })
+
+  it("con género null y referencia metabólica 'female', usa el intercepto femenino", () => {
+    const conNullFemale = calcNutritionTargets({ ...baseProfile, gender: null, metabolic_reference: "female" }, "mantenimiento")
+    const conFemale     = calcNutritionTargets({ ...baseProfile, gender: "female" }, "mantenimiento")
+    expect(conNullFemale).toEqual(conFemale)
+  })
+
+  it("actividad diaria 'sedentary' da menos calorías que 'active' para la misma frecuencia de entreno", () => {
+    const sedentary = calcNutritionTargets({ ...baseProfile, daily_activity: "sedentary" }, "mantenimiento")
+    const active    = calcNutritionTargets({ ...baseProfile, daily_activity: "active" }, "mantenimiento")
+    expect(sedentary!.calories).toBeLessThan(active!.calories)
+  })
+
+  it("sin daily_activity, cae a 'moderate' — mismo resultado que con daily_activity explícito en 'moderate'", () => {
+    const sinDato = calcNutritionTargets(baseProfile, "mantenimiento")
+    const conModerate = calcNutritionTargets({ ...baseProfile, daily_activity: "moderate" }, "mantenimiento")
+    expect(sinDato).toEqual(conModerate)
+  })
+
+  it("overrides.calorieAdjustmentPct y proteinPerKg reemplazan los defaults del objetivo", () => {
+    const conDefaults = calcNutritionTargets(baseProfile, "definicion")
+    const conOverride = calcNutritionTargets(baseProfile, "definicion", { calorieAdjustmentPct: -5, proteinPerKg: 1.5 })
+    expect(conOverride!.calories).toBeGreaterThan(conDefaults!.calories) // -5% es menos agresivo que -18%
+    expect(conOverride!.protein).toBeLessThan(conDefaults!.protein)     // 1.5 g/kg < 2.2 g/kg
+  })
+})
+
+describe("validateNutritionSafety", () => {
+  it("con valores dentro de rango, no marca revisión", () => {
+    expect(validateNutritionSafety({ calories: 2200, protein: 140 }, 1700, -10, 2.0))
+      .toEqual({ needsReview: false, reason: null })
+  })
+
+  it("calorías por debajo del TMB, marca revisión", () => {
+    const result = validateNutritionSafety({ calories: 1600, protein: 140 }, 1700, -10, 2.0)
+    expect(result.needsReview).toBe(true)
+    expect(result.reason).toContain("metabolismo basal")
+  })
+
+  it("calorías por debajo de 1200, marca revisión", () => {
+    const result = validateNutritionSafety({ calories: 1100, protein: 100 }, 900, -10, 2.0)
+    expect(result.needsReview).toBe(true)
+    expect(result.reason).toContain("1200 kcal")
+  })
+
+  it("déficit más agresivo que -25%, marca revisión", () => {
+    const result = validateNutritionSafety({ calories: 2000, protein: 140 }, 1500, -30, 2.0)
+    expect(result.needsReview).toBe(true)
+    expect(result.reason).toContain("25%")
+  })
+
+  it("superávit mayor a +20%, marca revisión", () => {
+    const result = validateNutritionSafety({ calories: 3000, protein: 140 }, 2000, 25, 2.0)
+    expect(result.needsReview).toBe(true)
+    expect(result.reason).toContain("20%")
+  })
+
+  it("proteína por debajo de 1.2 g/kg, marca revisión", () => {
+    const result = validateNutritionSafety({ calories: 2200, protein: 80 }, 1700, -10, 1.0)
+    expect(result.needsReview).toBe(true)
+    expect(result.reason).toContain("1.2 g/kg")
+  })
+
+  it("proteína por encima de 3.0 g/kg, marca revisión", () => {
+    const result = validateNutritionSafety({ calories: 2200, protein: 250 }, 1700, -10, 3.5)
+    expect(result.needsReview).toBe(true)
+    expect(result.reason).toContain("3.0 g/kg")
   })
 })

@@ -12,6 +12,7 @@ import { normalizePhoneAR, formatPhoneAR } from "@/lib/phone"
 type Gender = "male" | "female" | "other"
 type Goal = "lose_weight" | "gain_muscle" | "performance" | "maintain"
 type Frequency = "never" | "1-2" | "3-4" | "5+"
+type DailyActivity = "sedentary" | "moderate" | "active"
 
 const GENDER_LABELS: Record<Gender, string> = { male: "Hombre", female: "Mujer", other: "Otro" }
 const GOAL_LABELS: Record<Goal, string> = {
@@ -19,6 +20,9 @@ const GOAL_LABELS: Record<Goal, string> = {
 }
 const FREQUENCY_LABELS: Record<Frequency, string> = {
   never: "Nunca", "1-2": "1-2 / sem", "3-4": "3-4 / sem", "5+": "5+ / sem",
+}
+const ACTIVITY_LABELS: Record<DailyActivity, string> = {
+  sedentary: "Sedentaria", moderate: "Moderada", active: "Muy activa",
 }
 
 interface Props {
@@ -28,6 +32,7 @@ interface Props {
   initialGender: Gender | null
   initialGoal: Goal | null
   initialTrainingFrequency: Frequency | null
+  initialDailyActivity: DailyActivity | null
   initialEmergencyName: string | null
   initialEmergencyPhone: string | null
 }
@@ -41,7 +46,7 @@ const inputCls = selectCls + " placeholder-zinc-600"
 
 export default function MemberContactEdit({
   memberId, initialDateOfBirth, initialPhone, initialGender, initialGoal,
-  initialTrainingFrequency, initialEmergencyName, initialEmergencyPhone,
+  initialTrainingFrequency, initialDailyActivity, initialEmergencyName, initialEmergencyPhone,
 }: Props) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -50,6 +55,7 @@ export default function MemberContactEdit({
   const [gender, setGender] = useState<Gender | "">(initialGender ?? "")
   const [goal, setGoal] = useState<Goal | "">(initialGoal ?? "")
   const [trainingFrequency, setTrainingFrequency] = useState<Frequency | "">(initialTrainingFrequency ?? "")
+  const [dailyActivity, setDailyActivity] = useState<DailyActivity | "">(initialDailyActivity ?? "")
   const [emergencyName, setEmergencyName] = useState(initialEmergencyName ?? "")
   const [emergencyPhone, setEmergencyPhone] = useState(initialEmergencyPhone ?? "")
   const [loading, setLoading] = useState(false)
@@ -75,6 +81,7 @@ export default function MemberContactEdit({
         gender: gender || null,
         goal: goal || null,
         trainingFrequency: trainingFrequency || null,
+        dailyActivity: dailyActivity || null,
         emergencyName: emergencyName || null,
         emergencyPhone: emergencyPhone || null,
       })
@@ -126,6 +133,8 @@ export default function MemberContactEdit({
               value={initialGoal ? (GOAL_LABELS[initialGoal] ?? initialGoal) : "—"} />
             <Stat icon={<Activity className="h-4 w-4 text-brand-500" />} label="Frecuencia"
               value={initialTrainingFrequency ? (FREQUENCY_LABELS[initialTrainingFrequency] ?? initialTrainingFrequency) : "—"} />
+            <Stat icon={<Activity className="h-4 w-4 text-brand-500" />} label="Actividad diaria"
+              value={initialDailyActivity ? (ACTIVITY_LABELS[initialDailyActivity] ?? initialDailyActivity) : "—"} />
             <Stat icon={<AlertTriangle className="h-4 w-4 text-brand-500" />} label="Emergencia"
               value={initialEmergencyName ? `${initialEmergencyName}${initialEmergencyPhone ? ` · ${initialEmergencyPhone}` : ""}` : "—"} />
           </motion.div>
@@ -202,6 +211,19 @@ export default function MemberContactEdit({
                 <option value="1-2">1-2 / sem</option>
                 <option value="3-4">3-4 / sem</option>
                 <option value="5+">5+ / sem</option>
+              </select>
+            </label>
+
+            <label className="space-y-1.5 block">
+              <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+                <Activity className="h-3.5 w-3.5" />
+                Actividad diaria (fuera del gym)
+              </span>
+              <select value={dailyActivity} onChange={e => setDailyActivity(e.target.value as DailyActivity | "")} className={selectCls}>
+                <option value="">Sin especificar</option>
+                <option value="sedentary">Sedentaria</option>
+                <option value="moderate">Moderada</option>
+                <option value="active">Muy activa</option>
               </select>
             </label>
 

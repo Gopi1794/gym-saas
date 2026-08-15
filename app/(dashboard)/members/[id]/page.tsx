@@ -37,7 +37,8 @@ type MemberRow = {
   gender: "male" | "female" | "other" | null
   emergency_name: string | null; emergency_phone: string | null
   goal: string | null; medical_conditions: string | null
-  training_frequency: string | null; total_xp: number; created_at: string
+  training_frequency: string | null; daily_activity: string | null
+  total_xp: number; created_at: string
   trainer_id: string | null
 }
 
@@ -81,7 +82,7 @@ export default async function MemberDetailPage({ params }: Props) {
 
   const { data: rawMember } = await supabase
     .from("profiles")
-    .select("id, full_name, avatar_url, role, membership_type, membership_expires_at, weight_kg, height_cm, phone, date_of_birth, gender, emergency_name, emergency_phone, goal, medical_conditions, training_frequency, total_xp, created_at, trainer_id")
+    .select("id, full_name, avatar_url, role, membership_type, membership_expires_at, weight_kg, height_cm, phone, date_of_birth, gender, emergency_name, emergency_phone, goal, medical_conditions, training_frequency, daily_activity, total_xp, created_at, trainer_id")
     .eq("id", params.id)
     .eq("gym_id", gymId)
     .single() as unknown as { data: MemberRow | null }
@@ -267,6 +268,7 @@ export default async function MemberDetailPage({ params }: Props) {
         initialGender={member.gender}
         initialGoal={member.goal as "lose_weight" | "gain_muscle" | "performance" | "maintain" | null}
         initialTrainingFrequency={member.training_frequency as "never" | "1-2" | "3-4" | "5+" | null}
+        initialDailyActivity={member.daily_activity as "sedentary" | "moderate" | "active" | null}
         initialEmergencyName={member.emergency_name}
         initialEmergencyPhone={member.emergency_phone}
       />
