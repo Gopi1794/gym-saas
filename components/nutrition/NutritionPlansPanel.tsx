@@ -101,6 +101,11 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
   }
 
   const missingFields = missingTargetFields(memberProfile)
+  // "referencia metabólica" se completa con el selector propio de este panel
+  // (más abajo), no en /members/[id] — MemberContactEdit no tiene control para
+  // ese campo. El bloque genérico de "Faltan datos" no debe mandar al trainer
+  // a una página que no puede resolverlo.
+  const missingFieldsForMemberLink = missingFields.filter(f => f !== "referencia metabólica")
 
   const suggestedTargets = memberProfile && form.goal && calorieAdjustmentPct !== "" && proteinPerKg !== ""
     ? calcNutritionTargets(memberProfile, form.goal, { calorieAdjustmentPct, proteinPerKg })
@@ -272,9 +277,9 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                 </p>
               )}
 
-              {!loadingProfile && memberProfile && missingFields.length > 0 && (
+              {!loadingProfile && memberProfile && missingFieldsForMemberLink.length > 0 && (
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-400">
-                  <p>Faltan datos del socio para calcular el objetivo: {missingFields.join(", ")}.</p>
+                  <p>Faltan datos del socio para calcular el objetivo: {missingFieldsForMemberLink.join(", ")}.</p>
                   <Link
                     href={`/members/${form.memberId}`}
                     className="mt-1.5 inline-block font-semibold underline hover:text-amber-300 transition-colors"

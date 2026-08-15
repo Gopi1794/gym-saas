@@ -41,10 +41,12 @@ create table if not exists gym_nutrition_defaults (
 
 alter table gym_nutrition_defaults enable row level security;
 
+drop policy if exists "gym_nutrition_defaults_read" on gym_nutrition_defaults;
 create policy "gym_nutrition_defaults_read" on gym_nutrition_defaults for select
   to authenticated
   using (gym_id in (select gym_id from profiles where id = (select auth.uid())));
 
+drop policy if exists "gym_nutrition_defaults_write" on gym_nutrition_defaults;
 create policy "gym_nutrition_defaults_write" on gym_nutrition_defaults for all
   to authenticated
   using (
