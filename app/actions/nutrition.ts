@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { calcTmb, calcNutritionTargets, missingTargetFields, validateNutritionSafety } from "@/lib/nutrition"
+import { calcTmb, calcNutritionTargets, missingTargetFields, validateNutritionSafety, defaultNutritionSettingsForGoal } from "@/lib/nutrition"
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -324,8 +324,9 @@ export async function recalculateNutritionPlanTargets(
   }
 
   const tmb = profile ? calcTmb(profile) : null
-  const finalPct = resolvedOverrides?.calorieAdjustmentPct ?? 0
-  const finalProtein = resolvedOverrides?.proteinPerKg ?? (targets.protein / (profile!.weight_kg as number))
+  const goalDefaults = defaultNutritionSettingsForGoal(plan.goal)
+  const finalPct = resolvedOverrides?.calorieAdjustmentPct ?? goalDefaults.calorieAdjustmentPct
+  const finalProtein = resolvedOverrides?.proteinPerKg ?? goalDefaults.proteinPerKg
   const safety = tmb != null
     ? validateNutritionSafety(targets, tmb, finalPct, finalProtein)
     : { needsReview: false, reason: null }

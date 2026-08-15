@@ -16,7 +16,7 @@ import {
 } from "@/app/actions/nutrition"
 import { searchUSDA } from "@/app/actions/usda"
 import type { USDAResult } from "@/app/actions/usda"
-import { calcMacros, calcPlanMacros, calcNutritionTargets, missingTargetFields, CALORIE_MISMATCH_THRESHOLD, NUTRITION_GOAL_LABELS as GOAL_LABELS } from "@/lib/nutrition"
+import { calcMacros, calcPlanMacros, calcNutritionTargets, missingTargetFields, CALORIE_MISMATCH_THRESHOLD, NUTRITION_GOAL_LABELS as GOAL_LABELS, defaultNutritionSettingsForGoal } from "@/lib/nutrition"
 import type { NutritionPlan, Meal, MealItem, Food } from "@/app/actions/nutrition"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -599,8 +599,12 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
   const [clearingPlan, setClearingPlan] = useState(false)
   const [confirmingRecalculate, setConfirmingRecalculate] = useState(false)
   const [isRecalculating, setIsRecalculating] = useState(false)
-  const [editCalorieAdjustmentPct, setEditCalorieAdjustmentPct] = useState<number>(plan.calorie_adjustment_pct ?? 0)
-  const [editProteinPerKg, setEditProteinPerKg] = useState<number>(plan.protein_per_kg ?? 0)
+  const [editCalorieAdjustmentPct, setEditCalorieAdjustmentPct] = useState<number>(
+    plan.calorie_adjustment_pct ?? defaultNutritionSettingsForGoal(plan.goal).calorieAdjustmentPct
+  )
+  const [editProteinPerKg, setEditProteinPerKg] = useState<number>(
+    plan.protein_per_kg ?? defaultNutritionSettingsForGoal(plan.goal).proteinPerKg
+  )
   const [confirmingRecalculateWithValues, setConfirmingRecalculateWithValues] = useState(false)
   const [isRecalculatingWithValues, setIsRecalculatingWithValues] = useState(false)
 
@@ -699,7 +703,10 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
 
   const liveMeals: Meal[] = meals.map(m => ({ ...m, nutrition_meal_items: mealItems[m.id] ?? [] }))
   const planTotals = calcPlanMacros(liveMeals)
-  const nutritionTargets = memberProfile ? calcNutritionTargets(memberProfile, plan.goal) : null
+  const planOverrides = plan.calorie_adjustment_pct != null && plan.protein_per_kg != null
+    ? { calorieAdjustmentPct: plan.calorie_adjustment_pct, proteinPerKg: plan.protein_per_kg }
+    : undefined
+  const nutritionTargets = memberProfile ? calcNutritionTargets(memberProfile, plan.goal, planOverrides) : null
 
   const nutritionWarnings: string[] = []
   let staleObjectiveWarning: { message: string; recalculatedCalories: number } | null = null
@@ -955,7 +962,7 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
                   <input
                     type="number" step="1"
                     value={editCalorieAdjustmentPct}
-                    onChange={e => setEditCalorieAdjustmentPct(Number(e.target.value))}
+                    onChange={e => { if (e.target.value !== "") setEditCalorieAdjustmentPct(Number(e.target.value)) }}
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-brand-500/50"
                   />
                 </div>
@@ -964,7 +971,7 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
                   <input
                     type="number" step="0.1"
                     value={editProteinPerKg}
-                    onChange={e => setEditProteinPerKg(Number(e.target.value))}
+                    onChange={e => { if (e.target.value !== "") setEditProteinPerKg(Number(e.target.value)) }}
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-brand-500/50"
                   />
                 </div>
