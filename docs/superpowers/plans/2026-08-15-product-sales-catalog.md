@@ -184,7 +184,7 @@ order by table_name, ordinal_position;
 EOF
 ```
 
-Expected: 12 filas para `products`, 8 para `product_variants`, 11 para `product_sales`, coincidiendo con las columnas definidas arriba.
+Expected: 11 filas para `products`, 9 para `product_variants`, 11 para `product_sales`, coincidiendo con las columnas definidas arriba.
 
 Run:
 ```bash
