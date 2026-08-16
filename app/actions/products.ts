@@ -1,7 +1,9 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
+import { canCollectPayment } from "@/lib/payments"
 
 export type ProductCategory = "bebidas" | "suplementos" | "indumentaria" | "accesorios" | "otro"
 
@@ -317,4 +319,111 @@ export async function toggleVariantActive(variantId: string, isActive: boolean) 
 
   revalidatePath("/productos")
   return { success: true }
+}
+
+export async function restockVariant(variantId: string, quantity: number, newCost?: number | null) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  if (!me || (me as { role: string }).role !== "admin") {
+    return { error: "Solo un admin puede reponer stock" }
+  }
+
+  if (quantity <= 0) return { error: "La cantidad a reponer debe ser mayor a cero" }
+
+  const { data, error } = await (supabase.rpc("restock_product_variant" as never, {
+    p_variant_id: variantId,
+    p_quantity: quantity,
+    p_new_cost: newCost ?? null,
+  } as never) as unknown as Promise<{ data: number | null; error: { message: string } | null }>)
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/productos")
+  return { success: true, newStock: data }
+}
+
+export async function recordSale(variantId: string, quantity: number, memberId?: string | null) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, gym_id, can_collect_payments")
+    .eq("id", user.id)
+    .single()
+
+  if (!me) return { error: "Sin permiso" }
+
+  const profile = me as { role: string; gym_id: string; can_collect_payments: boolean }
+  if (!canCollectPayment(profile.role, profile.can_collect_payments === true)) {
+    return { error: "Sin permiso para vender productos" }
+  }
+
+  if (quantity <= 0) return { error: "La cantidad debe ser mayor a cero" }
+
+  const admin = createAdminClient()
+  const { data, error } = await (admin.rpc("record_product_sale" as never, {
+    p_variant_id: variantId,
+    p_gym_id: profile.gym_id,
+    p_member_id: memberId ?? null,
+    p_quantity: quantity,
+    p_recorded_by: user.id,
+  } as never) as unknown as Promise<{ data: string | null; error: { message: string } | null }>)
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/productos")
+  return { success: true, saleId: data }
+}
+
+export type ProductSaleRow = {
+  id: string
+  quantity: number
+  unit_price: number
+  unit_cost: number
+  total_amount: number
+  created_at: string
+  product_variants: { name: string; products: { name: string } | null } | null
+  profiles: { full_name: string | null } | null
+}
+
+export async function getProductSales() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, gym_id")
+    .eq("id", user.id)
+    .single()
+
+  if (!me || (me as { role: string }).role !== "admin") {
+    return { error: "Solo un admin puede ver el historial de ventas" }
+  }
+
+  // profiles!product_sales_member_id_fkey: product_sales tiene DOS FKs a
+  // profiles (member_id y recorded_by) — sin el hint del nombre de
+  // constraint, PostgREST no sabe cuál de las dos usar para el embed y
+  // devuelve un error de relación ambigua (mismo patrón ya usado en
+  // app/actions/nutrition.ts con nutrition_plans, que tiene la misma forma).
+  const { data, error } = await (supabase
+    .from("product_sales" as never)
+    .select("id, quantity, unit_price, unit_cost, total_amount, created_at, product_variants(name, products(name)), profiles!product_sales_member_id_fkey(full_name)")
+    .eq("gym_id", (me as { gym_id: string }).gym_id)
+    .order("created_at", { ascending: false })
+    .limit(200) as unknown as Promise<{ data: ProductSaleRow[] | null; error: { message: string } | null }>)
+
+  if (error) return { error: error.message }
+
+  return { sales: data ?? [] }
 }
