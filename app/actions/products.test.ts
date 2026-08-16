@@ -29,14 +29,14 @@ beforeEach(() => {
 describe("getProducts", () => {
   it("devuelve solo los productos activos por defecto", async () => {
     const supabase = createMockSupabase([
-      { data: { gym_id: "gym-1" }, error: null }, // profiles (gym_id)
+      { data: { gym_id: "gym-1" }, error: null },
       {
         data: [
           { id: "p1", is_active: true, product_variants: [] },
           { id: "p2", is_active: false, product_variants: [] },
         ],
         error: null,
-      }, // products
+      },
     ])
     supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
     mockCreateClient.mockReturnValue(supabase)
@@ -77,8 +77,8 @@ describe("createProduct", () => {
 
   it("un admin puede crear un producto", async () => {
     const supabase = createMockSupabase([
-      { data: { role: "admin", gym_id: "gym-1" }, error: null }, // me
-      { data: { id: "new-product-1" }, error: null }, // insert
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
+      { data: { id: "new-product-1" }, error: null },
     ])
     supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
     mockCreateClient.mockReturnValue(supabase)
@@ -107,7 +107,7 @@ describe("createProduct", () => {
     const result = await createProduct(INPUT)
 
     expect(result).toEqual({ error: "Solo un admin puede crear productos" })
-    expect(supabase.from).toHaveBeenCalledTimes(1) // nunca llega al insert
+    expect(supabase.from).toHaveBeenCalledTimes(1)
   })
 
   it("rechaza un precio negativo antes de escribir", async () => {
@@ -154,7 +154,7 @@ describe("updateProduct", () => {
   it("un producto de otro gym no matchea el UPDATE y devuelve error en vez de éxito silencioso", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1" }, error: null },
-      { data: [], error: null }, // el .eq("gym_id", ...) no matchea ninguna fila
+      { data: [], error: null },
     ])
     supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
     mockCreateClient.mockReturnValue(supabase)
@@ -179,6 +179,18 @@ describe("toggleProductActive", () => {
     expect(result).toEqual({ success: true })
     const updatePayload = (supabase.chains[1].update as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(updatePayload).toEqual({ is_active: false })
+  })
+
+  it("un trainer no puede desactivar productos", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "trainer", gym_id: "gym-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("trainer-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await toggleProductActive("product-1", false)
+
+    expect(result).toEqual({ error: "Solo un admin puede desactivar productos" })
   })
 })
 
