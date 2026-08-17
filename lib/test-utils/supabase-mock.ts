@@ -33,7 +33,9 @@ export function chainableResult(result: MockResult) {
  * Mock de un cliente Supabase completo. `fromResults` es la lista de
  * resultados que devuelve cada llamada sucesiva a `.from(...)`, EN ORDEN —
  * hay que conocer cuántas veces y en qué orden la función bajo test llama
- * a `.from()`, incluyendo llamadas indirectas.
+ * a `.from()`, incluyendo llamadas indirectas (por ejemplo,
+ * getMemberProfileForPlan llamando a su propio createClient() adentro de
+ * otra función que ya llamó la suya).
  *
  * `mockSupabase.chains[i]` guarda el builder devuelto por la i-ésima
  * llamada a `.from()`, así un test puede assertar sobre qué se le pasó a

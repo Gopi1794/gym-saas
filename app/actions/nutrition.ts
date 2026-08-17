@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { calcNutritionTargets, missingTargetFields } from "@/lib/nutrition"
+import { calcTmb, calcNutritionTargets, missingTargetFields, validateNutritionSafety, defaultNutritionSettingsForGoal } from "@/lib/nutrition"
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -60,8 +60,32 @@ export type NutritionPlan = {
   target_protein:  number | null
   target_carbs:    number | null
   target_fat:      number | null
+  calorie_adjustment_pct: number | null
+  protein_per_kg:         number | null
+  fat_per_kg:              number | null
+  needs_review:            boolean
+  needs_review_reason:     string | null
   profiles?: { full_name: string | null; avatar_url: string | null }
   nutrition_meals?: Meal[]
+}
+
+export type GymNutritionDefaults = {
+  gym_id: string
+  volumen_pct: number; volumen_protein: number
+  rendimiento_pct: number; rendimiento_protein: number
+  mantenimiento_protein: number
+  recomposicion_protein: number
+  perdida_moderada_pct: number; perdida_moderada_protein: number
+  definicion_pct: number; definicion_protein: number
+}
+
+const DEFAULT_GYM_NUTRITION_DEFAULTS: Omit<GymNutritionDefaults, "gym_id"> = {
+  volumen_pct: 12, volumen_protein: 1.8,
+  rendimiento_pct: 8, rendimiento_protein: 1.8,
+  mantenimiento_protein: 1.7,
+  recomposicion_protein: 2.0,
+  perdida_moderada_pct: -10, perdida_moderada_protein: 2.0,
+  definicion_pct: -18, definicion_protein: 2.2,
 }
 
 // ── Food library ───────────────────────────────────────────────
@@ -163,7 +187,7 @@ export async function getMemberProfileForPlan(memberId: string) {
   const supabase = createClient()
   const { data } = await supabase
     .from("profiles")
-    .select("weight_kg, height_cm, date_of_birth, gender, training_frequency, goal")
+    .select("weight_kg, height_cm, date_of_birth, gender, training_frequency, daily_activity, metabolic_reference, goal")
     .eq("id", memberId)
     .single()
   return data as {
@@ -172,6 +196,8 @@ export async function getMemberProfileForPlan(memberId: string) {
     date_of_birth: string | null
     gender: "male" | "female" | "other" | null
     training_frequency: "never" | "1-2" | "3-4" | "5+" | null
+    daily_activity: "sedentary" | "moderate" | "active" | null
+    metabolic_reference: "male" | "female" | null
     goal: "lose_weight" | "gain_muscle" | "performance" | "maintain" | null
   } | null
 }
@@ -181,12 +207,14 @@ export async function createNutritionPlan(
   memberId: string,
   name: string,
   goal: NutritionPlan["goal"],
+  calorieAdjustmentPct: number,
+  proteinPerKg: number,
   notes?: string
 ): Promise<{ id: string } | { error: string }> {
   const supabase = createClient()
 
   const profile = await getMemberProfileForPlan(memberId)
-  const targets = profile ? calcNutritionTargets(profile, goal) : null
+  const targets = profile ? calcNutritionTargets(profile, goal, { calorieAdjustmentPct, proteinPerKg }) : null
 
   if (!targets) {
     const missing = missingTargetFields(profile)
@@ -196,6 +224,12 @@ export async function createNutritionPlan(
         : "No se pudo calcular el objetivo nutricional a partir de los datos del socio."
     }
   }
+
+  const tmb = profile ? calcTmb(profile) : null
+  const safety = tmb != null
+    ? validateNutritionSafety(targets, tmb, calorieAdjustmentPct, proteinPerKg)
+    : { needsReview: false, reason: null }
+  const fatPerKg = targets.fat / (profile!.weight_kg as number)
 
   const { data: { user } } = await supabase.auth.getUser()
   const { data, error } = await supabase
@@ -211,6 +245,11 @@ export async function createNutritionPlan(
       target_protein:  targets.protein,
       target_carbs:    targets.carbs,
       target_fat:      targets.fat,
+      calorie_adjustment_pct: calorieAdjustmentPct,
+      protein_per_kg: proteinPerKg,
+      fat_per_kg: fatPerKg,
+      needs_review: safety.needsReview,
+      needs_review_reason: safety.reason,
     } as never)
     .select("id")
     .single()
@@ -228,7 +267,8 @@ export async function updateNutritionPlan(id: string, updates: Partial<Pick<Nutr
 }
 
 export async function recalculateNutritionPlanTargets(
-  planId: string
+  planId: string,
+  overrides?: { calorieAdjustmentPct: number; proteinPerKg: number }
 ): Promise<{ error: string } | { success: true; targets: { calories: number; protein: number; carbs: number; fat: number } }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -246,16 +286,33 @@ export async function recalculateNutritionPlanTargets(
 
   const { data: plan } = await supabase
     .from("nutrition_plans" as never)
-    .select("gym_id, member_id, goal, target_calories")
+    .select("gym_id, member_id, goal, target_calories, calorie_adjustment_pct, protein_per_kg")
     .eq("id", planId)
-    .single() as unknown as { data: { gym_id: string; member_id: string; goal: NutritionPlan["goal"]; target_calories: number | null } | null }
+    .single() as unknown as {
+      data: {
+        gym_id: string; member_id: string; goal: NutritionPlan["goal"]; target_calories: number | null
+        calorie_adjustment_pct: number | null; protein_per_kg: number | null
+      } | null
+    }
 
   if (!plan || plan.gym_id !== (me as any).gym_id) {
     return { error: "El plan no pertenece a tu gym" }
   }
 
   const profile = await getMemberProfileForPlan(plan.member_id)
-  const targets = profile ? calcNutritionTargets(profile, plan.goal) : null
+
+  // Sin overrides explícitos (botón "Actualizar" de siempre): reusa los
+  // valores YA guardados en el plan, no vuelve a los defaults del objetivo.
+  // Un plan viejo (de antes de esta migración) tiene estas columnas en
+  // null — calcNutritionTargets cae a defaultNutritionSettingsForGoal en
+  // ese caso, igual que se comportaba antes de este cambio.
+  const calorieAdjustmentPct = overrides?.calorieAdjustmentPct ?? plan.calorie_adjustment_pct ?? undefined
+  const proteinPerKg = overrides?.proteinPerKg ?? plan.protein_per_kg ?? undefined
+  const resolvedOverrides = calorieAdjustmentPct != null && proteinPerKg != null
+    ? { calorieAdjustmentPct, proteinPerKg }
+    : undefined
+
+  const targets = profile ? calcNutritionTargets(profile, plan.goal, resolvedOverrides) : null
 
   if (!targets) {
     const missing = missingTargetFields(profile)
@@ -266,6 +323,15 @@ export async function recalculateNutritionPlanTargets(
     }
   }
 
+  const tmb = profile ? calcTmb(profile) : null
+  const goalDefaults = defaultNutritionSettingsForGoal(plan.goal)
+  const finalPct = resolvedOverrides?.calorieAdjustmentPct ?? goalDefaults.calorieAdjustmentPct
+  const finalProtein = resolvedOverrides?.proteinPerKg ?? goalDefaults.proteinPerKg
+  const safety = tmb != null
+    ? validateNutritionSafety(targets, tmb, finalPct, finalProtein)
+    : { needsReview: false, reason: null }
+  const fatPerKg = targets.fat / (profile!.weight_kg as number)
+
   const { data: updated, error } = await supabase
     .from("nutrition_plans" as never)
     .update({
@@ -273,6 +339,11 @@ export async function recalculateNutritionPlanTargets(
       target_protein:  targets.protein,
       target_carbs:    targets.carbs,
       target_fat:      targets.fat,
+      calorie_adjustment_pct: finalPct,
+      protein_per_kg: finalProtein,
+      fat_per_kg: fatPerKg,
+      needs_review: safety.needsReview,
+      needs_review_reason: safety.reason,
     } as never)
     .eq("id", planId)
     .select("id")
@@ -391,5 +462,75 @@ export async function removeFoodFavorite(userId: string, foodId: string): Promis
     .delete()
     .eq("user_id", userId)
     .eq("food_id", foodId)
+}
+
+// ── Configuración de nutrición por gym ──────────────────────────
+
+export async function getGymNutritionDefaults(gymId: string): Promise<GymNutritionDefaults> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from("gym_nutrition_defaults" as never)
+    .select("*")
+    .eq("gym_id", gymId)
+    .maybeSingle()
+  if (data) return data as unknown as GymNutritionDefaults
+
+  const { data: created } = await supabase
+    .from("gym_nutrition_defaults" as never)
+    .insert({ gym_id: gymId, ...DEFAULT_GYM_NUTRITION_DEFAULTS } as never)
+    .select("*")
+    .single()
+  return (created as unknown as GymNutritionDefaults) ?? { gym_id: gymId, ...DEFAULT_GYM_NUTRITION_DEFAULTS }
+}
+
+export async function saveGymNutritionDefaults(
+  gymId: string,
+  updates: Omit<GymNutritionDefaults, "gym_id">
+): Promise<{ error: string } | { success: true }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase.from("profiles").select("role, gym_id").eq("id", user.id).single()
+  if (!me || (me as any).role !== "admin" || (me as any).gym_id !== gymId) {
+    return { error: "Sin permiso" }
+  }
+
+  const { error } = await supabase
+    .from("gym_nutrition_defaults" as never)
+    .upsert({ gym_id: gymId, ...updates, updated_at: new Date().toISOString() } as never)
+  if (error) return { error: error.message }
+  revalidatePath("/admin")
+  return { success: true }
+}
+
+// ── Referencia metabólica del socio ─────────────────────────────
+
+export async function setMemberMetabolicReference(
+  memberId: string,
+  reference: "male" | "female"
+): Promise<{ error: string } | { success: true }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase.from("profiles").select("role, gym_id").eq("id", user.id).single()
+  if (!me || !["admin", "trainer"].includes((me as any).role)) {
+    return { error: "Sin permiso" }
+  }
+
+  const { data: target } = await supabase.from("profiles").select("gym_id").eq("id", memberId).single()
+  if (!target || (target as any).gym_id !== (me as any).gym_id) {
+    return { error: "Miembro no pertenece a tu gym" }
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ metabolic_reference: reference } as never)
+    .eq("id", memberId)
+  if (error) return { error: error.message }
+  revalidatePath(`/members/${memberId}`)
+  revalidatePath("/nutricion")
+  return { success: true }
 }
 

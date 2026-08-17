@@ -16,7 +16,7 @@ import {
 } from "@/app/actions/nutrition"
 import { searchUSDA } from "@/app/actions/usda"
 import type { USDAResult } from "@/app/actions/usda"
-import { calcMacros, calcPlanMacros, calcNutritionTargets, missingTargetFields, CALORIE_MISMATCH_THRESHOLD, NUTRITION_GOAL_LABELS as GOAL_LABELS } from "@/lib/nutrition"
+import { calcMacros, calcPlanMacros, calcNutritionTargets, missingTargetFields, CALORIE_MISMATCH_THRESHOLD, NUTRITION_GOAL_LABELS as GOAL_LABELS, defaultNutritionSettingsForGoal } from "@/lib/nutrition"
 import type { NutritionPlan, Meal, MealItem, Food } from "@/app/actions/nutrition"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -28,6 +28,8 @@ type MemberProfileForTargets = {
   date_of_birth: string | null
   gender: "male" | "female" | "other" | null
   training_frequency: "never" | "1-2" | "3-4" | "5+" | null
+  daily_activity: "sedentary" | "moderate" | "active" | null
+  metabolic_reference: "male" | "female" | null
 }
 
 interface Props { plan: NutritionPlan; foods: Food[]; userId: string; initialFavorites: string[]; memberProfile: MemberProfileForTargets | null }
@@ -597,6 +599,14 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
   const [clearingPlan, setClearingPlan] = useState(false)
   const [confirmingRecalculate, setConfirmingRecalculate] = useState(false)
   const [isRecalculating, setIsRecalculating] = useState(false)
+  const [editCalorieAdjustmentPct, setEditCalorieAdjustmentPct] = useState<number>(
+    plan.calorie_adjustment_pct ?? defaultNutritionSettingsForGoal(plan.goal).calorieAdjustmentPct
+  )
+  const [editProteinPerKg, setEditProteinPerKg] = useState<number>(
+    plan.protein_per_kg ?? defaultNutritionSettingsForGoal(plan.goal).proteinPerKg
+  )
+  const [confirmingRecalculateWithValues, setConfirmingRecalculateWithValues] = useState(false)
+  const [isRecalculatingWithValues, setIsRecalculatingWithValues] = useState(false)
 
   // Per-meal item state (kept in sync with MealDetail via onItemsChange)
   const [mealItems, setMealItems] = useState<Record<string, MealItem[]>>(
@@ -693,7 +703,10 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
 
   const liveMeals: Meal[] = meals.map(m => ({ ...m, nutrition_meal_items: mealItems[m.id] ?? [] }))
   const planTotals = calcPlanMacros(liveMeals)
-  const nutritionTargets = memberProfile ? calcNutritionTargets(memberProfile, plan.goal) : null
+  const planOverrides = plan.calorie_adjustment_pct != null && plan.protein_per_kg != null
+    ? { calorieAdjustmentPct: plan.calorie_adjustment_pct, proteinPerKg: plan.protein_per_kg }
+    : undefined
+  const nutritionTargets = memberProfile ? calcNutritionTargets(memberProfile, plan.goal, planOverrides) : null
 
   const nutritionWarnings: string[] = []
   let staleObjectiveWarning: { message: string; recalculatedCalories: number } | null = null
@@ -798,6 +811,31 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
     }
   }
 
+  async function handleConfirmRecalculateWithValues() {
+    setIsRecalculatingWithValues(true)
+    try {
+      const result = await recalculateNutritionPlanTargets(plan.id, {
+        calorieAdjustmentPct: editCalorieAdjustmentPct,
+        proteinPerKg: editProteinPerKg,
+      })
+      if ("error" in result) {
+        sileo.error({ title: "No se pudo actualizar el objetivo", description: result.error, duration: 4000 })
+        return
+      }
+      sileo.success({
+        title: "Objetivo actualizado",
+        description: `Nuevo objetivo: ${result.targets.calories.toLocaleString("es-AR")} kcal.`,
+        duration: 3000,
+      })
+      setConfirmingRecalculateWithValues(false)
+      router.refresh()
+    } catch {
+      sileo.error({ title: "No se pudo actualizar el objetivo", description: "Revisá tu conexión e intentá de nuevo.", duration: 4000 })
+    } finally {
+      setIsRecalculatingWithValues(false)
+    }
+  }
+
   function handleDuplicateMeal() {
     if (!activeMeal) return
     const sourceItems = mealItems[activeMeal.id] ?? []
@@ -865,6 +903,13 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
         </div>
       )}
 
+      {plan.needs_review && (
+        <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
+          <p className="font-semibold">Este plan quedó marcado para revisión</p>
+          <p className="mt-0.5">{plan.needs_review_reason}</p>
+        </div>
+      )}
+
       {/* ── Active badge + stats bar ───────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -909,6 +954,34 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
             <div className="flex items-center gap-2 text-zinc-400">
               <span className="text-zinc-600 font-bold">·</span>
               <span>Objetivo: <span className="font-bold text-zinc-200">{GOAL_LABELS[plan.goal] ?? plan.goal}</span></span>
+            </div>
+            <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-zinc-500">Ajuste %</label>
+                  <input
+                    type="number" step="1"
+                    value={editCalorieAdjustmentPct}
+                    onChange={e => { if (e.target.value !== "") setEditCalorieAdjustmentPct(Number(e.target.value)) }}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-brand-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-zinc-500">Prot. g/kg</label>
+                  <input
+                    type="number" step="0.1"
+                    value={editProteinPerKg}
+                    onChange={e => { if (e.target.value !== "") setEditProteinPerKg(Number(e.target.value)) }}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-brand-500/50"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={() => setConfirmingRecalculateWithValues(true)}
+                className="w-full rounded-lg bg-zinc-700 py-1.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-600 transition-colors"
+              >
+                Recalcular con estos valores
+              </button>
             </div>
           </div>
         </div>
@@ -1174,6 +1247,34 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
               className="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 transition-colors"
             >
               {isRecalculating ? "Actualizando…" : "Actualizar"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recalculate with custom values modal */}
+      <Dialog open={confirmingRecalculateWithValues} onOpenChange={open => { if (!open && !isRecalculatingWithValues) setConfirmingRecalculateWithValues(false) }}>
+        <DialogContent className="sm:max-w-sm border-zinc-800 bg-zinc-900">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-50">¿Recalcular con estos valores?</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              El objetivo se recalcula con {editCalorieAdjustmentPct}% de ajuste y {editProteinPerKg} g/kg de proteína. Las comidas cargadas no se tocan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => setConfirmingRecalculateWithValues(false)}
+              disabled={isRecalculatingWithValues}
+              className="flex-1 rounded-xl border border-zinc-700 py-2.5 text-sm font-medium text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 disabled:opacity-40 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleConfirmRecalculateWithValues}
+              disabled={isRecalculatingWithValues}
+              className="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 transition-colors"
+            >
+              {isRecalculatingWithValues ? "Actualizando…" : "Actualizar"}
             </button>
           </div>
         </DialogContent>

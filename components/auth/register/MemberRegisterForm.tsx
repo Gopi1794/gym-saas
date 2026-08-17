@@ -15,12 +15,14 @@ import type { TurnstileInstance } from "@marsidev/react-turnstile"
 type Gender = "male" | "female" | "other"
 type Goal = "lose_weight" | "gain_muscle" | "performance" | "maintain"
 type Frequency = "never" | "1-2" | "3-4" | "5+"
+type DailyActivity = "sedentary" | "moderate" | "active"
 
 type FormData = {
   fullName: string; email: string; password: string
   dateOfBirth: string; gender: Gender | ""; phone: string
   weightKg: string; heightCm: string; goal: Goal | ""
   medicalConditions: string; trainingFrequency: Frequency | ""
+  dailyActivity: DailyActivity | ""
   emergencyName: string; emergencyPhone: string
 }
 
@@ -28,7 +30,8 @@ const INITIAL: FormData = {
   fullName: "", email: "", password: "",
   dateOfBirth: "", gender: "", phone: "",
   weightKg: "", heightCm: "", goal: "",
-  medicalConditions: "", trainingFrequency: "", emergencyName: "", emergencyPhone: "",
+  medicalConditions: "", trainingFrequency: "", dailyActivity: "",
+  emergencyName: "", emergencyPhone: "",
 }
 
 const STEPS = [
@@ -144,6 +147,7 @@ export default function MemberRegisterForm({ gymCode, gymName }: Props) {
         goal:               data.goal || null,
         medical_conditions: data.medicalConditions || null,
         training_frequency: data.trainingFrequency || null,
+        daily_activity:     data.dailyActivity || null,
         emergency_name:     data.emergencyName || null,
         emergency_phone:    data.emergencyPhone || null,
       } as never).eq("id", authData.session.user.id)
@@ -366,6 +370,16 @@ export default function MemberRegisterForm({ gymCode, gymName }: Props) {
               ]}
               value={data.trainingFrequency} onChange={(v) => set("trainingFrequency", v)} />
             <FieldError msg={errors.trainingFrequency} />
+          </div>
+          <div>
+            <label className={labelCls}>¿Cómo es tu actividad diaria fuera del gym?</label>
+            <Pill
+              options={[
+                { value: "sedentary" as DailyActivity, label: "Sedentaria" },
+                { value: "moderate" as DailyActivity, label: "Moderada" },
+                { value: "active" as DailyActivity, label: "Muy activa" },
+              ]}
+              value={data.dailyActivity} onChange={(v) => set("dailyActivity", v)} />
           </div>
           <div>
             <label htmlFor="medical" className={labelCls}>

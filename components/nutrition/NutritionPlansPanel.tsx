@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useEffect, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Plus, Trash2, User, ChevronRight, Apple, Zap } from "lucide-react"
 import { sileo } from "sileo"
-import { createNutritionPlan, deleteNutritionPlan, getMemberProfileForPlan } from "@/app/actions/nutrition"
-import type { NutritionPlan } from "@/app/actions/nutrition"
-import { calcNutritionTargets, missingTargetFields, NUTRITION_GOAL_OPTIONS, NUTRITION_GOAL_LABELS } from "@/lib/nutrition"
+import { createNutritionPlan, deleteNutritionPlan, getMemberProfileForPlan, getGymNutritionDefaults, setMemberMetabolicReference } from "@/app/actions/nutrition"
+import type { NutritionPlan, GymNutritionDefaults } from "@/app/actions/nutrition"
+import { calcNutritionTargets, missingTargetFields, NUTRITION_GOAL_OPTIONS, NUTRITION_GOAL_LABELS, gymDefaultsForGoal } from "@/lib/nutrition"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { getInitials } from "@/lib/utils"
@@ -55,6 +55,14 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
   const [loadingProfile, setLoadingProfile] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null)
+  const [gymDefaults, setGymDefaults] = useState<GymNutritionDefaults | null>(null)
+  const [calorieAdjustmentPct, setCalorieAdjustmentPct] = useState<number | "">("")
+  const [proteinPerKg, setProteinPerKg] = useState<number | "">("")
+  const [savingMetabolicRef, setSavingMetabolicRef] = useState(false)
+
+  useEffect(() => {
+    getGymNutritionDefaults(gymId).then(setGymDefaults)
+  }, [gymId])
 
   async function handleMemberChange(memberId: string) {
     setForm(f => ({ ...f, memberId }))
@@ -69,16 +77,50 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
     }
   }
 
-  const missingFields = missingTargetFields(memberProfile)
+  function handleGoalChange(goal: NutritionPlan["goal"] | "") {
+    setForm(f => ({ ...f, goal }))
+    if (goal && gymDefaults) {
+      const d = gymDefaultsForGoal(gymDefaults, goal)
+      setCalorieAdjustmentPct(d.pct)
+      setProteinPerKg(d.protein)
+    } else {
+      setCalorieAdjustmentPct("")
+      setProteinPerKg("")
+    }
+  }
 
-  const suggestedTargets = memberProfile && form.goal ? calcNutritionTargets(memberProfile, form.goal) : null
+  async function handleSaveMetabolicReference(reference: "male" | "female") {
+    if (!form.memberId) return
+    setSavingMetabolicRef(true)
+    try {
+      await setMemberMetabolicReference(form.memberId, reference)
+      await handleMemberChange(form.memberId)
+    } finally {
+      setSavingMetabolicRef(false)
+    }
+  }
+
+  const missingFields = missingTargetFields(memberProfile)
+  // "referencia metabólica" se completa con el selector propio de este panel
+  // (más abajo), no en /members/[id] — MemberContactEdit no tiene control para
+  // ese campo. El bloque genérico de "Faltan datos" no debe mandar al trainer
+  // a una página que no puede resolverlo.
+  const missingFieldsForMemberLink = missingFields.filter(f => f !== "referencia metabólica")
+
+  const suggestedTargets = memberProfile && form.goal && calorieAdjustmentPct !== "" && proteinPerKg !== ""
+    ? calcNutritionTargets(memberProfile, form.goal, { calorieAdjustmentPct, proteinPerKg })
+    : null
+
+  const needsMetabolicReference = missingFields.includes("referencia metabólica")
 
   function handleCreate() {
-    if (!form.memberId || !form.name.trim() || !form.goal) return
+    if (!form.memberId || !form.name.trim() || !form.goal || calorieAdjustmentPct === "" || proteinPerKg === "") return
     const goal = form.goal
+    const pct = calorieAdjustmentPct
+    const protein = proteinPerKg
     startTransition(async () => {
       try {
-        const result = await createNutritionPlan(gymId, form.memberId, form.name, goal, form.notes || undefined)
+        const result = await createNutritionPlan(gymId, form.memberId, form.name, goal, pct, protein, form.notes || undefined)
         if ("error" in result) {
           sileo.error({ title: "No se pudo crear el plan", description: result.error, duration: 4000 })
           return
@@ -210,7 +252,7 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                 <label className="mb-1 block text-xs font-semibold text-zinc-500">Objetivo</label>
                 <select
                   value={form.goal}
-                  onChange={e => setForm(f => ({ ...f, goal: e.target.value as NutritionPlan["goal"] | "" }))}
+                  onChange={e => handleGoalChange(e.target.value as NutritionPlan["goal"] | "")}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
                 >
                   <option value="">Seleccioná un objetivo…</option>
@@ -235,15 +277,64 @@ export default function NutritionPlansPanel({ gymId, plans: initialPlans, member
                 </p>
               )}
 
-              {!loadingProfile && memberProfile && missingFields.length > 0 && (
+              {!loadingProfile && memberProfile && missingFieldsForMemberLink.length > 0 && (
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-400">
-                  <p>Faltan datos del socio para calcular el objetivo: {missingFields.join(", ")}.</p>
+                  <p>Faltan datos del socio para calcular el objetivo: {missingFieldsForMemberLink.join(", ")}.</p>
                   <Link
                     href={`/members/${form.memberId}`}
                     className="mt-1.5 inline-block font-semibold underline hover:text-amber-300 transition-colors"
                   >
                     Completar datos del socio →
                   </Link>
+                </div>
+              )}
+
+              {!loadingProfile && memberProfile && needsMetabolicReference && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                  <p className="text-xs text-amber-400">
+                    Este socio no tiene género masculino/femenino cargado. Elegí con qué referencia calcular su metabolismo basal — es una estimación matemática para la fórmula, no determina el metabolismo real de la persona.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={savingMetabolicRef}
+                      onClick={() => handleSaveMetabolicReference("male")}
+                      className="flex-1 rounded-lg border border-amber-500/40 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+                    >
+                      Referencia masculina
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingMetabolicRef}
+                      onClick={() => handleSaveMetabolicReference("female")}
+                      className="flex-1 rounded-lg border border-amber-500/40 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+                    >
+                      Referencia femenina
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {form.goal && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-zinc-500">Ajuste calórico (%)</label>
+                    <input
+                      type="number" step="1"
+                      value={calorieAdjustmentPct}
+                      onChange={e => setCalorieAdjustmentPct(e.target.value === "" ? "" : Number(e.target.value))}
+                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-zinc-500">Proteína (g/kg)</label>
+                    <input
+                      type="number" step="0.1"
+                      value={proteinPerKg}
+                      onChange={e => setProteinPerKg(e.target.value === "" ? "" : Number(e.target.value))}
+                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+                    />
+                  </div>
                 </div>
               )}
 
