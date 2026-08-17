@@ -59,7 +59,7 @@ export default async function ProductsPage({
       ? <ProductSalesPanel sales={salesResult.sales} />
       : <p className="text-sm text-red-500">{salesResult.error}</p>
   } else {
-    const productsResult = await getProducts(true)
+    const productsResult = await getProducts(isAdmin)
     content = productsResult.products
       ? <ProductCatalogPanel products={productsResult.products} isAdmin={isAdmin} />
       : <p className="text-sm text-red-500">{productsResult.error}</p>

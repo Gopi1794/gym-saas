@@ -66,7 +66,7 @@ export default function SellProductPanel({ products, members }: { products: Prod
   if (flatVariants.length === 0) {
     return (
       <div className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-        No hay productos con stock disponibles para vender.
+        No hay productos activos para vender.
       </div>
     )
   }
