@@ -270,6 +270,7 @@ export default function TrainerPlanesView({ trainerId, gymId, memberPlans, templ
               isTemplate={tab === "templates"}
               trainerId={trainerId}
               members={members}
+              assignableMembers={membersWithoutPlan}
             />
           ))}
         </div>

@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Dumbbell } from "lucide-react"
 import { cn } from "@/lib/utils"
+import AssignTemplateButton from "./AssignTemplateButton"
 
 const DAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"]
 
@@ -30,9 +31,10 @@ interface PlanCardProps {
   trainerId: string
   readOnly?: boolean
   members?: Member[]
+  assignableMembers?: Member[]
 }
 
-export default function PlanCard({ plan, isTemplate, readOnly = false, members = [] }: PlanCardProps) {
+export default function PlanCard({ plan, isTemplate, readOnly = false, members = [], assignableMembers = [] }: PlanCardProps) {
   const days = plan.workout_plan_days ?? []
   const activeDays = new Set(days.map((d) => d.day_of_week))
   const total = days.reduce((sum, d) => sum + d.workout_plan_exercises.length, 0)
@@ -94,14 +96,17 @@ export default function PlanCard({ plan, isTemplate, readOnly = false, members =
 
         <hr className="border-zinc-200 dark:border-zinc-800" />
 
-        <div className="mt-auto">
+        <div className="mt-auto space-y-2">
           {isTemplate ? (
-            <Link
-              href={`/planes/${plan.id}`}
-              className="block w-full rounded-xl bg-brand-700 py-3 text-center text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-800"
-            >
-              Editar plantilla
-            </Link>
+            <>
+              <Link
+                href={`/planes/${plan.id}`}
+                className="block w-full rounded-xl bg-brand-700 py-3 text-center text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-800"
+              >
+                Editar plantilla
+              </Link>
+              <AssignTemplateButton templateId={plan.id} members={assignableMembers} />
+            </>
           ) : readOnly ? (
             <Link
               href={`/planes/${plan.id}`}
