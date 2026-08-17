@@ -416,6 +416,7 @@ describe("recordSale", () => {
     const result = await recordSale("variant-1", 1, null)
 
     expect(result).toEqual({ error: "Sin permiso para vender productos" })
+    expect(mockCreateAdminClient).not.toHaveBeenCalled()
   })
 
   it("stock insuficiente devuelve el error del RPC tal cual", async () => {
