@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import TabSwitcher from "@/components/ui/TabSwitcher"
 import MemberTable from "@/components/members/MemberTable"
-import InviteLink from "@/components/members/InviteLink"
+import InviteMemberCard from "@/components/members/InviteMemberCard"
 import StaffLog from "@/components/check-in/StaffLog"
 import { Users, CheckCircle2, Clock } from "lucide-react"
 import { isMembershipActive } from "@/lib/utils"
@@ -131,12 +131,8 @@ export default async function PersonasPage({
         </div>
 
         {inviteCode && (
-          <div data-tour="members-invite" className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-            <p className="text-xs font-semibold text-zinc-400 mb-2">Invitar nuevo miembro</p>
-            <p className="text-xs text-zinc-400 mb-3">
-              Compartí este link para que los socios se registren y queden vinculados automáticamente al gym.
-            </p>
-            <InviteLink inviteCode={inviteCode} />
+          <div data-tour="members-invite">
+            <InviteMemberCard inviteCode={inviteCode} />
           </div>
         )}
 

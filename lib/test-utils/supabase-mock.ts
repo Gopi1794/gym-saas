@@ -40,6 +40,10 @@ export function chainableResult(result: MockResult) {
  * `mockSupabase.chains[i]` guarda el builder devuelto por la i-ésima
  * llamada a `.from()`, así un test puede assertar sobre qué se le pasó a
  * `.insert()`/`.update()`/`.upsert()` en esa llamada puntual.
+ *
+ * `.rpc(...)` es independiente de `.from(...)` — se configura aparte con
+ * `mockSupabase.rpc.mockResolvedValueOnce({ data, error })` en cada test
+ * que lo necesite. Devuelve `{ data: null, error: null }` por defecto.
  */
 export function createMockSupabase(fromResults: MockResult[] = []) {
   const chains = fromResults.map(chainableResult)
@@ -52,6 +56,7 @@ export function createMockSupabase(fromResults: MockResult[] = []) {
   return {
     from,
     auth: { getUser: vi.fn() },
+    rpc: vi.fn((): Promise<MockResult> => Promise.resolve({ data: null, error: null })),
     chains,
   }
 }
