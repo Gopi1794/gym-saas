@@ -54,7 +54,7 @@ export function createMockSupabase(fromResults: MockResult[] = []) {
   return {
     from,
     auth: { getUser: vi.fn() },
-    rpc: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    rpc: vi.fn((): Promise<MockResult> => Promise.resolve({ data: null, error: null })),
     chains,
   }
 }
