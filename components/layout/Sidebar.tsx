@@ -15,6 +15,7 @@ import {
   Dumbbell,
   BarChart2,
   Apple,
+  ShoppingBag,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react"
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { href: "/personas", label: "Personas", icon: Users, staffOnly: true },
   { href: "/entrenamiento", label: "Entrenamiento", icon: Dumbbell },
   { href: "/nutricion", label: "Nutrición", icon: Apple },
+  { href: "/productos", label: "Productos", icon: ShoppingBag, staffOnly: true },
   { href: "/progress", label: "Progreso", icon: TrendingUp, memberOnly: true },
   { href: "/achievements", label: "Logros", icon: Trophy, staffOnly: true },
   { href: "/check-in", label: "Check-in", icon: QrCode },
