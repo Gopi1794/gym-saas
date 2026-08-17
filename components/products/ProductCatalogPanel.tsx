@@ -38,14 +38,6 @@ export default function ProductCatalogPanel({ products, isAdmin }: { products: P
     if (result.error) setToggleError(result.error)
   }
 
-  if (products.length === 0) {
-    return (
-      <div className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-        Todavía no hay productos cargados{isAdmin ? " — creá el primero." : "."}
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-3">
       {isAdmin && (
@@ -61,7 +53,13 @@ export default function ProductCatalogPanel({ products, isAdmin }: { products: P
         </div>
       )}
 
-      {products.map((product) => (
+      {products.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+          Todavía no hay productos cargados{isAdmin ? " — creá el primero arriba." : "."}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {products.map((product) => (
         <div key={product.id} className="rounded-2xl border border-border bg-card p-4 space-y-3">
           <button
             onClick={() => setExpanded(expanded === product.id ? null : product.id)}
@@ -140,6 +138,8 @@ export default function ProductCatalogPanel({ products, isAdmin }: { products: P
           )}
         </div>
       ))}
+        </div>
+      )}
 
       {toggleError && <Alert variant="error">{toggleError}</Alert>}
     </div>
