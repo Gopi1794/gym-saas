@@ -419,6 +419,19 @@ describe("recordSale", () => {
     expect(mockCreateAdminClient).not.toHaveBeenCalled()
   })
 
+  it("rechaza una cantidad de cero antes de llamar al RPC", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await recordSale("variant-1", 0, null)
+
+    expect(result).toEqual({ error: "La cantidad debe ser mayor a cero" })
+    expect(mockCreateAdminClient).not.toHaveBeenCalled()
+  })
+
   it("stock insuficiente devuelve el error del RPC tal cual", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
