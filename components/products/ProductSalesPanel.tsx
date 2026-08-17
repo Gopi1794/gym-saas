@@ -30,6 +30,7 @@ export default function ProductSalesPanel({ sales }: { sales: ProductSaleRow[] }
             <th className="px-4 py-3 font-medium">Cantidad</th>
             <th className="px-4 py-3 font-medium">Monto</th>
             <th className="px-4 py-3 font-medium">Socio</th>
+            <th className="px-4 py-3 font-medium">Registrado por</th>
           </tr>
         </thead>
         <tbody>
@@ -46,6 +47,7 @@ export default function ProductSalesPanel({ sales }: { sales: ProductSaleRow[] }
                 {formatARS(sale.total_amount)}
               </td>
               <td className="px-4 py-3 text-muted-foreground">{sale.profiles?.full_name ?? "Sin socio"}</td>
+              <td className="px-4 py-3 text-muted-foreground">{sale.recorded_by_profile?.full_name ?? "—"}</td>
             </tr>
           ))}
         </tbody>

@@ -48,7 +48,8 @@ export async function getProducts(includeInactive = false) {
     .from("products" as never)
     .select("*, product_variants(*)")
     .eq("gym_id", (me as { gym_id: string }).gym_id)
-    .order("name") as unknown as Promise<{ data: Product[] | null; error: { message: string } | null }>)
+    .order("name")
+    .order("name", { referencedTable: "product_variants" }) as unknown as Promise<{ data: Product[] | null; error: { message: string } | null }>)
 
   if (error) return { error: error.message }
 
@@ -394,6 +395,7 @@ export type ProductSaleRow = {
   created_at: string
   product_variants: { name: string; products: { name: string } | null } | null
   profiles: { full_name: string | null } | null
+  recorded_by_profile: { full_name: string | null } | null
 }
 
 export async function getProductSales() {
@@ -418,7 +420,7 @@ export async function getProductSales() {
   // app/actions/nutrition.ts con nutrition_plans, que tiene la misma forma).
   const { data, error } = await (supabase
     .from("product_sales" as never)
-    .select("id, quantity, unit_price, unit_cost, total_amount, created_at, product_variants(name, products(name)), profiles!product_sales_member_id_fkey(full_name)")
+    .select("id, quantity, unit_price, unit_cost, total_amount, created_at, product_variants(name, products(name)), profiles!product_sales_member_id_fkey(full_name), recorded_by_profile:profiles!product_sales_recorded_by_fkey(full_name)")
     .eq("gym_id", (me as { gym_id: string }).gym_id)
     .order("created_at", { ascending: false })
     .limit(200) as unknown as Promise<{ data: ProductSaleRow[] | null; error: { message: string } | null }>)
