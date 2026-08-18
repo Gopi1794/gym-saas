@@ -148,29 +148,14 @@ function statusPillClass(status: MuscleStatus) {
   }[status]
 }
 
-function statusRingClass(status: MuscleStatus) {
-  return {
-    low: "text-red-500",
-    "slightly-low": "text-amber-500",
-    optimal: "text-emerald-500",
-    high: "text-orange-500",
-  }[status]
-}
-
-function statusBorderClass(status: MuscleStatus) {
-  return {
-    low: "border-red-500",
-    "slightly-low": "border-amber-500",
-    optimal: "border-emerald-500",
-    high: "border-orange-500",
-  }[status]
-}
-
-const STATUS_HEX: Record<MuscleStatus, string> = {
-  low: "#ef4444",
-  "slightly-low": "#f59e0b",
-  optimal: "#10b981",
-  high: "#f97316",
+/**
+ * Verde en 0% -> rojo en 100%, pasando por amarillo, como un gauge.
+ * Luminosidad baja (40%) a propósito: al 50% da amarillo, que en 50%L
+ * pierde casi todo el contraste como texto sobre fondo blanco.
+ */
+function progressColor(percent: number) {
+  const t = Math.max(0, Math.min(1, percent / 100))
+  return `hsl(${120 * (1 - t)}, 70%, 40%)`
 }
 
 const MUSCLE_ZONE_IMAGE: Record<MuscleZone, string> = {
@@ -1081,8 +1066,13 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
               {muscleVolumeStats.map(({ muscle, sets, zone, range, status }) => {
                 const progress = Math.min(100, Math.round((sets / range[1]) * 100))
                 const ringCircumference = 2 * Math.PI * 72
+                const ringColor = progressColor(progress)
                 return (
-                  <div key={muscle} className="rounded-[20px] overflow-hidden border border-zinc-200 dark:border-white/[5%] bg-white dark:bg-[#111214] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:shadow-none flex flex-col">
+                  <div key={muscle} className="relative rounded-[20px] overflow-hidden border border-zinc-200 dark:border-white/[5%] bg-white dark:bg-[#111214] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:shadow-none flex flex-col">
+                    {/* Series totales vs. recomendado */}
+                    <span className="absolute right-3 top-3 z-10 flex h-7 min-w-7 items-center justify-center rounded-full bg-red-600 px-1.5 text-[13px] font-black text-white shadow-[0_2px_6px_rgba(220,38,38,0.4)]">
+                      {sets}
+                    </span>
                     {/* Anatomical photo + progress ring */}
                     <div className="flex items-center justify-center pt-5 pb-2">
                       <div className="relative flex items-center justify-center" style={{ width: 160, height: 160 }}>
@@ -1098,17 +1088,17 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                           </defs>
                           <circle cx="80" cy="80" r="72" fill="none" strokeWidth="4" className="text-zinc-200 dark:text-white/10" stroke="currentColor" />
                           <circle
-                            cx="80" cy="80" r="72" fill="none" stroke={STATUS_HEX[status]}
+                            cx="80" cy="80" r="72" fill="none" stroke={ringColor}
                             strokeWidth="6" strokeLinecap="round" opacity="0.4"
                             filter={`url(#ring-halo-${zone})`}
                             strokeDasharray={ringCircumference}
                             strokeDashoffset={ringCircumference * (1 - progress / 100)}
                           />
                           <circle
-                            cx="80" cy="80" r="72" fill="none" stroke={STATUS_HEX[status]}
+                            cx="80" cy="80" r="72" fill="none" stroke={ringColor}
                             strokeWidth="4" strokeLinecap="round"
                             filter={`url(#ring-glow-${zone})`}
-                            className="transition-[stroke-dashoffset] duration-300 ease-out"
+                            className="transition-[stroke-dashoffset,stroke] duration-300 ease-out"
                             strokeDasharray={ringCircumference}
                             strokeDashoffset={ringCircumference * (1 - progress / 100)}
                           />
@@ -1116,7 +1106,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                         <div className="rounded-full overflow-hidden" style={{ width: 120, height: 120 }}>
                           <MuscleIcon zone={zone} className="h-full w-full object-cover" />
                         </div>
-                        <span className={cn("absolute -bottom-1 rounded-full border bg-white dark:bg-[#111214] px-2 py-[3px] text-[10px] font-bold shadow-sm", statusBorderClass(status), statusRingClass(status))}>
+                        <span
+                          className="absolute -bottom-1 rounded-full border bg-white dark:bg-[#111214] px-2 py-[3px] text-[10px] font-bold shadow-sm transition-colors duration-300 ease-out"
+                          style={{ borderColor: ringColor, color: ringColor }}
+                        >
                           {progress}%
                         </span>
                       </div>
@@ -1124,10 +1117,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                     {/* Card content */}
                     <div className="px-4 pt-1 pb-4 flex flex-col items-center gap-1.5">
                       <p className="text-[16px] font-bold text-zinc-900 dark:text-white text-center leading-tight">{muscle}</p>
-                      <div className="flex items-center justify-center gap-1.5">
-                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 text-center">Rango recomendado {range[0]} - {range[1]}</p>
-                        <span className="text-[16px] font-black tabular-nums text-red-500">{sets}</span>
-                      </div>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 text-center">Rango recomendado {range[0]} - {range[1]}</p>
                       {/* Status badge */}
                       <span className={cn("inline-flex items-center gap-[5px] rounded-full px-3 py-[5px] text-[10px] font-bold tracking-[0.2px]", statusPillClass(status))}>
                         <span className="h-1.5 w-1.5 rounded-full bg-current shrink-0" />
