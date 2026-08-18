@@ -139,13 +139,38 @@ function statusLabel(status: MuscleStatus) {
   }[status]
 }
 
-function statusClass(status: MuscleStatus) {
+function statusPillClass(status: MuscleStatus) {
   return {
-    low: "bg-red-500/10 text-red-400",
-    "slightly-low": "bg-amber-500/10 text-amber-400",
-    optimal: "bg-emerald-500/10 text-emerald-400",
-    high: "bg-orange-500/10 text-orange-400",
+    low: "bg-red-100 dark:bg-red-500/15 text-red-500",
+    "slightly-low": "bg-amber-100 dark:bg-amber-500/15 text-amber-500",
+    optimal: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-500",
+    high: "bg-orange-100 dark:bg-orange-500/15 text-orange-500",
   }[status]
+}
+
+function statusRingClass(status: MuscleStatus) {
+  return {
+    low: "text-red-500",
+    "slightly-low": "text-amber-500",
+    optimal: "text-emerald-500",
+    high: "text-orange-500",
+  }[status]
+}
+
+function statusBorderClass(status: MuscleStatus) {
+  return {
+    low: "border-red-500",
+    "slightly-low": "border-amber-500",
+    optimal: "border-emerald-500",
+    high: "border-orange-500",
+  }[status]
+}
+
+const STATUS_HEX: Record<MuscleStatus, string> = {
+  low: "#ef4444",
+  "slightly-low": "#f59e0b",
+  optimal: "#10b981",
+  high: "#f97316",
 }
 
 const MUSCLE_ZONE_IMAGE: Record<MuscleZone, string> = {
@@ -1055,33 +1080,59 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {muscleVolumeStats.map(({ muscle, sets, zone, range, status }) => {
                 const progress = Math.min(100, Math.round((sets / range[1]) * 100))
+                const ringCircumference = 2 * Math.PI * 72
                 return (
-                  <div key={muscle} className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-white/[5%] bg-zinc-50 dark:bg-[#111214] flex flex-col">
-                    {/* Anatomical image */}
-                    <div className="flex items-center justify-center bg-zinc-100 dark:bg-[#0D0D10] py-3">
-                      <MuscleIcon zone={zone} className="h-28 w-24" />
-                    </div>
-                    {/* Card content */}
-                    <div className="px-3 pt-2 pb-3 flex flex-col gap-1.5">
-                      <p className="text-[13px] font-semibold text-zinc-900 dark:text-white text-center leading-tight">{muscle}</p>
-                      {/* Progress row — barra original */}
-                      <div className="flex items-center gap-2">
-                        <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/[6%]">
-                          <div
-                            className="h-full rounded-full bg-red-600 shadow-[0_0_16px_rgba(220,38,38,0.55)] transition-[width] duration-200 ease-out"
-                            style={{ width: `${progress}%` }}
+                  <div key={muscle} className="rounded-[20px] overflow-hidden border border-zinc-200 dark:border-white/[5%] bg-white dark:bg-[#111214] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:shadow-none flex flex-col">
+                    {/* Anatomical photo + progress ring */}
+                    <div className="flex items-center justify-center pt-5 pb-2">
+                      <div className="relative flex items-center justify-center" style={{ width: 160, height: 160 }}>
+                        <svg viewBox="0 0 160 160" width={160} height={160} className="absolute inset-0 -rotate-90">
+                          <defs>
+                            <filter id={`ring-halo-${zone}`} x="-60%" y="-60%" width="220%" height="220%">
+                              <feGaussianBlur stdDeviation="3" />
+                            </filter>
+                            <filter id={`ring-glow-${zone}`} x="-40%" y="-40%" width="180%" height="180%">
+                              <feGaussianBlur stdDeviation="2" result="b" />
+                              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+                            </filter>
+                          </defs>
+                          <circle cx="80" cy="80" r="72" fill="none" strokeWidth="4" className="text-zinc-200 dark:text-white/10" stroke="currentColor" />
+                          <circle
+                            cx="80" cy="80" r="72" fill="none" stroke={STATUS_HEX[status]}
+                            strokeWidth="6" strokeLinecap="round" opacity="0.4"
+                            filter={`url(#ring-halo-${zone})`}
+                            strokeDasharray={ringCircumference}
+                            strokeDashoffset={ringCircumference * (1 - progress / 100)}
                           />
+                          <circle
+                            cx="80" cy="80" r="72" fill="none" stroke={STATUS_HEX[status]}
+                            strokeWidth="4" strokeLinecap="round"
+                            filter={`url(#ring-glow-${zone})`}
+                            className="transition-[stroke-dashoffset] duration-300 ease-out"
+                            strokeDasharray={ringCircumference}
+                            strokeDashoffset={ringCircumference * (1 - progress / 100)}
+                          />
+                        </svg>
+                        <div className="rounded-full overflow-hidden" style={{ width: 120, height: 120 }}>
+                          <MuscleIcon zone={zone} className="h-full w-full object-cover" />
                         </div>
-                        <span className="w-7 shrink-0 text-[13px] font-black tabular-nums text-red-500 text-right">{sets}</span>
-                      </div>
-                      <p className="text-[10px] text-zinc-500 dark:text-zinc-600 text-center">Rango recomendado {range[0]} - {range[1]}</p>
-                      {/* Status badge */}
-                      <div className="flex justify-center">
-                        <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-[3px] text-[9px] font-black uppercase tracking-wide", statusClass(status))}>
-                          <span className="h-1.5 w-1.5 rounded-full bg-current shrink-0" />
-                          {statusLabel(status)}
+                        <span className={cn("absolute -bottom-1 rounded-full border bg-white dark:bg-[#111214] px-2 py-[3px] text-[10px] font-bold shadow-sm", statusBorderClass(status), statusRingClass(status))}>
+                          {progress}%
                         </span>
                       </div>
+                    </div>
+                    {/* Card content */}
+                    <div className="px-4 pt-1 pb-4 flex flex-col items-center gap-1.5">
+                      <p className="text-[16px] font-bold text-zinc-900 dark:text-white text-center leading-tight">{muscle}</p>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 text-center">Rango recomendado {range[0]} - {range[1]}</p>
+                        <span className="text-[16px] font-black tabular-nums text-red-500">{sets}</span>
+                      </div>
+                      {/* Status badge */}
+                      <span className={cn("inline-flex items-center gap-[5px] rounded-full px-3 py-[5px] text-[10px] font-bold tracking-[0.2px]", statusPillClass(status))}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-current shrink-0" />
+                        {statusLabel(status)}
+                      </span>
                     </div>
                   </div>
                 )
