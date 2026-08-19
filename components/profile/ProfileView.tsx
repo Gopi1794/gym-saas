@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { GymFlowLogo } from "@/components/ui/GymFlowLogo";
+import SignOutLink from "@/components/auth/SignOutLink";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -965,6 +966,9 @@ export default function ProfileView({
           </p>
         )}
       </div>
+
+      {/* Cerrar sesión */}
+      <SignOutLink className="w-full justify-center gap-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 py-3.5 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400" />
     </div>
   );
 }
