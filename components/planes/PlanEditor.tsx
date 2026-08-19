@@ -21,8 +21,6 @@ import { sileo } from "sileo"
 import { CATEGORY_ICONS, StrengthIcon } from "@/components/exercises/CategoryIcons"
 import { MuscleIcon } from "@/components/planes/MuscleIcon"
 import {
-  type MuscleZone,
-  MUSCLE_META,
   getMuscleMeta,
   getMuscleStatus,
   statusLabel,
