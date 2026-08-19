@@ -27,15 +27,10 @@ import {
   statusPillClass,
   progressColor,
 } from "@/lib/muscle-anatomy"
+import type { Exercise } from "@/lib/muscle-exercises"
 
 const DAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 const DAY_FULL  = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-
-type Exercise = {
-  id: string; name: string; category: string
-  image_url: string | null; muscle_groups: string[]
-  is_timed: boolean
-}
 
 type SetConfig = {
   id: string
