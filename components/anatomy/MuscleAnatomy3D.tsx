@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
-import { Canvas, useFrame, useThree } from "@react-three/fiber"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Canvas, useFrame } from "@react-three/fiber"
 import { CameraControls, useGLTF, Html } from "@react-three/drei"
 import * as THREE from "three"
 import { X } from "lucide-react"
@@ -28,7 +28,13 @@ function Body({
   onSelect: (zone: MuscleZone) => void
   isIdle: boolean
 }) {
-  const { scene } = useGLTF(MODEL_PATH)
+  const { scene: cachedScene } = useGLTF(MODEL_PATH)
+  // useGLTF cachea y reutiliza el mismo grafo de escena entre montajes: mutar
+  // sus materiales in-place (como hace el highlight de abajo) deja "pegado"
+  // el color rojo entre una apertura del explorador y la siguiente. Clonamos
+  // la jerarquía una vez por instancia del componente para que cada montaje
+  // mute su propia copia, no la compartida.
+  const scene = useMemo(() => cachedScene.clone(true), [cachedScene])
   const groupRef = useRef<THREE.Group>(null)
 
   // Mapa nombre de nodo -> zona, para resolver un click en cualquier mesh a su zona.
@@ -50,21 +56,48 @@ function Body({
     }
   })
 
-  useMemo(() => {
-    scene.traverse(obj => {
-      if (!(obj instanceof THREE.Mesh)) return
-      const zone = nodeNameToZone.get(obj.name)
-      if (!zone) return
-      if (!originalMaterials.current.has(obj.name)) {
-        originalMaterials.current.set(obj.name, obj.material)
+  // Efecto imperativo (muta materiales de three.js directamente, no hay valor
+  // memoizado que usar) — useMemo no garantiza no repetirse ni corre después
+  // del commit, así que va en useEffect.
+  useEffect(() => {
+    function applyHighlight(mesh: THREE.Mesh, zone: MuscleZone) {
+      // Se indexa por uuid, no por name: cuando el mismo mesh de glTF (con
+      // más de un primitivo) es referenciado por dos nodos —el lado
+      // izquierdo y el derecho de un músculo, que es el caso de los 15
+      // meshes multi-primitivo de este modelo—, el loader clona el Group
+      // para el segundo nodo y el clone conserva el name de sus hijos tal
+      // cual. El Group en sí queda con un name distinto por lado, pero sus
+      // hijos Mesh no, así que dos meshes de lados opuestos pueden compartir
+      // el mismo name. El uuid en cambio nunca se copia al clonar: tres.js
+      // genera uno nuevo por instancia, así que es la única clave segura acá.
+      if (!originalMaterials.current.has(mesh.uuid)) {
+        originalMaterials.current.set(mesh.uuid, mesh.material)
       }
       const isSelected = zone === selectedZone
       if (isSelected) {
-        const mat = (obj.material as THREE.MeshStandardMaterial).clone()
+        const mat = (mesh.material as THREE.MeshStandardMaterial).clone()
         mat.color = HIGHLIGHT_COLOR
-        obj.material = mat
+        mesh.material = mat
       } else {
-        obj.material = originalMaterials.current.get(obj.name)!
+        mesh.material = originalMaterials.current.get(mesh.uuid)!
+      }
+    }
+
+    scene.traverse(obj => {
+      const zone = nodeNameToZone.get(obj.name)
+      if (!zone) return
+      if (obj instanceof THREE.Mesh) {
+        // Caso simple: el nodo del músculo es directamente un Mesh.
+        applyHighlight(obj, zone)
+      } else if (obj instanceof THREE.Group) {
+        // Un mesh de glTF con más de un primitivo se carga como Group (uno
+        // de los 50 nodos curados tiene 2 primitivos, no 1): el nombre del
+        // músculo queda en el Group, no en sus hijos Mesh reales. Bajamos un
+        // nivel y coloreamos cada hijo Mesh, indexando por su propio nombre
+        // (auto-generado por el loader, pero estable y único).
+        for (const child of obj.children) {
+          if (child instanceof THREE.Mesh) applyHighlight(child, zone)
+        }
       }
     })
   }, [scene, selectedZone, nodeNameToZone])
@@ -74,9 +107,18 @@ function Body({
       ref={groupRef}
       onClick={event => {
         event.stopPropagation()
-        const zone = nodeNameToZone.get(event.object.name)
-        // eslint-disable-next-line no-console
-        console.log("__DEBUG_MESH_CLICK__", { objectName: event.object.name, objectType: event.object.type, matchedZone: zone ?? null })
+        // Un click puede caer en el Mesh del nodo directamente (caso simple)
+        // o en un hijo Mesh de un Group cuando el nodo del músculo tiene más
+        // de un primitivo (ver comentario en el useEffect de arriba) — subimos
+        // por los padres hasta encontrar un nombre que resuelva a una zona,
+        // sin pasar del <group> al que está atado este handler.
+        let obj: THREE.Object3D | null = event.object
+        let zone: MuscleZone | undefined
+        while (obj && obj !== groupRef.current) {
+          zone = nodeNameToZone.get(obj.name)
+          if (zone) break
+          obj = obj.parent
+        }
         if (zone) onSelect(zone)
       }}
     >
@@ -101,9 +143,12 @@ function Body({
 }
 
 function CameraRig({ targetZone, controlsRef }: { targetZone: MuscleZone | null; controlsRef: React.RefObject<CameraControls> }) {
-  const { camera } = useThree()
-
-  useMemo(() => {
+  // useEffect, no useMemo: los refs recién quedan asignados después del
+  // commit. En el primer render, controlsRef.current todavía es null durante
+  // la fase de render — con useMemo ese primer encuadre se perdía en
+  // silencio (el guard de abajo cortaba, y como el memo solo reevalúa si
+  // cambia targetZone, nunca se reintentaba hasta la siguiente selección).
+  useEffect(() => {
     if (!controlsRef.current) return
     if (targetZone) {
       const [x, y, z] = MUSCLE_ANATOMY[targetZone].pointPosition
