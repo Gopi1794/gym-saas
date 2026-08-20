@@ -20,12 +20,14 @@ import { cn } from "@/lib/utils"
 import { sileo } from "sileo"
 import { CATEGORY_ICONS, StrengthIcon } from "@/components/exercises/CategoryIcons"
 import { MuscleIcon } from "@/components/planes/MuscleIcon"
+import { MuscleAnatomy3D } from "@/components/anatomy/MuscleAnatomy3D"
 import {
   getMuscleMeta,
   getMuscleStatus,
   statusLabel,
   statusPillClass,
   progressColor,
+  type MuscleZone,
 } from "@/lib/muscle-anatomy"
 import type { Exercise } from "@/lib/muscle-exercises"
 
@@ -149,6 +151,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [pickerPhase, setPickerPhase] = useState<Phase>("main")
+  const [anatomyZone, setAnatomyZone] = useState<MuscleZone | null>(null)
 
   const muscleVolume = useMemo(() => {
     const counts = new Map<string, number>()
@@ -871,7 +874,11 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                 const ringCircumference = 2 * Math.PI * 72
                 const ringColor = progressColor(progress)
                 return (
-                  <div key={muscle} className="relative rounded-[20px] overflow-hidden border border-zinc-200 dark:border-white/[5%] bg-white dark:bg-[#111214] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:shadow-none flex flex-col">
+                  <div
+                    key={muscle}
+                    onClick={() => setAnatomyZone(zone)}
+                    className="relative rounded-[20px] overflow-hidden border border-zinc-200 dark:border-white/[5%] bg-white dark:bg-[#111214] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:shadow-none flex flex-col cursor-pointer"
+                  >
                     {/* Series totales vs. recomendado */}
                     <span className="absolute right-3 top-3 z-10 flex h-7 min-w-7 items-center justify-center rounded-full bg-red-600 px-1.5 text-[13px] font-black text-white shadow-[0_2px_6px_rgba(220,38,38,0.4)]">
                       {sets}
@@ -1028,6 +1035,13 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
           </div>
         </DialogContent>
       </Dialog>}
+      {anatomyZone && (
+        <MuscleAnatomy3D
+          initialZone={anatomyZone}
+          exercises={exercises}
+          onClose={() => setAnatomyZone(null)}
+        />
+      )}
     </div>
   )
 }
