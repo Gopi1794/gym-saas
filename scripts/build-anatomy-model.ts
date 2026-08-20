@@ -23,9 +23,47 @@ if (!sourceDir) {
   process.exit(1)
 }
 
-const KEEP_NAMES = new Set(
+// Los 19 nodos trackeados: interactivos (click, highlight, sheet de detalle).
+const TRACKED_NAMES = new Set(
   Object.values(MUSCLE_ANATOMY).flatMap(entry => entry.nodeNames)
 )
+
+// Ademas de los 19 grupos trackeados, conservamos el resto del sistema
+// muscular como relleno puramente visual — para que el cuerpo se vea
+// completo y conectado en vez de 19 piezas sueltas flotando en el vacio.
+// Estos nodos decorativos NO se agregan a MUSCLE_ANATOMY ni a ningun mapa
+// de interaccion: MuscleAnatomy3D.tsx resuelve highlight/click por
+// `nodeNameToZone.get(name)`, que devuelve undefined para cualquier nombre
+// no trackeado y simplemente no hace nada — no hace falta tocar ese
+// componente para que queden no-interactivos por default.
+//
+// Criterio para "es tejido muscular real" (confirmado explorando el arbol
+// completo de Startup.gltf, no asumido a priori):
+//   - el nombre contiene "muscle" (case-insensitive)
+//   - el nodo tiene mesh propio (geometria real, no un grupo contenedor)
+//   - el sufijo es EXACTAMENTE .l, .r, .el, .er, .ol u .or (sin digitos)
+//
+// Por que ese patron de sufijo y no simplemente "contiene muscle":
+//   - Los nodos "*.g" (ej. "Muscles of abdomen.g") SI tienen un mesh propio,
+//     pero es un placeholder/icono de outliner de Z-Anatomy (cientos de
+//     vertices) muy por debajo de sus hijos reales (decenas de miles) — no
+//     es geometria anatomica, es UI interna del modelo fuente. Sus hijos
+//     reales son justamente los nodos ".l"/".r"/etc que este patron captura.
+//   - Los sufijos alfanumericos con digito (".o1l", ".e2r", etc, 136 nodos)
+//     son fragmentos diminutos de insercion/origen osea de un musculo (su
+//     padre es un HUESO puntual, ej. "Tibialis anterior muscle.e1l" cuelga
+//     de "First metatarsal bone.l"), no el cuerpo del musculo — el cuerpo
+//     principal es el nodo SIN digito (".l"/".el"/".ol"). Incluir tambien
+//     los fragmentos duplicaria geometria sobre el mismo punto de insercion.
+//   - "Groove for X muscle...bone" (12 nodos) es hueso — la palabra "muscle"
+//     aparece en su descripcion anatomica ("surco para el tendon del
+//     musculo X"), pero termina en sufijo .s/.t/.i, que este patron no
+//     matchea, asi que quedan excluidos sin necesitar una regla aparte.
+const DECORATIVE_SUFFIX = /\.(el|er|ol|or|l|r)$/
+function isDecorativeMuscleNode(node: import("@gltf-transform/core").Node): boolean {
+  const name = node.getName()
+  return /muscle/i.test(name) && !!node.getMesh() && DECORATIVE_SUFFIX.test(name)
+}
 
 function countTriangles(document: import("@gltf-transform/core").Document): number {
   let total = 0
@@ -57,34 +95,41 @@ async function main() {
   const root = document.getRoot()
   const scene = root.listScenes()[0]
 
-  // Fase 1: para cada nodo de musculo a conservar, hornear su transformacion
-  // MUNDIAL (no la local, que es relativa a un hueso/grupo padre que vamos a
-  // borrar) y re-parentarlo directo a la escena. Tiene que pasar ANTES de
-  // borrar nada, porque getWorldMatrix() depende de la jerarquia original
-  // todavia intacta.
-  let kept = 0
+  // Fase 1: para cada nodo de musculo a conservar (trackeado o decorativo),
+  // hornear su transformacion MUNDIAL (no la local, que es relativa a un
+  // hueso/grupo padre que vamos a borrar) y re-parentarlo directo a la
+  // escena. Tiene que pasar ANTES de borrar nada, porque getWorldMatrix()
+  // depende de la jerarquia original todavia intacta.
+  let trackedKept = 0
+  let decorativeKept = 0
+  const keptNames = new Set<string>()
   for (const node of root.listNodes()) {
     const name = node.getName()
-    if (!KEEP_NAMES.has(name)) continue
+    const isTracked = TRACKED_NAMES.has(name)
+    if (!isTracked && !isDecorativeMuscleNode(node)) continue
     const worldMatrix = node.getWorldMatrix()
     node.setMatrix(worldMatrix)
     scene.addChild(node)
-    kept++
+    keptNames.add(name)
+    if (isTracked) trackedKept++
+    else decorativeKept++
   }
-  console.log(`Nodos conservados y re-parentados: ${kept} / esperados: ${KEEP_NAMES.size}`)
+  console.log(`Nodos trackeados conservados: ${trackedKept} / esperados: ${TRACKED_NAMES.size}`)
+  console.log(`Nodos decorativos conservados (relleno visual, no interactivo): ${decorativeKept}`)
 
-  if (kept < KEEP_NAMES.size) {
-    console.error("Faltan nodos esperados — revisar MUSCLE_ANATOMY.nodeNames contra el modelo fuente.")
+  if (trackedKept < TRACKED_NAMES.size) {
+    console.error("Faltan nodos trackeados esperados — revisar MUSCLE_ANATOMY.nodeNames contra el modelo fuente.")
     process.exit(1)
   }
 
   // Fase 2: ahora que los nodos a conservar ya estan desenganchados de sus
   // padres originales, es seguro borrar todo lo demas (huesos, organos,
-  // etiquetas de texto de Z-Anatomy, nodos de grupo vacios).
+  // etiquetas de texto de Z-Anatomy, nodos de grupo vacios, fragmentos de
+  // insercion osea de los musculos decorativos).
   let removed = 0
   for (const node of root.listNodes()) {
     const name = node.getName()
-    if (KEEP_NAMES.has(name)) continue
+    if (keptNames.has(name)) continue
     node.dispose()
     removed++
   }
@@ -93,15 +138,17 @@ async function main() {
   await document.transform(prune(), dedup())
   console.log(`Triangulos antes de simplify(): ${countTriangles(document)}`)
 
-  // ratio: 1.0 = sin decimacion de poligonos. Con la compresion real de
-  // meshopt (EXT_meshopt_compression) puesta, los 50 nodos filtrados ya
-  // entran comodos en el presupuesto de 2-3MB (~1.2MB) SIN perder ni un
-  // triangulo del modelo fuente de Z-Anatomy — no hay motivo para decimar
-  // si el detalle completo ya entra en presupuesto. Probado tambien en
-  // 0.5 (0.88MB, -41% triangulos) para comparar: no vale la pena resignar
-  // detalle anatomico que el presupuesto no exige recortar.
+  // ratio: con SOLO los 19 grupos trackeados (50 nodos) el detalle completo
+  // (ratio 1.0, sin decimar) ya entraba comodo en 2-3MB. Al sumar el resto
+  // del sistema muscular como relleno visual (622 nodos en total: 50
+  // trackeados + 572 decorativos), la geometria se multiplica ~4.4x
+  // (165584 -> 724597 triangulos) y ratio 1.0 da 4.11MB — dentro del
+  // maximo de 5MB, pero por encima del target de 2-3MB. Probado 1.0
+  // (4.11MB), 0.7 (3.25MB), 0.62 (3.02MB) y 0.6 (2.96MB) — 0.6 es el mayor
+  // ratio que entra en el target, maximizando detalle dentro del
+  // presupuesto (mismo criterio que se uso para los 19 trackeados).
   await document.transform(
-    simplify({ simplifier: MeshoptSimplifier, ratio: 1.0, error: 0.01 }),
+    simplify({ simplifier: MeshoptSimplifier, ratio: 0.6, error: 0.01 }),
     meshopt({ encoder: MeshoptEncoder }),
   )
   console.log(`Triangulos despues de simplify(): ${countTriangles(document)}`)
