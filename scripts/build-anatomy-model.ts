@@ -59,10 +59,25 @@ const TRACKED_NAMES = new Set(
 //     aparece en su descripcion anatomica ("surco para el tendon del
 //     musculo X"), pero termina en sufijo .s/.t/.i, que este patron no
 //     matchea, asi que quedan excluidos sin necesitar una regla aparte.
+//
+// El patron de sufijo NO alcanza para excluir todo lo no-muscular: hay 44
+// nodos que pasan nombre+mesh+sufijo pero son tejido ADYACENTE a un musculo,
+// no el musculo en si — Z-Anatomy nombra nervios/bolsas/tendones por el
+// musculo al que acompañan (ej. "Nerve to piriformis muscle.l", geometria de
+// cordon, hasta 2392 vertices — nada despreciable, se ve tan fuera de lugar
+// como un hueso suelto si queda con material de musculo). Se excluyen por
+// palabra clave, sin tocar el resto del criterio:
+//   - "nerve"          -> "Nerve to mylohyoid muscle.l/r", etc.
+//   - "bursa"           -> "Subtendinous bursa of...", "Trochanteric bursa
+//                          of...", "Sciatic bursa of...", etc.
+//   - "tendon sheath"   -> "Tendon sheath of tibialis posterior muscle.l/r"
+//   - "tendon of"       -> tendones nombrados por el musculo que traccionan,
+//                          no el vientre muscular en si.
 const DECORATIVE_SUFFIX = /\.(el|er|ol|or|l|r)$/
+const NON_MUSCLE_TISSUE = /\b(nerve|bursa|tendon sheath|tendon of)\b/i
 function isDecorativeMuscleNode(node: import("@gltf-transform/core").Node): boolean {
   const name = node.getName()
-  return /muscle/i.test(name) && !!node.getMesh() && DECORATIVE_SUFFIX.test(name)
+  return /muscle/i.test(name) && !NON_MUSCLE_TISSUE.test(name) && !!node.getMesh() && DECORATIVE_SUFFIX.test(name)
 }
 
 function countTriangles(document: import("@gltf-transform/core").Document): number {
@@ -140,13 +155,17 @@ async function main() {
 
   // ratio: con SOLO los 19 grupos trackeados (50 nodos) el detalle completo
   // (ratio 1.0, sin decimar) ya entraba comodo en 2-3MB. Al sumar el resto
-  // del sistema muscular como relleno visual (622 nodos en total: 50
-  // trackeados + 572 decorativos), la geometria se multiplica ~4.4x
-  // (165584 -> 724597 triangulos) y ratio 1.0 da 4.11MB — dentro del
-  // maximo de 5MB, pero por encima del target de 2-3MB. Probado 1.0
-  // (4.11MB), 0.7 (3.25MB), 0.62 (3.02MB) y 0.6 (2.96MB) — 0.6 es el mayor
-  // ratio que entra en el target, maximizando detalle dentro del
-  // presupuesto (mismo criterio que se uso para los 19 trackeados).
+  // del sistema muscular como relleno visual (578 nodos en total: 50
+  // trackeados + 528 decorativos, tras excluir nervios/bolsas/tendones que
+  // Z-Anatomy nombra por el musculo al que acompañan pero no son musculo en
+  // si — ver isDecorativeMuscleNode()), la geometria se multiplica ~4.3x
+  // (165584 -> 710007 triangulos antes de simplify). Con el set de 622/572
+  // nodos sin esa exclusion, ratio 1.0 daba 4.11MB (dentro del maximo de
+  // 5MB, pero por encima del target); probado 1.0, 0.7, 0.62 y 0.6 (2.96MB)
+  // — 0.6 fue el mayor ratio que entraba en el target. Con la exclusion ya
+  // aplicada (menos geometria total) ratio 0.6 da 2.89MB — se mantiene el
+  // mismo valor: sigue siendo el punto que maximiza detalle dentro del
+  // presupuesto 2-3MB, con mas margen ahora que antes.
   await document.transform(
     simplify({ simplifier: MeshoptSimplifier, ratio: 0.6, error: 0.01 }),
     meshopt({ encoder: MeshoptEncoder }),
