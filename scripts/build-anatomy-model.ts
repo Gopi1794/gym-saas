@@ -188,11 +188,26 @@ async function main() {
   // MuscleAnatomy3D.tsx, para que el contraste entre "musculo en reposo"
   // y "musculo seleccionado" sea claro. Solo 4 floats por material — no
   // agrega textura ni afecta el tamano del .glb de forma relevante.
+  //
+  // Ademas: los materiales heredan del Startup.gltf fuente un
+  // emissiveFactor [1,1,1] (blanco, intensidad maxima) — ya presente antes
+  // de este fix, nadie lo habia notado. En MeshStandardMaterial de
+  // three.js (lo que usa MuscleAnatomy3D.tsx sin overrides) el color final
+  // es baseColor + specular + emissive·intensity: el emissive se SUMA sin
+  // iluminar, asi que un emissive blanco a maxima intensidad compite con y
+  // probablemente domina sobre cualquier baseColorFactor, empujando el
+  // render hacia blanco/palido despues del tone-mapping por defecto de
+  // R3F — coincide exactamente con el sintoma original ("blanco/palido,
+  // homogeneo"). Se apaga junto con la asignacion de color base, para que
+  // el resultado final dependa solo de baseColorFactor + la iluminacion
+  // de la escena, como se espera.
   const MUSCLE_BASE_COLOR: [number, number, number, number] = [0.545, 0.180, 0.180, 1] // #8B2E2E
+  const NO_EMISSIVE: [number, number, number] = [0, 0, 0]
   for (const material of document.getRoot().listMaterials()) {
     material.setBaseColorFactor(MUSCLE_BASE_COLOR)
+    material.setEmissiveFactor(NO_EMISSIVE)
   }
-  console.log(`Color base asignado a ${document.getRoot().listMaterials().length} materiales: rgb(${MUSCLE_BASE_COLOR.slice(0, 3).map(c => Math.round(c * 255)).join(", ")}) (#8B2E2E)`)
+  console.log(`Color base asignado a ${document.getRoot().listMaterials().length} materiales: rgb(${MUSCLE_BASE_COLOR.slice(0, 3).map(c => Math.round(c * 255)).join(", ")}) (#8B2E2E), emissiveFactor apagado [0,0,0]`)
 
   const outDir = path.join(process.cwd(), "public", "models")
   fs.mkdirSync(outDir, { recursive: true })
