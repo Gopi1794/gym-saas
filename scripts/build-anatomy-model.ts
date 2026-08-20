@@ -172,6 +172,28 @@ async function main() {
   )
   console.log(`Triangulos despues de simplify(): ${countTriangles(document)}`)
 
+  // Color: confirmado (investigacion aparte, ver .superpowers/sdd/.../
+  // investigacion-color-material.md) que Z-Anatomy nunca exporto color
+  // anatomico real para el tejido muscular — sus materiales ("Origin-
+  // Adduction", "Internal rotator", etc.) codifican ROL BIOMECANICO
+  // (puntos de origen/insercion, tipo de accion), no apariencia visual, y
+  // los 2 materiales que sobreviven a dedup() son blancos puros
+  // ([1,1,1,1]) tanto en el .glb curado como ya en el Startup.gltf fuente
+  // sin curar — no es algo que el pipeline haya perdido, nunca existio.
+  //
+  // Se asigna un rojo anatomico apagado UNIFORME a los materiales
+  // sobrevivientes (la referencia del usuario es un cuerpo cohesivo, sin
+  // distincion visual entre grupos musculares) — deliberadamente mas
+  // oscuro/desaturado que HIGHLIGHT_COLOR (#ef4444, rojo vivo) en
+  // MuscleAnatomy3D.tsx, para que el contraste entre "musculo en reposo"
+  // y "musculo seleccionado" sea claro. Solo 4 floats por material — no
+  // agrega textura ni afecta el tamano del .glb de forma relevante.
+  const MUSCLE_BASE_COLOR: [number, number, number, number] = [0.545, 0.180, 0.180, 1] // #8B2E2E
+  for (const material of document.getRoot().listMaterials()) {
+    material.setBaseColorFactor(MUSCLE_BASE_COLOR)
+  }
+  console.log(`Color base asignado a ${document.getRoot().listMaterials().length} materiales: rgb(${MUSCLE_BASE_COLOR.slice(0, 3).map(c => Math.round(c * 255)).join(", ")}) (#8B2E2E)`)
+
   const outDir = path.join(process.cwd(), "public", "models")
   fs.mkdirSync(outDir, { recursive: true })
   const outPath = path.join(outDir, "muscles.glb")
