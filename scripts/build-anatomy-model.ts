@@ -10,8 +10,9 @@
  * Z-Anatomy, ver docs/superpowers/specs/2026-08-18-3d-muscle-anatomy-explorer-design.md).
  */
 import { NodeIO } from "@gltf-transform/core"
-import { prune, dedup, simplify, draco } from "@gltf-transform/functions"
-import { MeshoptSimplifier } from "meshoptimizer"
+import { EXTMeshoptCompression } from "@gltf-transform/extensions"
+import { prune, dedup, simplify, meshopt } from "@gltf-transform/functions"
+import { MeshoptEncoder, MeshoptSimplifier } from "meshoptimizer"
 import path from "path"
 import fs from "fs"
 import { MUSCLE_ANATOMY } from "../lib/muscle-anatomy"
@@ -26,8 +27,32 @@ const KEEP_NAMES = new Set(
   Object.values(MUSCLE_ANATOMY).flatMap(entry => entry.nodeNames)
 )
 
+function countTriangles(document: import("@gltf-transform/core").Document): number {
+  let total = 0
+  for (const mesh of document.getRoot().listMeshes()) {
+    for (const prim of mesh.listPrimitives()) {
+      const indices = prim.getIndices()
+      const position = prim.getAttribute("POSITION")
+      if (indices) {
+        total += indices.getCount() / 3
+      } else if (position) {
+        total += position.getCount() / 3
+      }
+    }
+  }
+  return total
+}
+
 async function main() {
+  await MeshoptEncoder.ready
+
+  // El encoder real de EXT_meshopt_compression tiene que estar registrado en
+  // el NodeIO ANTES de escribir — si no, la extension se agrega al documento
+  // pero se descarta en silencio al momento de serializar (esto fue exactamente
+  // el bug de la version anterior de este script con draco()).
   const io = new NodeIO()
+    .registerExtensions([EXTMeshoptCompression])
+    .registerDependencies({ "meshopt.encoder": MeshoptEncoder })
   const document = await io.read(path.join(sourceDir!, "Startup.gltf"))
   const root = document.getRoot()
   const scene = root.listScenes()[0]
@@ -65,12 +90,21 @@ async function main() {
   }
   console.log(`Nodos eliminados: ${removed}`)
 
+  await document.transform(prune(), dedup())
+  console.log(`Triangulos antes de simplify(): ${countTriangles(document)}`)
+
+  // ratio: 1.0 = sin decimacion de poligonos. Con la compresion real de
+  // meshopt (EXT_meshopt_compression) puesta, los 50 nodos filtrados ya
+  // entran comodos en el presupuesto de 2-3MB (~1.2MB) SIN perder ni un
+  // triangulo del modelo fuente de Z-Anatomy — no hay motivo para decimar
+  // si el detalle completo ya entra en presupuesto. Probado tambien en
+  // 0.5 (0.88MB, -41% triangulos) para comparar: no vale la pena resignar
+  // detalle anatomico que el presupuesto no exige recortar.
   await document.transform(
-    prune(),
-    dedup(),
-    simplify({ simplifier: MeshoptSimplifier, ratio: 0.2, error: 0.01 }),
-    draco(),
+    simplify({ simplifier: MeshoptSimplifier, ratio: 1.0, error: 0.01 }),
+    meshopt({ encoder: MeshoptEncoder }),
   )
+  console.log(`Triangulos despues de simplify(): ${countTriangles(document)}`)
 
   const outDir = path.join(process.cwd(), "public", "models")
   fs.mkdirSync(outDir, { recursive: true })
