@@ -12,6 +12,19 @@ import { MuscleIcon } from "@/components/planes/MuscleIcon"
 
 const MODEL_PATH = "/models/muscles.glb"
 const HIGHLIGHT_COLOR = new THREE.Color("#ef4444")
+// El modelo curado tiene 2 materiales PBR sobrevivientes de Z-Anatomy
+// ("Origin-Adduction", metalness 0 — difuso limpio — e "Internal rotator",
+// metalness ~0.52). Sin un environment map en la escena (solo ambientLight +
+// directionalLight), un material medio metálico casi no tiene de dónde
+// reflejar: se ve apagado/oscuro sin importar su baseColorFactor. La mayoría
+// de las 19 zonas trackeadas usan "Internal rotator" en al menos uno de sus
+// nodos — pec_minor lo usa en el único que tiene — así que clonar el
+// material tal cual (heredando su metalness) y solo cambiar .color no
+// alcanza para que el highlight se note de forma confiable. Forzamos
+// metalness 0 y sumamos emissive propio: así el músculo seleccionado se ve
+// bien saturado sin depender de qué material haya heredado ni del ángulo de
+// luz.
+const HIGHLIGHT_EMISSIVE_INTENSITY = 0.55
 
 interface MuscleAnatomy3DProps {
   initialZone: MuscleZone
@@ -36,6 +49,10 @@ function Body({
   // mute su propia copia, no la compartida.
   const scene = useMemo(() => cachedScene.clone(true), [cachedScene])
   const groupRef = useRef<THREE.Group>(null)
+  // Referencias a los botones de cada marcador, para el fade manual en
+  // onOcclude de abajo (drei no anima la ocultación: por defecto alterna
+  // display:none/block de un frame a otro, ver comentario en el <Html>).
+  const markerElRefs = useRef(new Map<MuscleZone, HTMLButtonElement>())
 
   // Mapa nombre de nodo -> zona, para resolver un click en cualquier mesh a su zona.
   const nodeNameToZone = useMemo(() => {
@@ -77,6 +94,14 @@ function Body({
       if (isSelected) {
         const mat = (mesh.material as THREE.MeshStandardMaterial).clone()
         mat.color = HIGHLIGHT_COLOR
+        // metalness 0 + emissive propio: ver comentario en HIGHLIGHT_EMISSIVE_INTENSITY
+        // más arriba. Sin esto, un músculo cuyo material heredado es
+        // "Internal rotator" (metalness ~0.52) sigue leyéndose apagado aun
+        // con .color en rojo vivo, porque sin environment map casi no tiene
+        // de dónde sacar su reflejo especular.
+        mat.metalness = 0
+        mat.emissive = HIGHLIGHT_COLOR
+        mat.emissiveIntensity = HIGHLIGHT_EMISSIVE_INTENSITY
         mesh.material = mat
       } else {
         mesh.material = originalMaterials.current.get(mesh.uuid)!
@@ -124,13 +149,44 @@ function Body({
     >
       <primitive object={scene} />
       {Object.values(MUSCLE_ANATOMY).map(entry => (
-        <Html key={entry.zone} position={entry.pointPosition} center distanceFactor={1.2}>
+        <Html
+          key={entry.zone}
+          position={entry.pointPosition}
+          center
+          distanceFactor={1.2}
+          // Occlude contra nuestro propio grupo (el <primitive> con las 578
+          // mallas del modelo), no el string 'raycast'/true de drei (que
+          // raycastea contra toda la escena de useThree() — en este canvas
+          // no hay nada más, así que el costo es el mismo, pero acotarlo a
+          // groupRef es más correcto: no depende de que nada más se agregue
+          // a la escena más adelante y queda explícito qué es "el cuerpo").
+          // three.js primero prueba la bounding sphere de cada malla antes
+          // del test de triángulos (Mesh.raycast), así que 19 marcadores x
+          // 578 mallas por frame es, en la práctica, 19 x 578 chequeos de
+          // esfera (baratos) más triángulos solo para las pocas mallas que
+          // el rayo realmente cruza — no 19 x 578 tests completos.
+          occlude={[groupRef]}
+          onOcclude={hidden => {
+            const btn = markerElRefs.current.get(entry.zone)
+            if (!btn) return
+            // drei no anima esto: por defecto hace el.style.display =
+            // hidden ? 'none' : 'block' de un frame a otro. Con onOcclude
+            // tomamos el control y hacemos un fade con la transition de
+            // Tailwind de abajo en vez del pop abrupto.
+            btn.style.opacity = hidden ? "0" : "1"
+            btn.style.pointerEvents = hidden ? "none" : "auto"
+          }}
+        >
           <button
+            ref={el => {
+              if (el) markerElRefs.current.set(entry.zone, el)
+              else markerElRefs.current.delete(entry.zone)
+            }}
             onClick={e => {
               e.stopPropagation()
               onSelect(entry.zone)
             }}
-            className="relative grid h-4 w-4 place-items-center"
+            className="relative grid h-4 w-4 place-items-center transition-opacity duration-150"
             aria-label={`Ver ${entry.displayName}`}
           >
             <span className="absolute h-4 w-4 animate-ring-ping rounded-full bg-red-500" />
