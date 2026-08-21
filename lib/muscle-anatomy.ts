@@ -135,7 +135,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Cresta del tubérculo mayor del húmero",
     funcion: "Aducción, flexión y rotación interna del brazo",
     nodeNames: ["Pectoralis major muscle.el", "Pectoralis major muscle.er"],
-    pointPosition: [0.18834667448463255, 1.326028857227428, -0.016393322026430065],
+    pointPosition: [0.19117328991300053, 0.2596288572274279, -0.0280995401831165],
   },
   pec_minor: {
     zone: "pec_minor",
@@ -145,7 +145,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Apófisis coracoides de la escápula",
     funcion: "Estabiliza y desciende la escápula; eleva las costillas en inspiración forzada",
     nodeNames: ["Pectoralis minor muscle.l", "Pectoralis minor muscle.r"],
-    pointPosition: [0.10582909335002977, 1.3308731752258132, 0.02876840458733148],
+    pointPosition: [0.10645347108252251, 0.26447317522581315, 0.02222302336427695],
   },
   biceps: {
     zone: "biceps",
@@ -155,7 +155,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tuberosidad del radio y fascia del antebrazo (aponeurosis bicipital)",
     funcion: "Flexión del codo y supinación del antebrazo",
     nodeNames: ["Biceps brachii muscle.el", "Biceps brachii muscle.er"],
-    pointPosition: [0.23446624539626673, 1.0623216245716423, -0.02001792020239181],
+    pointPosition: [0.23852370467854667, -0.004078375428357761, -0.03213833776062146],
   },
   triceps: {
     zone: "triceps",
@@ -165,7 +165,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Olécranon del cúbito",
     funcion: "Extensión del codo",
     nodeNames: ["Triceps brachii muscle.el", "Triceps brachii muscle.er"],
-    pointPosition: [0.21424586859684525, 1.1007905893066763, -0.05368918936740381],
+    pointPosition: [0.2177636843825489, 0.03439058930667627, -0.0696573767639129],
   },
   shoulders: {
     zone: "shoulders",
@@ -175,7 +175,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tuberosidad deltoidea del húmero",
     funcion: "Abducción del brazo (elevación lateral)",
     nodeNames: ["Acromial part of deltoid muscle.l", "Acromial part of deltoid muscle.r"],
-    pointPosition: [0.19717869832076348, 1.3424092588308685, -0.031166562771035404],
+    pointPosition: [0.2002410237100315, 0.27600925883086846, -0.04456098667583781],
   },
   front_delts: {
     zone: "front_delts",
@@ -185,7 +185,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tuberosidad deltoidea del húmero",
     funcion: "Flexión y rotación interna del brazo",
     nodeNames: ["Clavicular part of deltoid muscle.l", "Clavicular part of deltoid muscle.r"],
-    pointPosition: [0.14746487894519614, 1.345972568828922, -0.007032518904634726],
+    pointPosition: [0.14920043680772072, 0.2795725688289219, -0.01766903530052319],
   },
   rear_delts: {
     zone: "rear_delts",
@@ -195,7 +195,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tuberosidad deltoidea del húmero",
     funcion: "Extensión y rotación externa del brazo",
     nodeNames: ["Scapular spinal part of deltoid muscle.l", "Scapular spinal part of deltoid muscle.r"],
-    pointPosition: [0.15868729571426665, 1.3289813573155211, -0.06304608857100567],
+    pointPosition: [0.1607223585902423, 0.2625813573155211, -0.08008353160973604],
   },
   back: {
     zone: "back",
@@ -205,7 +205,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Corredera bicipital del húmero",
     funcion: "Aducción, extensión y rotación interna del brazo",
     nodeNames: ["Latissimus dorsi muscle.l", "Latissimus dorsi muscle.r"],
-    pointPosition: [0.09119549241354258, 1.136718965856672, -0.06911588607446147],
+    pointPosition: [0.0914293270985343, 0.07031896585667208, -0.08684695261885196],
   },
   traps: {
     zone: "traps",
@@ -219,7 +219,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
       "Descending part of trapezius muscle.l", "Descending part of trapezius muscle.r",
       "Transverse part of trapezius muscle.l", "Transverse part of trapezius muscle.r",
     ],
-    pointPosition: [0.06789642552114902, 1.2671934798883313, -0.09961923827478822],
+    pointPosition: [0.06750845231158487, 0.2007934798883313, -0.1208360623054095],
   },
   rhomboids: {
     zone: "rhomboids",
@@ -232,7 +232,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
       "Rhomboid major muscle.l", "Rhomboid major muscle.r",
       "Rhomboid minor muscle.l", "Rhomboid minor muscle.r",
     ],
-    pointPosition: [0.04324900654192078, 1.3492732967439756, -0.09788147071848771],
+    pointPosition: [0.04220324047857016, 0.28287329674397554, -0.11889971210714485],
   },
   serratus: {
     zone: "serratus",
@@ -242,7 +242,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Borde medial de la escápula (cara costal)",
     funcion: "Protrae la escápula y la estabiliza contra la caja torácica",
     nodeNames: ["Serratus anterior muscle.l", "Serratus anterior muscle.r"],
-    pointPosition: [0.105405822134721, 1.2852588118984243, -0.02438214958118728],
+    pointPosition: [0.10601890356146759, 0.21885881189842427, -0.03700128757934948],
   },
   core: {
     zone: "core",
@@ -252,7 +252,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Cartílagos costales de las costillas 5ª a 7ª y apófisis xifoides",
     funcion: "Flexión del tronco",
     nodeNames: ["Rectus abdominis muscle.l", "Rectus abdominis muscle.r"],
-    pointPosition: [0.04234547181785428, 1.0540152297119383, 0.08236330083789709],
+    pointPosition: [0.04127559212681953, -0.01238477028806173, 0.08194245339074568],
   },
   obliques: {
     zone: "obliques",
@@ -262,7 +262,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Cresta ilíaca y línea alba",
     funcion: "Flexión lateral y rotación del tronco",
     nodeNames: ["External abdominal oblique muscle.l", "External abdominal oblique muscle.r"],
-    pointPosition: [0.0729031736373591, 1.0708651350474188, 0.035310674640626004],
+    pointPosition: [0.07264882103668419, 0.0044651350474187446, 0.02951290852116556],
   },
   quads: {
     zone: "quads",
@@ -272,7 +272,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tuberosidad tibial vía tendón rotuliano",
     funcion: "Extensión de la rodilla",
     nodeNames: ["Quadriceps femoris muscle.el", "Quadriceps femoris muscle.er"],
-    pointPosition: [0.08474498776597165, 0.45851426167272874, 0.011757444921220404],
+    pointPosition: [0.0848066707192115, -0.6078857383272713, 0.003268143580314631],
   },
   hamstrings: {
     zone: "hamstrings",
@@ -286,7 +286,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
       "Semitendinosus muscle.l", "Semitendinosus muscle.r",
       "Semimembranosus muscle.l", "Semimembranosus muscle.r",
     ],
-    pointPosition: [0.11766426763989139, 0.40946869595537794, -0.043435922808052155],
+    pointPosition: [0.11860450372159914, -0.6569313040446222, -0.058232422567318656],
   },
   glutes: {
     zone: "glutes",
@@ -296,7 +296,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tracto iliotibial y línea áspera del fémur",
     funcion: "Extensión y rotación externa de la cadera",
     nodeNames: ["Gluteus maximus muscle.l", "Gluteus maximus muscle.r"],
-    pointPosition: [0.07405908883774098, 0.8444584433700363, -0.06341242412953804],
+    pointPosition: [0.07383558542087043, -0.22194155662996384, -0.08049173000705545],
   },
   calves: {
     zone: "calves",
@@ -309,7 +309,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
       "Lateral head of gastrocnemius.l", "Lateral head of gastrocnemius.r",
       "Medial head of gastrocnemius.l", "Medial head of gastrocnemius.r",
     ],
-    pointPosition: [0.10755831795727235, 0.35476257031663366, -0.06746858179474115],
+    pointPosition: [0.10822884541400984, -0.7116374296833665, -0.0850114033492884],
   },
   soleus: {
     zone: "soleus",
@@ -319,7 +319,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Calcáneo vía tendón de Aquiles",
     funcion: "Flexión plantar del tobillo (independiente de la posición de la rodilla)",
     nodeNames: ["Soleus muscle.l", "Soleus muscle.r"],
-    pointPosition: [0.08625062795180957, 0.27163242861911857, -0.05138094578311944],
+    pointPosition: [0.08635249358525016, -0.7947675713808815, -0.06708535963431055],
   },
   lower_back: {
     zone: "lower_back",
@@ -329,6 +329,6 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Costillas, apófisis transversas y base del cráneo, según el fascículo",
     funcion: "Extensión de la columna vertebral",
     nodeNames: ["Erector spinae.ol", "Erector spinae.or"],
-    pointPosition: [0.05415932772247465, 0.9730359022247363, -0.06339561435146203],
+    pointPosition: [0.05340473743339608, -0.09336409777526378, -0.08047299929880149],
   },
 }

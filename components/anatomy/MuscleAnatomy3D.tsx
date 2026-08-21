@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { CameraControls, useGLTF, Html } from "@react-three/drei"
 import * as THREE from "three"
@@ -11,20 +11,6 @@ import { MuscleDetailSheet } from "./MuscleDetailSheet"
 import { MuscleIcon } from "@/components/planes/MuscleIcon"
 
 const MODEL_PATH = "/models/muscles.glb"
-const HIGHLIGHT_COLOR = new THREE.Color("#ef4444")
-// El modelo curado tiene 2 materiales PBR sobrevivientes de Z-Anatomy
-// ("Origin-Adduction", metalness 0 — difuso limpio — e "Internal rotator",
-// metalness ~0.52). Sin un environment map en la escena (solo ambientLight +
-// directionalLight), un material medio metálico casi no tiene de dónde
-// reflejar: se ve apagado/oscuro sin importar su baseColorFactor. La mayoría
-// de las 19 zonas trackeadas usan "Internal rotator" en al menos uno de sus
-// nodos — pec_minor lo usa en el único que tiene — así que clonar el
-// material tal cual (heredando su metalness) y solo cambiar .color no
-// alcanza para que el highlight se note de forma confiable. Forzamos
-// metalness 0 y sumamos emissive propio: así el músculo seleccionado se ve
-// bien saturado sin depender de qué material haya heredado ni del ángulo de
-// luz.
-const HIGHLIGHT_EMISSIVE_INTENSITY = 0.55
 
 interface MuscleAnatomy3DProps {
   initialZone: MuscleZone
@@ -32,40 +18,25 @@ interface MuscleAnatomy3DProps {
   onClose: () => void
 }
 
-function Body({
-  selectedZone,
-  onSelect,
-  isIdle,
-}: {
-  selectedZone: MuscleZone | null
-  onSelect: (zone: MuscleZone) => void
-  isIdle: boolean
-}) {
-  const { scene: cachedScene } = useGLTF(MODEL_PATH)
-  // useGLTF cachea y reutiliza el mismo grafo de escena entre montajes: mutar
-  // sus materiales in-place (como hace el highlight de abajo) deja "pegado"
-  // el color rojo entre una apertura del explorador y la siguiente. Clonamos
-  // la jerarquía una vez por instancia del componente para que cada montaje
-  // mute su propia copia, no la compartida.
-  const scene = useMemo(() => cachedScene.clone(true), [cachedScene])
+function Body({ onSelect, isIdle }: { onSelect: (zone: MuscleZone) => void; isIdle: boolean }) {
+  // El modelo (Male Full Body Ecorche, CC-BY-4.0 -- credito en el header de
+  // MuscleAnatomy3D de abajo) tiene solo 16 mallas sin nombre anatomico util
+  // (Object_N generico, ver scripts/build-ecorche2-model.ts) -- no hay forma
+  // de mapear una zona trackeada a una malla especifica, asi que a diferencia
+  // del modelo de Z-Anatomy que reemplaza, no hay highlight ni aislamiento de
+  // pieza: el cuerpo se ve siempre completo, y los 19 marcadores pulsantes
+  // (pointPosition) son la unica forma de seleccionar una zona. Por eso no
+  // hace falta clonar la escena cacheada de useGLTF -- nada muta sus
+  // materiales, asi que reusar la misma instancia entre re-aperturas del
+  // explorador es seguro (el unico caso en que clonar seria necesario es
+  // montar dos instancias de MuscleAnatomy3D a la vez, y el componente se usa
+  // como overlay de pantalla completa unico, nunca dos a la vez).
+  const { scene } = useGLTF(MODEL_PATH)
   const groupRef = useRef<THREE.Group>(null)
   // Referencias a los botones de cada marcador, para el fade manual en
   // onOcclude de abajo (drei no anima la ocultación: por defecto alterna
   // display:none/block de un frame a otro, ver comentario en el <Html>).
   const markerElRefs = useRef(new Map<MuscleZone, HTMLButtonElement>())
-
-  // Mapa nombre de nodo -> zona, para resolver un click en cualquier mesh a su zona.
-  const nodeNameToZone = useMemo(() => {
-    const map = new Map<string, MuscleZone>()
-    for (const entry of Object.values(MUSCLE_ANATOMY)) {
-      for (const name of entry.nodeNames) map.set(name, entry.zone)
-    }
-    return map
-  }, [])
-
-  // Guarda el material original de cada mesh la primera vez que se toca,
-  // para poder devolverlo al des-seleccionar sin perder el material real.
-  const originalMaterials = useRef(new Map<string, THREE.Material | THREE.Material[]>())
 
   useFrame((_, delta) => {
     if (isIdle && groupRef.current) {
@@ -73,80 +44,8 @@ function Body({
     }
   })
 
-  // Efecto imperativo (muta materiales de three.js directamente, no hay valor
-  // memoizado que usar) — useMemo no garantiza no repetirse ni corre después
-  // del commit, así que va en useEffect.
-  useEffect(() => {
-    function applyHighlight(mesh: THREE.Mesh, zone: MuscleZone) {
-      // Se indexa por uuid, no por name: cuando el mismo mesh de glTF (con
-      // más de un primitivo) es referenciado por dos nodos —el lado
-      // izquierdo y el derecho de un músculo, que es el caso de los 15
-      // meshes multi-primitivo de este modelo—, el loader clona el Group
-      // para el segundo nodo y el clone conserva el name de sus hijos tal
-      // cual. El Group en sí queda con un name distinto por lado, pero sus
-      // hijos Mesh no, así que dos meshes de lados opuestos pueden compartir
-      // el mismo name. El uuid en cambio nunca se copia al clonar: tres.js
-      // genera uno nuevo por instancia, así que es la única clave segura acá.
-      if (!originalMaterials.current.has(mesh.uuid)) {
-        originalMaterials.current.set(mesh.uuid, mesh.material)
-      }
-      const isSelected = zone === selectedZone
-      if (isSelected) {
-        const mat = (mesh.material as THREE.MeshStandardMaterial).clone()
-        mat.color = HIGHLIGHT_COLOR
-        // metalness 0 + emissive propio: ver comentario en HIGHLIGHT_EMISSIVE_INTENSITY
-        // más arriba. Sin esto, un músculo cuyo material heredado es
-        // "Internal rotator" (metalness ~0.52) sigue leyéndose apagado aun
-        // con .color en rojo vivo, porque sin environment map casi no tiene
-        // de dónde sacar su reflejo especular.
-        mat.metalness = 0
-        mat.emissive = HIGHLIGHT_COLOR
-        mat.emissiveIntensity = HIGHLIGHT_EMISSIVE_INTENSITY
-        mesh.material = mat
-      } else {
-        mesh.material = originalMaterials.current.get(mesh.uuid)!
-      }
-    }
-
-    scene.traverse(obj => {
-      const zone = nodeNameToZone.get(obj.name)
-      if (!zone) return
-      if (obj instanceof THREE.Mesh) {
-        // Caso simple: el nodo del músculo es directamente un Mesh.
-        applyHighlight(obj, zone)
-      } else if (obj instanceof THREE.Group) {
-        // Un mesh de glTF con más de un primitivo se carga como Group (uno
-        // de los 50 nodos curados tiene 2 primitivos, no 1): el nombre del
-        // músculo queda en el Group, no en sus hijos Mesh reales. Bajamos un
-        // nivel y coloreamos cada hijo Mesh, indexando por su propio nombre
-        // (auto-generado por el loader, pero estable y único).
-        for (const child of obj.children) {
-          if (child instanceof THREE.Mesh) applyHighlight(child, zone)
-        }
-      }
-    })
-  }, [scene, selectedZone, nodeNameToZone])
-
   return (
-    <group
-      ref={groupRef}
-      onClick={event => {
-        event.stopPropagation()
-        // Un click puede caer en el Mesh del nodo directamente (caso simple)
-        // o en un hijo Mesh de un Group cuando el nodo del músculo tiene más
-        // de un primitivo (ver comentario en el useEffect de arriba) — subimos
-        // por los padres hasta encontrar un nombre que resuelva a una zona,
-        // sin pasar del <group> al que está atado este handler.
-        let obj: THREE.Object3D | null = event.object
-        let zone: MuscleZone | undefined
-        while (obj && obj !== groupRef.current) {
-          zone = nodeNameToZone.get(obj.name)
-          if (zone) break
-          obj = obj.parent
-        }
-        if (zone) onSelect(zone)
-      }}
-    >
+    <group ref={groupRef}>
       <primitive object={scene} />
       {Object.values(MUSCLE_ANATOMY).map(entry => (
         <Html
@@ -154,17 +53,12 @@ function Body({
           position={entry.pointPosition}
           center
           distanceFactor={1.2}
-          // Occlude contra nuestro propio grupo (el <primitive> con las 578
+          // Occlude contra nuestro propio grupo (el <primitive> con las 16
           // mallas del modelo), no el string 'raycast'/true de drei (que
           // raycastea contra toda la escena de useThree() — en este canvas
           // no hay nada más, así que el costo es el mismo, pero acotarlo a
           // groupRef es más correcto: no depende de que nada más se agregue
           // a la escena más adelante y queda explícito qué es "el cuerpo").
-          // three.js primero prueba la bounding sphere de cada malla antes
-          // del test de triángulos (Mesh.raycast), así que 19 marcadores x
-          // 578 mallas por frame es, en la práctica, 19 x 578 chequeos de
-          // esfera (baratos) más triángulos solo para las pocas mallas que
-          // el rayo realmente cruza — no 19 x 578 tests completos.
           occlude={[groupRef]}
           onOcclude={hidden => {
             const btn = markerElRefs.current.get(entry.zone)
@@ -198,6 +92,24 @@ function Body({
   )
 }
 
+// Vista general (cámara alejada, cuerpo completo) usada cuando no hay zona
+// seleccionada o el usuario minimiza la ficha de detalle. En la versión con
+// el modelo de Z-Anatomy, Y=0.2 quedaba a un 11.2% de altura del pie (bbox Y
+// 0.0129 a 1.6777) -- un valor bajo, cerca del tobillo, no el centro del
+// cuerpo, pero es lo que se shippeaba antes y no hay pedido de rediseñarlo.
+// El modelo nuevo (bbox Y -1.0535 a 0.6113, misma ALTURA total 1.6648 mm
+// gracias a la normalizacion de scripts/build-ecorche2-model.ts, pero pivote
+// distinto -- ver nota en el reporte de Fase 1) no comparte el mismo origen
+// vertical: reusar el mismo Y=0.2 literal ubicaria la camara cerca del
+// pecho/cuello del modelo nuevo en vez de cerca del tobillo, encuadrando mal
+// la vista general (cuerpo cortado a la altura del pecho hacia abajo). Se
+// recalcula el mismo 11.2% de altura pero contra el bbox del modelo nuevo,
+// con la misma tecnica de normalizacion proporcional usada para las 19
+// pointPosition en lib/muscle-anatomy.ts -- no es un rediseño, es preservar
+// el mismo encuadre relativo.
+const GENERAL_VIEW_Y = -0.8664
+const GENERAL_VIEW_Z = 1.4
+
 function CameraRig({ targetZone, controlsRef }: { targetZone: MuscleZone | null; controlsRef: React.RefObject<CameraControls> }) {
   // useEffect, no useMemo: los refs recién quedan asignados después del
   // commit. En el primer render, controlsRef.current todavía es null durante
@@ -211,7 +123,7 @@ function CameraRig({ targetZone, controlsRef }: { targetZone: MuscleZone | null;
       const distance = 0.4
       controlsRef.current.setLookAt(x, y, z + distance, x, y, z, true)
     } else {
-      controlsRef.current.setLookAt(0, 0.2, 1.4, 0, 0.2, 0, true)
+      controlsRef.current.setLookAt(0, GENERAL_VIEW_Y, GENERAL_VIEW_Z, 0, GENERAL_VIEW_Y, 0, true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetZone])
@@ -254,7 +166,12 @@ export function MuscleAnatomy3D({ initialZone, exercises, onClose }: MuscleAnato
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-zinc-950">
       <div className="flex items-center justify-between px-4 py-3">
-        <p className="font-heading text-sm uppercase tracking-wide text-zinc-400">Anatomía</p>
+        <div>
+          <p className="font-heading text-sm uppercase tracking-wide text-zinc-400">Anatomía</p>
+          {/* Atribución CC-BY-4.0 obligatoria del modelo 3D -- ver license.txt
+              en la fuente descargada y el header de scripts/build-ecorche2-model.ts. */}
+          <p className="text-[10px] text-zinc-600">&quot;Male Full Body Ecorche&quot; por Diego Luján García (CC-BY-4.0)</p>
+        </div>
         <button
           onClick={onClose}
           className="grid h-9 w-9 place-items-center rounded-full border border-zinc-800 text-zinc-400 hover:text-zinc-100"
@@ -266,13 +183,17 @@ export function MuscleAnatomy3D({ initialZone, exercises, onClose }: MuscleAnato
 
       <div className="relative flex-1">
         <Canvas
-          camera={{ position: [0, 0.2, 1.4], fov: 40 }}
+          // Posicion inicial nada mas -- CameraRig la pisa en el primer
+          // efecto (initialZone siempre viene seteado), pero se mantiene
+          // consistente con GENERAL_VIEW_Y/Z de abajo para no arrancar en un
+          // punto arbitrario si ese primer efecto tardara en correr.
+          camera={{ position: [0, GENERAL_VIEW_Y, GENERAL_VIEW_Z], fov: 40 }}
           onCreated={() => {}}
           onError={() => setWebglFailed(true)}
         >
           <ambientLight intensity={0.7} />
           <directionalLight position={[2, 2, 2]} intensity={1.2} />
-          <Body selectedZone={selectedZone} onSelect={handleSelect} isIdle={isIdle} />
+          <Body onSelect={handleSelect} isIdle={isIdle} />
           <CameraRig targetZone={minimized ? null : selectedZone} controlsRef={controlsRef} />
           <CameraControls
             ref={controlsRef}
