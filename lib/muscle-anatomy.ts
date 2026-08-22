@@ -345,7 +345,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Calcáneo vía tendón de Aquiles",
     funcion: "Flexión plantar del tobillo (independiente de la posición de la rodilla)",
     nodeNames: ["Soleus muscle.l", "Soleus muscle.r"],
-    pointPosition: [0.08635249358525016, -0.7947675713808815, -0.06708535963431055],
+    pointPosition: [0.08635249358525016, -0.7947675713808815, -0.0850114033492884],
     facing: "back",
   },
   lower_back: {
