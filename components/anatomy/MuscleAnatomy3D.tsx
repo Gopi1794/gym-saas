@@ -53,6 +53,19 @@ function Body({ onSelect, isIdle }: { onSelect: (zone: MuscleZone) => void; isId
           position={entry.pointPosition}
           center
           distanceFactor={1.2}
+          // Por defecto drei usa zIndexRange=[16777271, 0] (ver
+          // node_modules/@react-three/drei/web/Html.js) -- con occlude
+          // activo (raycast, nuestro caso) el z-index final queda
+          // interpolado entre zIndexRange[0] y floor(zIndexRange[0]/2), o
+          // sea entre ~16.7M y ~8.4M. MuscleDetailSheet.tsx usa z-20 de
+          // Tailwind, así que sin overridear esto el marcador SIEMPRE queda
+          // por encima de la ficha (portal de Html vive fuera del árbol DOM
+          // normal, el stacking context de Tailwind no lo alcanza). Con
+          // [10, 0] el rango interpolado con occlude queda en [5, 10] --
+          // bien por debajo de z-20, y sigue habiendo profundidad relativa
+          // entre marcadores (el 2do valor no se usa cuando occlude está
+          // seteado, ver objectZIndex()/zRange en Html.js).
+          zIndexRange={[10, 0]}
           // Occlude contra nuestro propio grupo (el <primitive> con las 16
           // mallas del modelo), no el string 'raycast'/true de drei (que
           // raycastea contra toda la escena de useThree() — en este canvas
