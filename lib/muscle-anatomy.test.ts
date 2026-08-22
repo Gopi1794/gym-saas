@@ -92,4 +92,11 @@ describe("MUSCLE_ANATOMY", () => {
       expect(entry.pointPosition).toHaveLength(3)
     }
   })
+
+  it("cada entrada tiene un facing válido para orientar la cámara", () => {
+    for (const zone of ALL_ZONES) {
+      const entry = MUSCLE_ANATOMY[zone]
+      expect(["front", "back"]).toContain(entry.facing)
+    }
+  })
 })
