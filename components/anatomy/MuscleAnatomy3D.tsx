@@ -119,9 +119,26 @@ function CameraRig({ targetZone, controlsRef }: { targetZone: MuscleZone | null;
   useEffect(() => {
     if (!controlsRef.current) return
     if (targetZone) {
-      const [x, y, z] = MUSCLE_ANATOMY[targetZone].pointPosition
+      const { pointPosition, facing } = MUSCLE_ANATOMY[targetZone]
+      const [x, y, z] = pointPosition
       const distance = 0.4
-      controlsRef.current.setLookAt(x, y, z + distance, x, y, z, true)
+      // BUG (encontrado y corregido acá): esto sumaba +distance sin signo,
+      // así que la cámara SIEMPRE terminaba en z + 0.4 -- es decir, siempre
+      // del mismo lado (+Z), mirando siempre en dirección -Z, sin importar
+      // qué zona se seleccione. El vector de vista (target - cámara) da
+      // (0,0,-distance) en TODOS los casos: la dirección de la cámara nunca
+      // dependía del target, solo su posición se corría un poco. Por eso
+      // "glúteos" (posterior) nunca giraba la cámara hacia atrás -- se
+      // quedaba mirando siempre de frente, aunque el punto estuviera del
+      // otro lado del cuerpo (y quedaba oculto por el occlude de <Html>).
+      // Agrandar la separación de pointPosition en Z no alcanza para
+      // arreglar esto: para cualquier magnitud de z, target - cámara sigue
+      // dando (0,0,-distance). El fix real es que el offset tiene que tener
+      // el signo del lado anatómico real (facing, en lib/muscle-anatomy.ts)
+      // -- así la cámara se aleja hacia +Z para zonas frontales y hacia -Z
+      // para zonas posteriores, y recién ahí "da la vuelta" de verdad.
+      const zOffset = facing === "back" ? -distance : distance
+      controlsRef.current.setLookAt(x, y, z + zOffset, x, y, z, true)
     } else {
       controlsRef.current.setLookAt(0, GENERAL_VIEW_Y, GENERAL_VIEW_Z, 0, GENERAL_VIEW_Y, 0, true)
     }
