@@ -92,7 +92,7 @@ const emptyMethodTotals = (): Record<ProductPaymentMethod, number> => ({
 const roundMoney = (amount: number): number => Math.round(amount * 100) / 100
 
 // resolveVariantPrice/resolveVariantCost: cada variante puede fijar su
-// propio precio/costo, o heredar el del producto (útil para productos con
+// propio precio/costo, o heredar el del producto (Ãºtil para productos con
 // variantes de igual valor, ej. una remera talle S/M/L al mismo precio).
 export function resolveVariantPrice(
   product: { base_price: number },
@@ -112,7 +112,7 @@ export function calculateSaleTotal(unitPrice: number, quantity: number): number 
   return roundMoney(unitPrice * quantity)
 }
 
-// Puede devolver un número negativo (venta a pérdida) — es información
+// Puede devolver un nÃºmero negativo (venta a pÃ©rdida) â€” es informaciÃ³n
 // real, no un caso de error; sub-proyecto 3 (reportes) la necesita tal cual.
 export function calculateMargin(unitPrice: number, unitCost: number, quantity: number): number {
   return roundMoney((unitPrice - unitCost) * quantity)
@@ -140,7 +140,7 @@ export function validateProductOrderItems(items: ProductOrderPricedItem[]): stri
 
   for (const item of items) {
     if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-      errors.push(`Cantidad inválida para la variante ${item.variantId}`)
+      errors.push(`Cantidad invÃ¡lida para la variante ${item.variantId}`)
     }
 
     if (typeof item.stock === "number" && item.quantity > item.stock) {
@@ -161,7 +161,7 @@ export function validateProductPayment(input: ProductPaymentValidationInput): st
   }
 
   if (!isValidProductPaymentMethod(input.paymentMethod)) {
-    return ["El método de pago es obligatorio para ventas pagas"]
+    return ["El mÃ©todo de pago es obligatorio para ventas pagas"]
   }
 
   return []

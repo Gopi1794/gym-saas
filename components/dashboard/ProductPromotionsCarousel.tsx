@@ -37,10 +37,10 @@ export default function ProductPromotionsCarousel({ promotions }: { promotions: 
       <div className="mt-4 flex items-center justify-between gap-3">
         <div className="flex gap-1">
           {promotions.map((item, index) => (
-            <button key={item.id} type="button" aria-label={`Ver promoción ${index + 1}`} onClick={() => setActive(index)} className={`h-1.5 rounded-full transition-all ${index === active ? "w-6 bg-brand-300" : "w-2 bg-white/30"}`} />
+            <button key={item.id} type="button" aria-label={`Ver promociÃ³n ${index + 1}`} onClick={() => setActive(index)} className={`h-1.5 rounded-full transition-all ${index === active ? "w-6 bg-brand-300" : "w-2 bg-white/30"}`} />
           ))}
         </div>
-        <Button type="button" size="sm" onClick={handleReserve} disabled={isPending}>{isPending ? "Reservando…" : (promotion.cta_label ?? "Reservar")}</Button>
+        <Button type="button" size="sm" onClick={handleReserve} disabled={isPending}>{isPending ? "Reservandoâ€¦" : (promotion.cta_label ?? "Reservar")}</Button>
       </div>
       {feedback && <div className="mt-3"><Alert variant={feedback.kind === "success" ? "success" : "error"}>{feedback.msg}</Alert></div>}
     </section>

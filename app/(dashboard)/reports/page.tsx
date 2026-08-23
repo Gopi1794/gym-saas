@@ -62,7 +62,7 @@ export default async function ReportsPage() {
       .eq("gym_id", gymId)
       .gte("checked_in_at", thirtyDaysAgo),
 
-    // Cubre "este mes" y "mismo tramo del mes pasado" en un solo query —
+    // Cubre "este mes" y "mismo tramo del mes pasado" en un solo query â€”
     // computeMonthToDateRevenue hace el resto.
     supabase
       .from("payments")
@@ -79,21 +79,21 @@ export default async function ReportsPage() {
       .gte("created_at", ninetyDaysAgo),
   ])
 
-  // ── Socios al día ── mismo corte que activeMembers del dashboard:
-  // membership_expires_at >= ahora cuenta como al día, "por vencer" es un
-  // subconjunto informativo de "al día", no una categoría que le resta.
+  // â”€â”€ Socios al dÃ­a â”€â”€ mismo corte que activeMembers del dashboard:
+  // membership_expires_at >= ahora cuenta como al dÃ­a, "por vencer" es un
+  // subconjunto informativo de "al dÃ­a", no una categorÃ­a que le resta.
   const upToDate = (members ?? []).filter(m => m.membership_expires_at && new Date(m.membership_expires_at) >= now).length
   const expiringSoon = (members ?? []).filter(m => m.membership_expires_at && new Date(m.membership_expires_at) >= now && Math.ceil((new Date(m.membership_expires_at).getTime() - now.getTime()) / 86_400_000) <= 7).length
   const expired = (members ?? []).filter(m => !m.membership_expires_at || new Date(m.membership_expires_at) < now).length
 
-  // ── Churn ──
+  // â”€â”€ Churn â”€â”€
   const churned = (members ?? [])
     .filter(m => m.membership_expires_at && new Date(m.membership_expires_at) <= now && new Date(m.membership_expires_at) >= new Date(ninetyDaysAgo))
     .sort((a, b) => new Date(b.membership_expires_at!).getTime() - new Date(a.membership_expires_at!).getTime())
 
-  // ── Asistencia por horario y día de semana (AR timezone) ──
+  // â”€â”€ Asistencia por horario y dÃ­a de semana (AR timezone) â”€â”€
   const byHour = Array(24).fill(0) as number[]
-  const byDay  = Array(7).fill(0) as number[]  // 0=Mon … 6=Sun
+  const byDay  = Array(7).fill(0) as number[]  // 0=Mon â€¦ 6=Sun
   for (const ci of checkIns ?? []) {
     const d = new Date(ci.checked_in_at)
     const hStr = new Intl.DateTimeFormat("en-US", { timeZone: "America/Argentina/Buenos_Aires", hour: "numeric", hour12: false }).format(d)
@@ -105,12 +105,12 @@ export default async function ReportsPage() {
     byDay[monIdx]++
   }
 
-  // ── Ingresos: este mes vs mismo tramo del mes pasado ──
+  // â”€â”€ Ingresos: este mes vs mismo tramo del mes pasado â”€â”€
   const revenueComparison = computeMonthToDateRevenue(paymentsThisAndLastMonth ?? [], todayDate)
   const revenueThisMonth = revenueComparison.thisMonthToDate
   const revenueLastMonth = revenueComparison.sameTramoLastMonth
 
-  // ── Nuevos socios últimos 6 meses ──
+  // â”€â”€ Nuevos socios Ãºltimos 6 meses â”€â”€
   const memberGrowth = Array.from({ length: 6 }, (_, i) => {
     const monthDate = new Date(todayDate.getFullYear(), todayDate.getMonth() - (5 - i), 1)
     const m = monthDate.getMonth()
@@ -122,7 +122,7 @@ export default async function ReportsPage() {
     return { label: `${MONTH_LABELS[m]} ${String(y).slice(2)}`, count }
   })
 
-  // ── Socios en riesgo (activos sin asistir 14+ días) ──
+  // â”€â”€ Socios en riesgo (activos sin asistir 14+ dÃ­as) â”€â”€
   const fourteenDaysAgoMs = Date.now() - 14 * 86_400_000
   const checkedInLast14 = new Set(
     (recentCheckIns ?? [])
@@ -145,13 +145,13 @@ export default async function ReportsPage() {
     .sort((a, b) => (b.daysAgo ?? 999) - (a.daysAgo ?? 999))
     .slice(0, 10)
 
-  // ── Frecuencia promedio semanal ──
+  // â”€â”€ Frecuencia promedio semanal â”€â”€
   const activeCount = upToDate
   const avgVisitsPerWeek = activeCount > 0
     ? Math.round(((recentCheckIns ?? []).length / activeCount / 30) * 7 * 10) / 10
     : 0
 
-  // ── Retención: de los que vencieron en los últimos 90 días, cuántos volvieron a pagar ──
+  // â”€â”€ RetenciÃ³n: de los que vencieron en los Ãºltimos 90 dÃ­as, cuÃ¡ntos volvieron a pagar â”€â”€
   const renewalPaymentUsers = new Map<string, string>()
   for (const p of renewalPayments ?? []) renewalPaymentUsers.set(p.member_id, p.created_at)
   const churnedWithRenewal = churned.filter(m =>
@@ -164,7 +164,7 @@ export default async function ReportsPage() {
     <div className="space-y-6 pb-8">
       <div>
         <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">Reportes</h1>
-        <p className="text-muted-foreground">Métricas clave de tu gimnasio</p>
+        <p className="text-muted-foreground">MÃ©tricas clave de tu gimnasio</p>
       </div>
 
       {/* KPI row */}
@@ -180,38 +180,38 @@ export default async function ReportsPage() {
           <p className="text-xs text-muted-foreground">promedio por socio</p>
         </div>
         <div className="rounded-2xl border border-border bg-card px-4 py-4 space-y-1">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Retención</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">RetenciÃ³n</p>
           <p className="text-3xl font-black text-foreground leading-none">
-            {retentionRate !== null ? `${retentionRate}%` : "—"}
+            {retentionRate !== null ? `${retentionRate}%` : "â€”"}
           </p>
-          <p className="text-xs text-muted-foreground">vencidos hace ≤90 días que volvieron a pagar</p>
+          <p className="text-xs text-muted-foreground">vencidos hace â‰¤90 dÃ­as que volvieron a pagar</p>
         </div>
         <div className="rounded-2xl border border-border bg-card px-4 py-4 space-y-1">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">En riesgo</p>
           <p className={`text-3xl font-black leading-none ${atRisk.length > 0 ? "text-amber-500" : "text-emerald-500"}`}>
             {atRisk.length}
           </p>
-          <p className="text-xs text-muted-foreground">sin asistir 14+ días</p>
+          <p className="text-xs text-muted-foreground">sin asistir 14+ dÃ­as</p>
         </div>
       </div>
 
       <ProductKpiCards report={productReportResult.report ?? { revenue: 0, margin: 0, units: 0, topProducts: [], byMethod: { cash: 0, mercadopago: 0, transfer: 0, card: 0, other: 0 }, bySeller: [], lowStock: [] }} />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Socios al día */}
+        {/* Socios al dÃ­a */}
         <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Socios al día</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Estado actual de las membresías</p>
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Socios al dÃ­a</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Estado actual de las membresÃ­as</p>
           </div>
           <RetentionChart upToDate={upToDate} expiringSoon={expiringSoon} expired={expired} />
         </div>
 
-        {/* Días pico */}
+        {/* DÃ­as pico */}
         <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Días pico</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Asistencia por día de la semana (últimos 90 días)</p>
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">DÃ­as pico</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Asistencia por dÃ­a de la semana (Ãºltimos 90 dÃ­as)</p>
           </div>
           <PeakDaysChart byDay={byDay} />
         </div>
@@ -220,7 +220,7 @@ export default async function ReportsPage() {
         <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
           <div>
             <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Horarios pico</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Distribución de check-ins a lo largo del día</p>
+            <p className="text-xs text-muted-foreground mt-0.5">DistribuciÃ³n de check-ins a lo largo del dÃ­a</p>
           </div>
           <AttendanceChart byHour={byHour} />
         </div>
@@ -243,7 +243,7 @@ export default async function ReportsPage() {
         <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
           <div>
             <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Nuevos socios</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Altas de los últimos 6 meses</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Altas de los Ãºltimos 6 meses</p>
           </div>
           <MemberGrowthChart months={memberGrowth} />
         </div>
@@ -252,7 +252,7 @@ export default async function ReportsPage() {
         <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
           <div>
             <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Socios en riesgo</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Activos sin asistir en los últimos 14 días</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Activos sin asistir en los Ãºltimos 14 dÃ­as</p>
           </div>
           <AtRiskList members={atRisk} />
         </div>
@@ -261,7 +261,7 @@ export default async function ReportsPage() {
         <div className="rounded-2xl border border-border bg-card p-5 space-y-4 lg:col-span-2">
           <div>
             <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Churn</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Socios cuya membresía venció y no renovaron</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Socios cuya membresÃ­a venciÃ³ y no renovaron</p>
           </div>
           <ChurnList members={churned as any} />
         </div>

@@ -35,7 +35,7 @@ export default function SellProductPanel({ products, members }: { products: Prod
         if (!variant.is_active) continue
         result.push({
           variantId: variant.id,
-          label: `${product.name} — ${variant.name}`,
+          label: `${product.name} â€” ${variant.name}`,
           price: resolveVariantPrice(product, variant),
           stock: variant.stock,
         })
@@ -76,8 +76,8 @@ export default function SellProductPanel({ products, members }: { products: Prod
   }
 
   async function handleReserve() {
-    if (cart.length === 0) return setFeedback({ kind: "error", msg: "Agregá al menos un producto" })
-    if (!memberId) return setFeedback({ kind: "error", msg: "Elegí un socio para reservar" })
+    if (cart.length === 0) return setFeedback({ kind: "error", msg: "AgregÃ¡ al menos un producto" })
+    if (!memberId) return setFeedback({ kind: "error", msg: "ElegÃ­ un socio para reservar" })
 
     setLoading(true)
     setFeedback(null)
@@ -109,8 +109,8 @@ export default function SellProductPanel({ products, members }: { products: Prod
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (cart.length === 0) return setFeedback({ kind: "error", msg: "Agregá al menos un producto" })
-    if (!paymentMethod) return setFeedback({ kind: "error", msg: "Elegí un método de pago" })
+    if (cart.length === 0) return setFeedback({ kind: "error", msg: "AgregÃ¡ al menos un producto" })
+    if (!paymentMethod) return setFeedback({ kind: "error", msg: "ElegÃ­ un mÃ©todo de pago" })
 
     setLoading(true)
     setFeedback(null)
@@ -155,7 +155,7 @@ export default function SellProductPanel({ products, members }: { products: Prod
           >
             {flatVariants.map((v) => (
               <option key={v.variantId} value={v.variantId}>
-                {v.label} — ${v.price.toLocaleString("es-AR")} (stock: {v.stock})
+                {v.label} â€” ${v.price.toLocaleString("es-AR")} (stock: {v.stock})
               </option>
             ))}
           </select>
@@ -172,12 +172,12 @@ export default function SellProductPanel({ products, members }: { products: Prod
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="rounded-xl border border-border bg-muted/30 divide-y divide-border">
           {cart.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">Todavía no agregaste productos a la venta.</p>
+            <p className="p-4 text-sm text-muted-foreground">TodavÃ­a no agregaste productos a la venta.</p>
           ) : cart.map((item) => (
             <div key={item.variantId} className="flex items-center justify-between gap-3 p-3 text-sm">
               <div>
                 <p className="font-medium text-foreground">{item.label}</p>
-                <p className="text-muted-foreground">{item.quantity} × ${item.price.toLocaleString("es-AR")}</p>
+                <p className="text-muted-foreground">{item.quantity} Ã— ${item.price.toLocaleString("es-AR")}</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-semibold">${calculateSaleTotal(item.price, item.quantity).toLocaleString("es-AR")}</span>
@@ -189,7 +189,7 @@ export default function SellProductPanel({ products, members }: { products: Prod
 
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Método de pago *</label>
+            <label className="text-sm text-muted-foreground">MÃ©todo de pago *</label>
             <select
               required
               value={paymentMethod}
@@ -202,7 +202,7 @@ export default function SellProductPanel({ products, members }: { products: Prod
           </div>
           <div className="space-y-1.5">
             <label className="text-sm text-muted-foreground">Referencia (opcional)</label>
-            <Input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="Cupón, transferencia, operación…" />
+            <Input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="CupÃ³n, transferencia, operaciÃ³nâ€¦" />
           </div>
         </div>
 
@@ -222,7 +222,7 @@ export default function SellProductPanel({ products, members }: { products: Prod
 
         <div className="grid gap-2 md:grid-cols-2">
           <Button type="submit" disabled={loading || cart.length === 0}>
-            {loading ? "Procesando…" : `Registrar venta — ${total.toLocaleString("es-AR")}`}
+            {loading ? "Procesandoâ€¦" : `Registrar venta â€” ${total.toLocaleString("es-AR")}`}
           </Button>
           <Button type="button" variant="secondary" disabled={loading || cart.length === 0 || !memberId} onClick={handleReserve}>
             Reservar 30 min

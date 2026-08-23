@@ -144,11 +144,11 @@ export async function updateProduct(productId: string, input: UpdateProductInput
     updates.base_cost = input.baseCost
   }
 
-  // .eq("gym_id", ...) además de RLS: no alcanza con confiar en que la
-  // policy bloquee un producto de otro gym — un UPDATE cuyo WHERE no
+  // .eq("gym_id", ...) ademÃ¡s de RLS: no alcanza con confiar en que la
+  // policy bloquee un producto de otro gym â€” un UPDATE cuyo WHERE no
   // matchea ninguna fila no lanza error (a diferencia de un INSERT que
-  // viola su policy), así que sin este chequeo explícito la función
-  // devolvería { success: true } sin haber tocado nada.
+  // viola su policy), asÃ­ que sin este chequeo explÃ­cito la funciÃ³n
+  // devolverÃ­a { success: true } sin haber tocado nada.
   const { data, error } = await (supabase
     .from("products" as never)
     .update(updates as never)
@@ -276,12 +276,12 @@ export async function updateVariant(variantId: string, input: UpdateVariantInput
     updates.cost_price = input.costPrice
   }
 
-  // product_variants no tiene columna gym_id propia (se llega al gym vía
-  // product_id -> products.gym_id), así que acá el chequeo de tenant lo
-  // hace la RLS de la tabla (join contra products+profiles) — pero igual
-  // hay que leer .select("id") y confirmar que devolvió fila: un UPDATE
+  // product_variants no tiene columna gym_id propia (se llega al gym vÃ­a
+  // product_id -> products.gym_id), asÃ­ que acÃ¡ el chequeo de tenant lo
+  // hace la RLS de la tabla (join contra products+profiles) â€” pero igual
+  // hay que leer .select("id") y confirmar que devolviÃ³ fila: un UPDATE
   // bloqueado por RLS matchea 0 filas sin lanzar error, y sin este chequeo
-  // la función reportaría éxito sin haber cambiado nada.
+  // la funciÃ³n reportarÃ­a Ã©xito sin haber cambiado nada.
   const { data, error } = await (supabase
     .from("product_variants" as never)
     .update(updates as never)
@@ -381,7 +381,7 @@ export async function recordSale(
   }
 
   if (!isValidProductPaymentMethod(paymentMethod)) {
-    return { error: "El método de pago es obligatorio para ventas pagas" }
+    return { error: "El mÃ©todo de pago es obligatorio para ventas pagas" }
   }
 
   const normalizedItems = items.map((item) => ({
@@ -605,8 +605,8 @@ export async function upsertProductPromotion(input: UpsertProductPromotionInput)
 
   const { data: me } = await supabase.from("profiles").select("role, gym_id").eq("id", user.id).single()
   if (!me || (me as { role: string }).role !== "admin") return { error: "Solo un admin puede gestionar promociones" }
-  if (!input.title.trim()) return { error: "El título es obligatorio" }
-  if (input.publicPrice < 0) return { error: "El precio público no puede ser negativo" }
+  if (!input.title.trim()) return { error: "El tÃ­tulo es obligatorio" }
+  if (input.publicPrice < 0) return { error: "El precio pÃºblico no puede ser negativo" }
 
   const payload = {
     ...(input.id ? { id: input.id } : {}),
@@ -697,7 +697,7 @@ export async function reserveProduct(items: ProductSaleItemInput[], memberId?: s
   if (!me) return { error: "Sin permiso" }
   const profile = me as { role: string; gym_id: string }
   const reservationMemberId = profile.role === "member" ? user.id : (memberId || null)
-  if (!reservationMemberId) return { error: "Elegí un socio para reservar" }
+  if (!reservationMemberId) return { error: "ElegÃ­ un socio para reservar" }
 
   const normalizedItems = items.map((item) => ({ variant_id: item.variantId, quantity: item.quantity }))
   if (normalizedItems.length === 0) return { error: "La reserva debe incluir al menos un producto" }
@@ -745,7 +745,7 @@ export async function markProductOrderPaid(
   }
 
   if (!isValidProductPaymentMethod(paymentMethod)) {
-    return { error: "El método de pago es obligatorio para cobrar la reserva" }
+    return { error: "El mÃ©todo de pago es obligatorio para cobrar la reserva" }
   }
 
   if (paidAmount != null && (!Number.isFinite(paidAmount) || paidAmount < 0)) {
@@ -828,19 +828,19 @@ export async function reserveProductPromotion(promotionId: string) {
     .single() as unknown as Promise<{ data: { id: string; gym_id: string; variant_id: string | null; is_active: boolean; starts_at: string | null; ends_at: string | null } | null; error: { message: string } | null }>)
 
   if (promoError) return { error: promoError.message }
-  if (!promotion?.variant_id) return { error: "Esta promoción no tiene una variante reservable" }
+  if (!promotion?.variant_id) return { error: "Esta promociÃ³n no tiene una variante reservable" }
 
   const visible = getVisibleMemberPromotions([{
     id: promotion.id,
     gymId: promotion.gym_id,
-    title: "Promoción",
+    title: "PromociÃ³n",
     publicPrice: 0,
     isActive: promotion.is_active,
     startsAt: promotion.starts_at,
     endsAt: promotion.ends_at,
   }], (me as { gym_id: string }).gym_id)
 
-  if (visible.length === 0) return { error: "La promoción no está activa" }
+  if (visible.length === 0) return { error: "La promociÃ³n no estÃ¡ activa" }
 
   return reserveProduct([{ variantId: promotion.variant_id, quantity: 1 }], user.id)
 }

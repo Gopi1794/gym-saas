@@ -30,7 +30,7 @@ export default function ProductSalesPanel({ sales }: { sales: ProductSaleRow[] }
   if (sales.length === 0) {
     return (
       <div className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-        Todavía no hay ventas registradas.
+        TodavÃ­a no hay ventas registradas.
       </div>
     )
   }
@@ -59,25 +59,25 @@ export default function ProductSalesPanel({ sales }: { sales: ProductSaleRow[] }
                 <div className="space-y-1">
                   {sale.product_order_items.map((item) => (
                     <div key={item.id}>
-                      {item.products?.name ?? "—"} — {item.product_variants?.name ?? "—"}
-                      <span className="text-muted-foreground"> × {item.quantity}</span>
+                      {item.products?.name ?? "â€”"} â€” {item.product_variants?.name ?? "â€”"}
+                      <span className="text-muted-foreground"> Ã— {item.quantity}</span>
                     </div>
                   ))}
                 </div>
               </td>
               <td className="px-4 py-3 text-muted-foreground">
-                <div>{sale.payment_method ? METHOD_LABELS[sale.payment_method] : "—"}</div>
+                <div>{sale.payment_method ? METHOD_LABELS[sale.payment_method] : "â€”"}</div>
                 {sale.payment_reference && <div className="text-xs">Ref: {sale.payment_reference}</div>}
               </td>
               <td className="px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400">{formatARS(sale.total_amount)}</td>
               <td className="px-4 py-3 text-muted-foreground">{sale.member_profile?.full_name ?? "Sin socio"}</td>
-              <td className="px-4 py-3 text-muted-foreground">{sale.created_by_profile?.full_name ?? "—"}</td>
+              <td className="px-4 py-3 text-muted-foreground">{sale.created_by_profile?.full_name ?? "â€”"}</td>
               <td className="px-4 py-3">
                 {sale.status === "reserved" ? (
                   <button type="button" onClick={() => cancelReservation(sale.id)} className="text-xs font-medium text-red-500 transition-colors hover:text-red-400">
                     Cancelar reserva
                   </button>
-                ) : <span className="text-muted-foreground">—</span>}
+                ) : <span className="text-muted-foreground">â€”</span>}
               </td>
             </tr>
           ))}

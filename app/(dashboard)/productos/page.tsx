@@ -33,7 +33,7 @@ export default async function ProductsPage({
   const canSell = canCollectPayment(profile.role, profile.can_collect_payments === true)
 
   const tabs = [
-    { key: "catalogo", label: "Catálogo" },
+    { key: "catalogo", label: "CatÃ¡logo" },
     ...(canSell ? [{ key: "vender", label: "Vender" }] : []),
     ...(isAdmin ? [{ key: "ventas", label: "Ventas" }, { key: "promociones", label: "Promociones" }] : []),
   ]
@@ -75,7 +75,7 @@ export default async function ProductsPage({
     <div className="space-y-5 pb-8">
       <div>
         <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">Productos</h1>
-        <p className="text-muted-foreground">Catálogo, stock y ventas del mostrador</p>
+        <p className="text-muted-foreground">CatÃ¡logo, stock y ventas del mostrador</p>
       </div>
       <TabSwitcher tabs={tabs} activeTab={tab} />
       {content}

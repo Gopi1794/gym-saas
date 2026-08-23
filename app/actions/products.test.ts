@@ -52,7 +52,7 @@ describe("getProducts", () => {
     expect(result).toEqual({ products: [{ id: "p1", is_active: true, product_variants: [] }] })
   })
 
-  it("con includeInactive, devuelve también los desactivados", async () => {
+  it("con includeInactive, devuelve tambiÃ©n los desactivados", async () => {
     const supabase = createMockSupabase([
       { data: { gym_id: "gym-1" }, error: null },
       {
@@ -157,7 +157,7 @@ describe("updateProduct", () => {
     expect(result).toEqual({ error: "Solo un admin puede editar productos" })
   })
 
-  it("un producto de otro gym no matchea el UPDATE y devuelve error en vez de éxito silencioso", async () => {
+  it("un producto de otro gym no matchea el UPDATE y devuelve error en vez de Ã©xito silencioso", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1" }, error: null },
       { data: [], error: null },
@@ -266,7 +266,7 @@ describe("updateVariant", () => {
     expect(updatePayload).toEqual({ price: 1800 })
   })
 
-  it("una variante que no matchea el UPDATE (de otro gym, o inexistente) devuelve error en vez de éxito silencioso", async () => {
+  it("una variante que no matchea el UPDATE (de otro gym, o inexistente) devuelve error en vez de Ã©xito silencioso", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin" }, error: null },
       { data: [], error: null },
@@ -351,7 +351,7 @@ describe("restockVariant", () => {
     expect(supabase.rpc).not.toHaveBeenCalled()
   })
 
-  it("rechaza venta paga sin método antes de llamar al RPC", async () => {
+  it("rechaza venta paga sin mÃ©todo antes de llamar al RPC", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
     ])
@@ -360,7 +360,7 @@ describe("restockVariant", () => {
 
     const result = await recordSale([{ variantId: "variant-1", quantity: 1 }], null, null)
 
-    expect(result).toEqual({ error: "El método de pago es obligatorio para ventas pagas" })
+    expect(result).toEqual({ error: "El mÃ©todo de pago es obligatorio para ventas pagas" })
     expect(mockCreateAdminClient).not.toHaveBeenCalled()
   })
 
@@ -436,7 +436,7 @@ describe("recordSale", () => {
     expect(mockCreateAdminClient).not.toHaveBeenCalled()
   })
 
-  it("rechaza venta paga sin método antes de llamar al RPC", async () => {
+  it("rechaza venta paga sin mÃ©todo antes de llamar al RPC", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
     ])
@@ -445,7 +445,7 @@ describe("recordSale", () => {
 
     const result = await recordSale([{ variantId: "variant-1", quantity: 1 }], null, null)
 
-    expect(result).toEqual({ error: "El método de pago es obligatorio para ventas pagas" })
+    expect(result).toEqual({ error: "El mÃ©todo de pago es obligatorio para ventas pagas" })
     expect(mockCreateAdminClient).not.toHaveBeenCalled()
   })
 
@@ -510,7 +510,7 @@ describe("getProductSales", () => {
 
 
 describe("getProductReport", () => {
-  it("agrega revenue de productos separado de pagos de membresías", async () => {
+  it("agrega revenue de productos separado de pagos de membresÃ­as", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1" }, error: null },
       {
@@ -575,7 +575,7 @@ describe("product promotions and reservations", () => {
           id: "promo-1",
           gym_id: "gym-1",
           title: "Whey promo",
-          description: "Proteína",
+          description: "ProteÃ­na",
           image_url: null,
           public_price: 12000,
           cta_label: "Reservar",
@@ -594,7 +594,7 @@ describe("product promotions and reservations", () => {
     expect(result.promotions).toEqual([{
       id: "promo-1",
       title: "Whey promo",
-      description: "Proteína",
+      description: "ProteÃ­na",
       image_url: null,
       price: 12000,
       cta_label: "Reservar",
@@ -661,18 +661,18 @@ describe("product promotions and reservations", () => {
     const adminClient = { rpc: vi.fn().mockResolvedValueOnce({ data: orderId, error: null }) }
     mockCreateAdminClient.mockReturnValue(adminClient)
 
-    const result = await cancelProductReservation(orderId, "cliente pidió cancelar")
+    const result = await cancelProductReservation(orderId, "cliente pidiÃ³ cancelar")
 
     expect(result).toEqual({ success: true })
     expect(adminClient.rpc).toHaveBeenCalledWith("cancel_product_order", {
       p_order_id: orderId,
       p_gym_id: "gym-1",
       p_cancelled_by: "admin-1",
-      p_reason: "cliente pidió cancelar",
+      p_reason: "cliente pidiÃ³ cancelar",
     })
   })
 
-  it("markProductOrderPaid cobra una reserva con método, referencia e importe", async () => {
+  it("markProductOrderPaid cobra una reserva con mÃ©todo, referencia e importe", async () => {
     const orderId = "0a2107df-9fb6-47b5-8c6c-9f4dbca2a7f4"
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
@@ -695,7 +695,7 @@ describe("product promotions and reservations", () => {
     })
   })
 
-  it("markProductOrderPaid rechaza método inválido antes del RPC", async () => {
+  it("markProductOrderPaid rechaza mÃ©todo invÃ¡lido antes del RPC", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
     ])
@@ -704,7 +704,7 @@ describe("product promotions and reservations", () => {
 
     const result = await markProductOrderPaid("0a2107df-9fb6-47b5-8c6c-9f4dbca2a7f4", null)
 
-    expect(result).toEqual({ error: "El método de pago es obligatorio para cobrar la reserva" })
+    expect(result).toEqual({ error: "El mÃ©todo de pago es obligatorio para cobrar la reserva" })
     expect(mockCreateAdminClient).not.toHaveBeenCalled()
   })
 

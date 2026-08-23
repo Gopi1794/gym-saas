@@ -27,13 +27,13 @@ export default function ProductKpiCards({ report }: { report: ProductOrderReport
     <section className="space-y-4">
       <div>
         <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Productos</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Ingresos de productos separados de membresías</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Ingresos de productos separados de membresÃ­as</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard label="Revenue productos" value={formatARS(report.revenue)} hint="solo órdenes pagas" />
+        <KpiCard label="Revenue productos" value={formatARS(report.revenue)} hint="solo Ã³rdenes pagas" />
         <KpiCard label="Margen" value={formatARS(report.margin)} hint="precio menos costo" />
-        <KpiCard label="Unidades" value={report.units} hint="vendidas este período" />
+        <KpiCard label="Unidades" value={report.units} hint="vendidas este perÃ­odo" />
         <KpiCard label="Stock bajo" value={report.lowStock.length} hint="variantes con 5 o menos" />
       </div>
 
@@ -43,13 +43,13 @@ export default function ProductKpiCards({ report }: { report: ProductOrderReport
           {report.topProducts.length === 0 ? <p className="text-sm text-muted-foreground">Sin ventas.</p> : report.topProducts.slice(0, 5).map((product) => (
             <div key={product.productId} className="flex items-center justify-between gap-3 text-sm">
               <span className="text-foreground">{product.productName}</span>
-              <span className="text-muted-foreground">{product.units} u. · {formatARS(product.revenue)}</span>
+              <span className="text-muted-foreground">{product.units} u. Â· {formatARS(product.revenue)}</span>
             </div>
           ))}
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Métodos de pago</h3>
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">MÃ©todos de pago</h3>
           {Object.entries(report.byMethod).map(([method, amount]) => (
             <div key={method} className="flex items-center justify-between gap-3 text-sm">
               <span className="text-foreground">{METHOD_LABELS[method as ProductPaymentMethod]}</span>
@@ -63,7 +63,7 @@ export default function ProductKpiCards({ report }: { report: ProductOrderReport
           {report.bySeller.length === 0 ? <p className="text-sm text-muted-foreground">Sin ventas.</p> : report.bySeller.slice(0, 5).map((seller) => (
             <div key={seller.sellerId ?? "unknown"} className="flex items-center justify-between gap-3 text-sm">
               <span className="text-foreground">{seller.sellerName}</span>
-              <span className="text-muted-foreground">{seller.units} u. · {formatARS(seller.revenue)}</span>
+              <span className="text-muted-foreground">{seller.units} u. Â· {formatARS(seller.revenue)}</span>
             </div>
           ))}
         </div>
@@ -75,7 +75,7 @@ export default function ProductKpiCards({ report }: { report: ProductOrderReport
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {report.lowStock.slice(0, 9).map((item) => (
               <div key={item.variantId} className="rounded-xl bg-muted/40 px-3 py-2 text-sm">
-                <p className="font-medium text-foreground">{item.productName} — {item.variantName}</p>
+                <p className="font-medium text-foreground">{item.productName} â€” {item.variantName}</p>
                 <p className="text-muted-foreground">Stock: {item.stock}</p>
               </div>
             ))}

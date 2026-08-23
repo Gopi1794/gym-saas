@@ -80,7 +80,7 @@ export default function ProductPromotionPanel({ products, promotions }: { produc
     e.preventDefault()
     const publicPrice = Number(draft.publicPrice)
     if (!Number.isFinite(publicPrice) || publicPrice < 0) {
-      setFeedback({ kind: "error", msg: "El precio público no puede ser negativo" })
+      setFeedback({ kind: "error", msg: "El precio pÃºblico no puede ser negativo" })
       return
     }
 
@@ -103,7 +103,7 @@ export default function ProductPromotionPanel({ products, promotions }: { produc
       if (result.error) {
         setFeedback({ kind: "error", msg: result.error })
       } else {
-        setFeedback({ kind: "success", msg: editingId ? "Promoción actualizada" : "Promoción creada" })
+        setFeedback({ kind: "success", msg: editingId ? "PromociÃ³n actualizada" : "PromociÃ³n creada" })
         reset()
       }
     })
@@ -112,18 +112,18 @@ export default function ProductPromotionPanel({ products, promotions }: { produc
   function remove(promotionId: string) {
     startTransition(async () => {
       const result = await deleteProductPromotion(promotionId)
-      setFeedback(result.error ? { kind: "error", msg: result.error } : { kind: "success", msg: "Promoción eliminada" })
+      setFeedback(result.error ? { kind: "error", msg: result.error } : { kind: "success", msg: "PromociÃ³n eliminada" })
     })
   }
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="rounded-2xl border border-border bg-card p-5">
-        <h2 className="font-heading text-xl text-foreground">Campañas activas</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Publicá productos destacados sin exponer costos ni margen al socio.</p>
+        <h2 className="font-heading text-xl text-foreground">CampaÃ±as activas</h2>
+        <p className="mt-1 text-sm text-muted-foreground">PublicÃ¡ productos destacados sin exponer costos ni margen al socio.</p>
         <div className="mt-4 divide-y divide-border rounded-xl border border-border bg-muted/20">
           {promotions.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">Todavía no hay promociones.</p>
+            <p className="p-4 text-sm text-muted-foreground">TodavÃ­a no hay promociones.</p>
           ) : promotions.map((promotion) => (
             <div key={promotion.id} className="flex items-center justify-between gap-3 p-4 text-sm">
               <div>
@@ -133,7 +133,7 @@ export default function ProductPromotionPanel({ products, promotions }: { produc
                     {promotion.is_active ? "Activa" : "Pausada"}
                   </span>
                 </div>
-                <p className="text-muted-foreground">${promotion.public_price.toLocaleString("es-AR")} · orden {promotion.sort_order}</p>
+                <p className="text-muted-foreground">${promotion.public_price.toLocaleString("es-AR")} Â· orden {promotion.sort_order}</p>
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="secondary" size="sm" onClick={() => edit(promotion)}>Editar</Button>
@@ -145,9 +145,9 @@ export default function ProductPromotionPanel({ products, promotions }: { produc
       </div>
 
       <form onSubmit={submit} className="rounded-2xl border border-border bg-card p-5 space-y-3">
-        <h3 className="font-heading text-lg text-foreground">{editingId ? "Editar promoción" : "Nueva promoción"}</h3>
-        <Input value={draft.title} onChange={(e) => patch({ title: e.target.value })} placeholder="Título" required />
-        <Input value={draft.description} onChange={(e) => patch({ description: e.target.value })} placeholder="Descripción breve" />
+        <h3 className="font-heading text-lg text-foreground">{editingId ? "Editar promociÃ³n" : "Nueva promociÃ³n"}</h3>
+        <Input value={draft.title} onChange={(e) => patch({ title: e.target.value })} placeholder="TÃ­tulo" required />
+        <Input value={draft.description} onChange={(e) => patch({ description: e.target.value })} placeholder="DescripciÃ³n breve" />
         <select value={draft.productId} onChange={(e) => patch({ productId: e.target.value, variantId: "" })} className="w-full rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground">
           <option value="">Producto opcional</option>
           {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
@@ -157,7 +157,7 @@ export default function ProductPromotionPanel({ products, promotions }: { produc
           {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
         </select>
         <div className="grid grid-cols-2 gap-2">
-          <Input type="number" min="0" step="0.01" value={draft.publicPrice} onChange={(e) => patch({ publicPrice: e.target.value })} placeholder="Precio público" required />
+          <Input type="number" min="0" step="0.01" value={draft.publicPrice} onChange={(e) => patch({ publicPrice: e.target.value })} placeholder="Precio pÃºblico" required />
           <Input type="number" value={draft.sortOrder} onChange={(e) => patch({ sortOrder: e.target.value })} placeholder="Orden" />
         </div>
         <Input value={draft.ctaLabel} onChange={(e) => patch({ ctaLabel: e.target.value })} placeholder="CTA" />
@@ -172,7 +172,7 @@ export default function ProductPromotionPanel({ products, promotions }: { produc
         </label>
         {feedback && <Alert variant={feedback.kind === "success" ? "success" : "error"}>{feedback.msg}</Alert>}
         <div className="flex gap-2">
-          <Button type="submit" disabled={isPending}>{isPending ? "Guardando…" : "Guardar"}</Button>
+          <Button type="submit" disabled={isPending}>{isPending ? "Guardandoâ€¦" : "Guardar"}</Button>
           {editingId && <Button type="button" variant="secondary" onClick={reset}>Cancelar</Button>}
         </div>
       </form>
