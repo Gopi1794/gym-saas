@@ -23,6 +23,8 @@ import MonthlyTrainingCalendar from "@/components/dashboard/MonthlyTrainingCalen
 import PersonalRecordsCard from "@/components/dashboard/PersonalRecordsCard"
 import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, startOfTodayAR } from "@/lib/date-ar"
 import { computeMonthToDateRevenue } from "@/lib/revenue"
+import { getMemberProductPromotions } from "@/app/actions/products"
+import ProductPromotionsCarousel from "@/components/dashboard/ProductPromotionsCarousel"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Dashboard" }
@@ -139,8 +141,10 @@ export default async function DashboardPage() {
   let daysSinceLastWeightLog: number | null = null
   let personalRecords: { exercise_name: string; weight_kg: number }[] = []
   let monthSessionDates: string[] = []
+  let productPromotions: Awaited<ReturnType<typeof getMemberProductPromotions>>["promotions"] = []
 
   if (p?.role === "member") {
+    productPromotions = (await getMemberProductPromotions()).promotions ?? []
     type PlanRow = { id: string; name: string }
     type DayRow = { workout_plan_exercises: { sets: number; reps: number; reps_max: number | null; order_index: number; duration_seconds: number | null; exercises: { name: string } }[] }
     type PlanDayRow = { day_of_week: number; workout_plan_exercises: { id: string }[] }
@@ -382,6 +386,11 @@ export default async function DashboardPage() {
         return null
       })()}
 
+      {/* Product promotions — members only */}
+      {p?.role === "member" && productPromotions.length > 0 && (
+        <ProductPromotionsCarousel promotions={productPromotions} />
+      )}
+
       {/* Weight reminder â€” members only, when > 7 days or never logged */}
       {p?.role === "member" && (
         <WeightReminderBanner daysSinceLastLog={daysSinceLastWeightLog} />
@@ -511,3 +520,5 @@ export default async function DashboardPage() {
     </div>
   )
 }
+
+

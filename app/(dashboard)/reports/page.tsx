@@ -6,10 +6,12 @@ import ChurnList from "@/components/reports/ChurnList"
 import AttendanceChart from "@/components/reports/AttendanceChart"
 import PeakDaysChart from "@/components/reports/PeakDaysChart"
 import RevenueComparisonCard from "@/components/reports/RevenueComparisonCard"
+import ProductKpiCards from "@/components/reports/ProductKpiCards"
 import MemberGrowthChart from "@/components/reports/MemberGrowthChart"
 import AtRiskList, { type AtRiskMember } from "@/components/reports/AtRiskList"
 import { firstOfMonthsAgoAR, daysAgoAR, todayDateAR } from "@/lib/date-ar"
 import { computeMonthToDateRevenue } from "@/lib/revenue"
+import { getProductReport } from "@/app/actions/products"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Reportes" }
@@ -33,6 +35,7 @@ export default async function ReportsPage() {
   const thirtyDaysAgo = daysAgoAR(29)
   const firstOfLastMonth = firstOfMonthsAgoAR(1)
   const _firstOf6MonthsAgo = firstOfMonthsAgoAR(5)
+  const productReportResult = await getProductReport()
 
   const [
     { data: members },
@@ -192,6 +195,8 @@ export default async function ReportsPage() {
         </div>
       </div>
 
+      <ProductKpiCards report={productReportResult.report ?? { revenue: 0, margin: 0, units: 0, topProducts: [], byMethod: { cash: 0, mercadopago: 0, transfer: 0, card: 0, other: 0 }, bySeller: [], lowStock: [] }} />
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Socios al día */}
         <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
@@ -264,3 +269,6 @@ export default async function ReportsPage() {
     </div>
   )
 }
+
+
+

@@ -1,3 +1,96 @@
+export type ProductPaymentMethod = "cash" | "mercadopago" | "transfer" | "card" | "other"
+
+export type ProductOrderStatus = "reserved" | "paid" | "cancelled" | "expired"
+
+export type ProductOrderItemInput = {
+  variantId: string
+  quantity: number
+}
+
+export type ProductOrderPricedItem = ProductOrderItemInput & {
+  productId?: string
+  unitPrice: number
+  unitCost: number
+  stock?: number
+}
+
+export type ProductPaymentValidationInput = {
+  status: ProductOrderStatus
+  paymentMethod?: ProductPaymentMethod | null
+}
+
+export type ProductReportRow = {
+  productId: string
+  productName: string
+  variantId?: string | null
+  variantName?: string | null
+  sellerId?: string | null
+  sellerName?: string | null
+  paymentMethod: ProductPaymentMethod
+  quantity: number
+  revenue: number
+  margin: number
+}
+
+export type ProductLowStockRow = {
+  productId: string
+  productName: string
+  variantId: string
+  variantName: string
+  stock: number
+  threshold?: number
+}
+
+export type ProductOrderReport = {
+  revenue: number
+  margin: number
+  units: number
+  topProducts: Array<{ productId: string; productName: string; units: number; revenue: number; margin: number }>
+  byMethod: Record<ProductPaymentMethod, number>
+  bySeller: Array<{ sellerId: string | null; sellerName: string; revenue: number; units: number }>
+  lowStock: ProductLowStockRow[]
+}
+
+export type ProductPromotionVisibilityInput = {
+  gymId: string
+  isActive: boolean
+  startsAt?: string | Date | null
+  endsAt?: string | Date | null
+}
+
+export type ProductPromotionForMemberInput = ProductPromotionVisibilityInput & {
+  id: string
+  title: string
+  description?: string | null
+  imageUrl?: string | null
+  publicPrice: number
+  ctaLabel?: string | null
+  costPrice?: number | null
+  baseCost?: number | null
+  margin?: number | null
+}
+
+export type MemberProductPromotion = {
+  id: string
+  title: string
+  description: string | null
+  image_url: string | null
+  price: number
+  cta_label: string | null
+}
+
+export const PRODUCT_PAYMENT_METHODS = ["cash", "mercadopago", "transfer", "card", "other"] as const
+
+const emptyMethodTotals = (): Record<ProductPaymentMethod, number> => ({
+  cash: 0,
+  mercadopago: 0,
+  transfer: 0,
+  card: 0,
+  other: 0,
+})
+
+const roundMoney = (amount: number): number => Math.round(amount * 100) / 100
+
 // resolveVariantPrice/resolveVariantCost: cada variante puede fijar su
 // propio precio/costo, o heredar el del producto (útil para productos con
 // variantes de igual valor, ej. una remera talle S/M/L al mismo precio).
@@ -16,11 +109,146 @@ export function resolveVariantCost(
 }
 
 export function calculateSaleTotal(unitPrice: number, quantity: number): number {
-  return Math.round(unitPrice * quantity * 100) / 100
+  return roundMoney(unitPrice * quantity)
 }
 
 // Puede devolver un número negativo (venta a pérdida) — es información
 // real, no un caso de error; sub-proyecto 3 (reportes) la necesita tal cual.
 export function calculateMargin(unitPrice: number, unitCost: number, quantity: number): number {
-  return Math.round((unitPrice - unitCost) * quantity * 100) / 100
+  return roundMoney((unitPrice - unitCost) * quantity)
+}
+
+export function calculateOrderTotals(items: ProductOrderPricedItem[]) {
+  const subtotal = items.reduce((sum, item) => sum + calculateSaleTotal(item.unitPrice, item.quantity), 0)
+  const margin = items.reduce((sum, item) => sum + calculateMargin(item.unitPrice, item.unitCost, item.quantity), 0)
+  const units = items.reduce((sum, item) => sum + item.quantity, 0)
+
+  return {
+    subtotal: roundMoney(subtotal),
+    total: roundMoney(subtotal),
+    margin: roundMoney(margin),
+    units,
+  }
+}
+
+export function validateProductOrderItems(items: ProductOrderPricedItem[]): string[] {
+  const errors: string[] = []
+
+  if (items.length === 0) {
+    errors.push("La orden debe incluir al menos un producto")
+  }
+
+  for (const item of items) {
+    if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+      errors.push(`Cantidad inválida para la variante ${item.variantId}`)
+    }
+
+    if (typeof item.stock === "number" && item.quantity > item.stock) {
+      errors.push(`Stock insuficiente para la variante ${item.variantId}`)
+    }
+  }
+
+  return errors
+}
+
+export function isValidProductPaymentMethod(method: unknown): method is ProductPaymentMethod {
+  return typeof method === "string" && PRODUCT_PAYMENT_METHODS.includes(method as ProductPaymentMethod)
+}
+
+export function validateProductPayment(input: ProductPaymentValidationInput): string[] {
+  if (input.status !== "paid") {
+    return []
+  }
+
+  if (!isValidProductPaymentMethod(input.paymentMethod)) {
+    return ["El método de pago es obligatorio para ventas pagas"]
+  }
+
+  return []
+}
+
+export function isPromotionVisibleToGym(
+  promotion: ProductPromotionVisibilityInput,
+  memberGymId: string,
+  now: Date = new Date()
+): boolean {
+  if (!promotion.isActive || promotion.gymId !== memberGymId) {
+    return false
+  }
+
+  const startsAt = promotion.startsAt ? new Date(promotion.startsAt) : null
+  const endsAt = promotion.endsAt ? new Date(promotion.endsAt) : null
+
+  return (!startsAt || startsAt <= now) && (!endsAt || endsAt > now)
+}
+
+export function toMemberProductPromotion(promotion: ProductPromotionForMemberInput): MemberProductPromotion {
+  return {
+    id: promotion.id,
+    title: promotion.title,
+    description: promotion.description ?? null,
+    image_url: promotion.imageUrl ?? null,
+    price: promotion.publicPrice,
+    cta_label: promotion.ctaLabel ?? null,
+  }
+}
+
+export function getVisibleMemberPromotions(
+  promotions: ProductPromotionForMemberInput[],
+  memberGymId: string,
+  now: Date = new Date()
+): MemberProductPromotion[] {
+  return promotions
+    .filter((promotion) => isPromotionVisibleToGym(promotion, memberGymId, now))
+    .map(toMemberProductPromotion)
+}
+
+export function aggregateProductReport(rows: ProductReportRow[], lowStock: ProductLowStockRow[] = []): ProductOrderReport {
+  const byMethod = emptyMethodTotals()
+  const products = new Map<string, { productId: string; productName: string; units: number; revenue: number; margin: number }>()
+  const sellers = new Map<string, { sellerId: string | null; sellerName: string; revenue: number; units: number }>()
+
+  let revenue = 0
+  let margin = 0
+  let units = 0
+
+  for (const row of rows) {
+    revenue += row.revenue
+    margin += row.margin
+    units += row.quantity
+    byMethod[row.paymentMethod] = roundMoney(byMethod[row.paymentMethod] + row.revenue)
+
+    const product = products.get(row.productId) ?? {
+      productId: row.productId,
+      productName: row.productName,
+      units: 0,
+      revenue: 0,
+      margin: 0,
+    }
+    product.units += row.quantity
+    product.revenue = roundMoney(product.revenue + row.revenue)
+    product.margin = roundMoney(product.margin + row.margin)
+    products.set(row.productId, product)
+
+    const sellerKey = row.sellerId ?? "unknown"
+    const seller = sellers.get(sellerKey) ?? {
+      sellerId: row.sellerId ?? null,
+      sellerName: row.sellerName ?? "Sin vendedor",
+      revenue: 0,
+      units: 0,
+    }
+    seller.revenue = roundMoney(seller.revenue + row.revenue)
+    seller.units += row.quantity
+    sellers.set(sellerKey, seller)
+  }
+
+  return {
+    revenue: roundMoney(revenue),
+    margin: roundMoney(margin),
+    units,
+    topProducts: [...products.values()].sort((a, b) => b.revenue - a.revenue),
+    byMethod,
+    bySeller: [...sellers.values()].sort((a, b) => b.revenue - a.revenue),
+    lowStock,
+  }
 }

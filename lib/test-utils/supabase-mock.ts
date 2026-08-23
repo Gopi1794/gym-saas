@@ -14,6 +14,8 @@ export function chainableResult(result: MockResult) {
   const chain: Record<string, unknown> = {
     select: vi.fn(() => chain),
     eq: vi.fn(() => chain),
+    gte: vi.fn(() => chain),
+    lte: vi.fn(() => chain),
     order: vi.fn(() => chain),
     limit: vi.fn(() => chain),
     insert: vi.fn(() => chain),
@@ -60,3 +62,4 @@ export function createMockSupabase(fromResults: MockResult[] = []) {
     chains,
   }
 }
+
