@@ -4,6 +4,7 @@ import {
   isPlanCollectible,
   normalizeMpReference,
   normalizePaymentNotes,
+  resolveActionableMpStatus,
 } from "./payments"
 
 describe("canCollectPayment", () => {
@@ -106,5 +107,52 @@ describe("normalizePaymentNotes", () => {
 
   it("undefined da null", () => {
     expect(normalizePaymentNotes(undefined)).toBeNull()
+  })
+})
+
+describe("resolveActionableMpStatus", () => {
+  it("approved es accionable", () => {
+    expect(resolveActionableMpStatus("approved")).toBe("approved")
+  })
+
+  it("rejected es accionable", () => {
+    expect(resolveActionableMpStatus("rejected")).toBe("rejected")
+  })
+
+  it("cancelled es accionable", () => {
+    expect(resolveActionableMpStatus("cancelled")).toBe("cancelled")
+  })
+
+  // Los estados "en tránsito" de MercadoPago no son accionables — se
+  // resuelven solos vía un webhook de seguimiento para el mismo payment.id,
+  // no hay nada útil que escribir todavía.
+  it("pending no es accionable", () => {
+    expect(resolveActionableMpStatus("pending")).toBeNull()
+  })
+
+  it("in_process no es accionable", () => {
+    expect(resolveActionableMpStatus("in_process")).toBeNull()
+  })
+
+  it("authorized no es accionable", () => {
+    expect(resolveActionableMpStatus("authorized")).toBeNull()
+  })
+
+  it("in_mediation no es accionable", () => {
+    expect(resolveActionableMpStatus("in_mediation")).toBeNull()
+  })
+
+  // Fuera de alcance de este sub-proyecto — se comportan igual que hoy
+  // (sin acción), no se agrega tracking nuevo para refunds/chargebacks.
+  it("refunded no es accionable (fuera de alcance)", () => {
+    expect(resolveActionableMpStatus("refunded")).toBeNull()
+  })
+
+  it("charged_back no es accionable (fuera de alcance)", () => {
+    expect(resolveActionableMpStatus("charged_back")).toBeNull()
+  })
+
+  it("un estado desconocido no es accionable", () => {
+    expect(resolveActionableMpStatus("algo-que-mercadopago-no-manda-hoy")).toBeNull()
   })
 })

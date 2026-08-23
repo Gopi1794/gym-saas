@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createHmac } from "crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { parseMpExternalReference, resolveMpPaymentProcessingPlan } from "@/lib/mp-webhook"
 
 interface MpNotification {
   type: string
@@ -86,6 +87,39 @@ export async function POST(req: NextRequest) {
 
 type AdminClient = ReturnType<typeof createAdminClient>
 
+async function notifyAdmins(
+  admin: AdminClient,
+  gymId: string,
+  type: string,
+  title: string,
+  body: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const { data: admins } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("gym_id", gymId)
+      .eq("role", "admin")
+
+    if (!admins || admins.length === 0) return
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin.from("notifications" as never) as any).insert(
+      admins.map((a: { id: string }) => ({
+        user_id: a.id,
+        gym_id: gymId,
+        type,
+        title,
+        body,
+        metadata,
+      }))
+    )
+  } catch (notifErr) {
+    console.error("[mp/webhook] error sending admin notification:", notifErr)
+  }
+}
+
 async function finalizePayment(
   admin: AdminClient,
   paymentId: string,
@@ -119,36 +153,78 @@ async function finalizePayment(
 
   console.log(`[mp/webhook] payment ${paymentId} finalized — member ${memberId} extended ${durationDays} days`)
 
-  try {
-    const { data: member } = await admin
-      .from("profiles")
-      .select("full_name")
-      .eq("id", memberId)
-      .maybeSingle()
+  const { data: member } = await admin
+    .from("profiles")
+    .select("full_name")
+    .eq("id", memberId)
+    .maybeSingle()
 
-    const { data: admins } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("gym_id", gymId)
-      .eq("role", "admin")
+  const amount = payment.transaction_amount ?? 0
+  const formatted = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(amount)
 
-    if (admins && admins.length > 0) {
-      const amount = payment.transaction_amount ?? 0
-      const formatted = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(amount)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (admin.from("notifications" as never) as any).insert(
-        admins.map((a: { id: string }) => ({
-          user_id: a.id,
-          gym_id: gymId,
-          type: "payment_received",
-          title: "Pago recibido 💳",
-          body: `${member?.full_name ?? "Un miembro"} pagó ${formatted} (${membershipType ?? "basic"})`,
-          data: { member_id: memberId, payment_id: paymentId, amount },
-        }))
-      )
-    }
-  } catch (notifErr) {
-    console.error("[mp/webhook] error sending admin notification:", notifErr)
+  await notifyAdmins(
+    admin,
+    gymId,
+    "payment_received",
+    "Pago recibido 💳",
+    `${member?.full_name ?? "Un miembro"} pagó ${formatted} (${membershipType ?? "basic"})`,
+    { member_id: memberId, payment_id: paymentId, amount },
+  )
+}
+
+async function recordFailedPayment(
+  admin: AdminClient,
+  paymentId: string,
+  memberId: string,
+  gymId: string,
+  status: "rejected" | "cancelled",
+  payment: { transaction_amount?: number },
+): Promise<void> {
+  const { error } = await admin.rpc("record_failed_mp_payment" as never, {
+    p_member_id: memberId,
+    p_gym_id: gymId,
+    p_amount: payment.transaction_amount ?? 0,
+    p_status: status,
+    p_mp_payment_id: paymentId,
+  } as never)
+
+  if (error) {
+    console.error("[mp/webhook] error in record_failed_mp_payment:", error)
+    return
+  }
+
+  console.log(`[mp/webhook] payment ${paymentId} recorded as ${status} — member ${memberId}`)
+
+  const statusLabel = status === "rejected" ? "fue rechazado" : "se canceló"
+
+  await notifyAdmins(
+    admin,
+    gymId,
+    "payment_failed",
+    "Un pago no se completó",
+    `Un pago por MercadoPago ${statusLabel}.`,
+    { member_id: memberId, payment_id: paymentId, status },
+  )
+}
+
+async function resolveCheckout(admin: AdminClient, externalReference: string | undefined): Promise<void> {
+  if (!externalReference) return
+
+  const { data: checkout } = await admin
+    .from("payment_checkouts" as never)
+    .select("id, status")
+    .eq("external_reference", externalReference)
+    .maybeSingle() as unknown as { data: { id: string; status: string } | null }
+
+  if (!checkout || checkout.status !== "pending") return
+
+  const { error } = await admin
+    .from("payment_checkouts" as never)
+    .update({ status: "resolved" } as never)
+    .eq("id", checkout.id)
+
+  if (error) {
+    console.error("[mp/webhook] error resolving checkout:", error)
   }
 }
 
@@ -166,10 +242,8 @@ async function processPayment(paymentId: string, externalRef?: string) {
     return
   }
 
-  const parts = externalRef?.split("__") ?? []
-  const memberId = parts[0]
-  const gymId = parts[1]
-  const membershipType = parts[2] as "basic" | "premium" | "vip" | undefined
+  const initialReference = parseMpExternalReference(externalRef)
+  const gymId = initialReference.gymId
 
   if (!gymId) {
     console.warn("[mp/webhook] gym_id ausente en external_reference, skipping:", paymentId)
@@ -191,25 +265,36 @@ async function processPayment(paymentId: string, externalRef?: string) {
   }
 
   const payment = await mpRes.json()
-  if (payment.status !== "approved") {
-    console.log("[mp/webhook] payment not approved:", payment.status)
+  const processingPlan = resolveMpPaymentProcessingPlan({
+    status: payment.status,
+    notificationExternalReference: externalRef,
+    paymentExternalReference: payment.external_reference as string | undefined,
+  })
+
+  if (processingPlan === null) {
+    console.log("[mp/webhook] estado no accionable, no se escribe nada:", payment.status)
     return
   }
 
-  if (!memberId) {
-    const preParts = (payment.external_reference as string | undefined)?.split("__") ?? []
-    const resolvedMemberId = preParts[0]
-    const resolvedGymId = preParts[1] ?? gymId
-    const resolvedType = preParts[2] as "basic" | "premium" | "vip" | undefined
-
-    if (!resolvedMemberId) {
-      console.warn("[mp/webhook] no member_id in payment external_reference:", paymentId)
-      return
-    }
-
-    await finalizePayment(admin, paymentId, resolvedMemberId, resolvedGymId, resolvedType, payment)
-    return
+  if (processingPlan.action === "approved") {
+    await finalizePayment(
+      admin,
+      paymentId,
+      processingPlan.memberId,
+      processingPlan.gymId,
+      processingPlan.membershipType,
+      payment
+    )
+  } else {
+    await recordFailedPayment(
+      admin,
+      paymentId,
+      processingPlan.memberId,
+      processingPlan.gymId,
+      processingPlan.action,
+      payment
+    )
   }
 
-  await finalizePayment(admin, paymentId, memberId, gymId, membershipType, payment)
+  await resolveCheckout(admin, processingPlan.checkoutExternalReference)
 }

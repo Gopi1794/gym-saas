@@ -20,7 +20,8 @@ vi.mock("next/cache", () => ({
 import {
   getProducts, createProduct, updateProduct, toggleProductActive,
   createVariant, updateVariant, toggleVariantActive,
-  restockVariant, recordSale, getProductSales,
+  restockVariant, recordSale, getProductSales, getProductReport,
+  getMemberProductPromotions, reserveProduct, markProductOrderPaid, cancelProductReservation, releaseExpiredProductReservations, upsertProductPromotion,
 } from "./products"
 
 function mockUser(id: string | null) {
@@ -51,7 +52,7 @@ describe("getProducts", () => {
     expect(result).toEqual({ products: [{ id: "p1", is_active: true, product_variants: [] }] })
   })
 
-  it("con includeInactive, devuelve también los desactivados", async () => {
+  it("con includeInactive, devuelve tambiÃ©n los desactivados", async () => {
     const supabase = createMockSupabase([
       { data: { gym_id: "gym-1" }, error: null },
       {
@@ -156,7 +157,7 @@ describe("updateProduct", () => {
     expect(result).toEqual({ error: "Solo un admin puede editar productos" })
   })
 
-  it("un producto de otro gym no matchea el UPDATE y devuelve error en vez de éxito silencioso", async () => {
+  it("un producto de otro gym no matchea el UPDATE y devuelve error en vez de Ã©xito silencioso", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1" }, error: null },
       { data: [], error: null },
@@ -265,7 +266,7 @@ describe("updateVariant", () => {
     expect(updatePayload).toEqual({ price: 1800 })
   })
 
-  it("una variante que no matchea el UPDATE (de otro gym, o inexistente) devuelve error en vez de éxito silencioso", async () => {
+  it("una variante que no matchea el UPDATE (de otro gym, o inexistente) devuelve error en vez de Ã©xito silencioso", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin" }, error: null },
       { data: [], error: null },
@@ -350,6 +351,19 @@ describe("restockVariant", () => {
     expect(supabase.rpc).not.toHaveBeenCalled()
   })
 
+  it("rechaza venta paga sin mÃ©todo antes de llamar al RPC", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await recordSale([{ variantId: "variant-1", quantity: 1 }], null, null)
+
+    expect(result).toEqual({ error: "El mÃ©todo de pago es obligatorio para ventas pagas" })
+    expect(mockCreateAdminClient).not.toHaveBeenCalled()
+  })
+
   it("rechaza una cantidad de cero antes de llamar al RPC", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin" }, error: null },
@@ -377,15 +391,18 @@ describe("recordSale", () => {
     }
     mockCreateAdminClient.mockReturnValue(adminClient)
 
-    const result = await recordSale("variant-1", 2, "member-1")
+    const result = await recordSale([{ variantId: "variant-1", quantity: 2 }], "member-1", "transfer", "ref-123")
 
-    expect(result).toEqual({ success: true, saleId: "sale-1" })
-    expect(adminClient.rpc).toHaveBeenCalledWith("record_product_sale", {
-      p_variant_id: "variant-1",
+    expect(result).toEqual({ success: true, orderId: "sale-1" })
+    expect(adminClient.rpc).toHaveBeenCalledWith("create_product_order", {
       p_gym_id: "gym-1",
       p_member_id: "member-1",
-      p_quantity: 2,
-      p_recorded_by: "admin-1",
+      p_items: [{ variant_id: "variant-1", quantity: 2 }],
+      p_created_by: "admin-1",
+      p_order_type: "sale",
+      p_payment_method: "transfer",
+      p_payment_reference: "ref-123",
+      p_reservation_minutes: 30,
     })
   })
 
@@ -401,9 +418,9 @@ describe("recordSale", () => {
     }
     mockCreateAdminClient.mockReturnValue(adminClient)
 
-    const result = await recordSale("variant-1", 1, null)
+    const result = await recordSale([{ variantId: "variant-1", quantity: 1 }], null, "cash")
 
-    expect(result).toEqual({ success: true, saleId: "sale-2" })
+    expect(result).toEqual({ success: true, orderId: "sale-2" })
   })
 
   it("un trainer sin can_collect_payments no puede vender", async () => {
@@ -413,9 +430,22 @@ describe("recordSale", () => {
     supabase.auth.getUser.mockResolvedValue(mockUser("trainer-1"))
     mockCreateClient.mockReturnValue(supabase)
 
-    const result = await recordSale("variant-1", 1, null)
+    const result = await recordSale([{ variantId: "variant-1", quantity: 1 }], null, "cash")
 
     expect(result).toEqual({ error: "Sin permiso para vender productos" })
+    expect(mockCreateAdminClient).not.toHaveBeenCalled()
+  })
+
+  it("rechaza venta paga sin mÃ©todo antes de llamar al RPC", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await recordSale([{ variantId: "variant-1", quantity: 1 }], null, null)
+
+    expect(result).toEqual({ error: "El mÃ©todo de pago es obligatorio para ventas pagas" })
     expect(mockCreateAdminClient).not.toHaveBeenCalled()
   })
 
@@ -426,7 +456,7 @@ describe("recordSale", () => {
     supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
     mockCreateClient.mockReturnValue(supabase)
 
-    const result = await recordSale("variant-1", 0, null)
+    const result = await recordSale([{ variantId: "variant-1", quantity: 0 }], null, "cash")
 
     expect(result).toEqual({ error: "La cantidad debe ser mayor a cero" })
     expect(mockCreateAdminClient).not.toHaveBeenCalled()
@@ -444,7 +474,7 @@ describe("recordSale", () => {
     }
     mockCreateAdminClient.mockReturnValue(adminClient)
 
-    const result = await recordSale("variant-1", 999, null)
+    const result = await recordSale([{ variantId: "variant-1", quantity: 999 }], null, "cash")
 
     expect(result).toEqual({ error: "Stock insuficiente" })
   })
@@ -476,3 +506,221 @@ describe("getProductSales", () => {
     expect(result).toEqual({ error: "Solo un admin puede ver el historial de ventas" })
   })
 })
+
+
+
+describe("getProductReport", () => {
+  it("agrega revenue de productos separado de pagos de membresÃ­as", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
+      {
+        data: [
+          {
+            quantity: 2,
+            line_total: 3000,
+            line_margin: 1000,
+            products: { id: "product-1", name: "Agua" },
+            product_variants: { id: "variant-1", name: "500ml" },
+            product_orders: {
+              payment_method: "cash",
+              created_by_profile: { id: "admin-1", full_name: "Admin" },
+            },
+          },
+        ],
+        error: null,
+      },
+      {
+        data: [
+          { id: "variant-low", name: "1kg", stock: 3, products: { id: "product-2", name: "Whey" } },
+        ],
+        error: null,
+      },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getProductReport("2026-08-01T00:00:00Z", "2026-08-31T23:59:59Z")
+
+    expect(result.report).toMatchObject({
+      revenue: 3000,
+      margin: 1000,
+      units: 2,
+      byMethod: { cash: 3000, mercadopago: 0, transfer: 0, card: 0, other: 0 },
+      bySeller: [{ sellerId: "admin-1", sellerName: "Admin", revenue: 3000, units: 2 }],
+      lowStock: [{ productId: "product-2", productName: "Whey", variantId: "variant-low", variantName: "1kg", stock: 3, threshold: 5 }],
+    })
+    expect(supabase.from).toHaveBeenCalledWith("product_order_items")
+    expect(supabase.from).toHaveBeenCalledWith("product_variants")
+  })
+
+  it("un trainer no puede ver reportes de productos", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "trainer", gym_id: "gym-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("trainer-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getProductReport()
+
+    expect(result).toEqual({ error: "Solo un admin puede ver reportes de productos" })
+  })
+})
+
+describe("product promotions and reservations", () => {
+  it("getMemberProductPromotions devuelve solo campos seguros para socios", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "member", gym_id: "gym-1" }, error: null },
+      {
+        data: [{
+          id: "promo-1",
+          gym_id: "gym-1",
+          title: "Whey promo",
+          description: "ProteÃ­na",
+          image_url: null,
+          public_price: 12000,
+          cta_label: "Reservar",
+          is_active: true,
+          starts_at: null,
+          ends_at: null,
+        }],
+        error: null,
+      },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("member-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getMemberProductPromotions()
+
+    expect(result.promotions).toEqual([{
+      id: "promo-1",
+      title: "Whey promo",
+      description: "ProteÃ­na",
+      image_url: null,
+      price: 12000,
+      cta_label: "Reservar",
+    }])
+    expect(result.promotions?.[0]).not.toHaveProperty("cost_price")
+    expect(result.promotions?.[0]).not.toHaveProperty("margin")
+    expect(supabase.chains[1].select).toHaveBeenCalledWith("id, gym_id, title, description, image_url, public_price, cta_label, is_active, starts_at, ends_at")
+  })
+
+  it("upsertProductPromotion fuerza gym_id del admin y no acepta costo/margen", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
+      { data: { id: "promo-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await upsertProductPromotion({
+      title: "Promo",
+      publicPrice: 1500,
+      isActive: true,
+      productId: "product-1",
+      variantId: "variant-1",
+    })
+
+    expect(result).toEqual({ success: true, id: "promo-1" })
+    const payload = (supabase.chains[1].upsert as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(payload).toMatchObject({ gym_id: "gym-1", public_price: 1500, created_by: "admin-1" })
+    expect(payload).not.toHaveProperty("cost_price")
+    expect(payload).not.toHaveProperty("margin")
+  })
+
+  it("reserveProduct crea una orden reservation tenant-scoped", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+    const adminClient = { rpc: vi.fn().mockResolvedValueOnce({ data: "order-1", error: null }) }
+    mockCreateAdminClient.mockReturnValue(adminClient)
+
+    const result = await reserveProduct([{ variantId: "variant-1", quantity: 1 }], "member-1")
+
+    expect(result).toEqual({ success: true, orderId: "order-1" })
+    expect(adminClient.rpc).toHaveBeenCalledWith("create_product_order", {
+      p_gym_id: "gym-1",
+      p_member_id: "member-1",
+      p_items: [{ variant_id: "variant-1", quantity: 1 }],
+      p_created_by: "admin-1",
+      p_order_type: "reservation",
+      p_payment_method: null,
+      p_payment_reference: null,
+      p_reservation_minutes: 30,
+    })
+  })
+
+  it("cancelProductReservation llama el RPC tenant-scoped", async () => {
+    const orderId = "7f1f84a2-7a7b-4fc9-a3e3-f0ea0e9dfb40"
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+    const adminClient = { rpc: vi.fn().mockResolvedValueOnce({ data: orderId, error: null }) }
+    mockCreateAdminClient.mockReturnValue(adminClient)
+
+    const result = await cancelProductReservation(orderId, "cliente pidiÃ³ cancelar")
+
+    expect(result).toEqual({ success: true })
+    expect(adminClient.rpc).toHaveBeenCalledWith("cancel_product_order", {
+      p_order_id: orderId,
+      p_gym_id: "gym-1",
+      p_cancelled_by: "admin-1",
+      p_reason: "cliente pidiÃ³ cancelar",
+    })
+  })
+
+  it("markProductOrderPaid cobra una reserva con mÃ©todo, referencia e importe", async () => {
+    const orderId = "0a2107df-9fb6-47b5-8c6c-9f4dbca2a7f4"
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+    const adminClient = { rpc: vi.fn().mockResolvedValueOnce({ data: orderId, error: null }) }
+    mockCreateAdminClient.mockReturnValue(adminClient)
+
+    const result = await markProductOrderPaid(orderId, "mercadopago", " mp-123 ", 1500)
+
+    expect(result).toEqual({ success: true, orderId })
+    expect(adminClient.rpc).toHaveBeenCalledWith("mark_product_order_paid", {
+      p_order_id: orderId,
+      p_gym_id: "gym-1",
+      p_paid_by: "admin-1",
+      p_payment_method: "mercadopago",
+      p_payment_reference: "mp-123",
+      p_paid_amount: 1500,
+    })
+  })
+
+  it("markProductOrderPaid rechaza mÃ©todo invÃ¡lido antes del RPC", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await markProductOrderPaid("0a2107df-9fb6-47b5-8c6c-9f4dbca2a7f4", null)
+
+    expect(result).toEqual({ error: "El mÃ©todo de pago es obligatorio para cobrar la reserva" })
+    expect(mockCreateAdminClient).not.toHaveBeenCalled()
+  })
+
+  it("releaseExpiredProductReservations usa el RPC scoped al gym del admin", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+    const adminClient = { rpc: vi.fn().mockResolvedValueOnce({ data: 2, error: null }) }
+    mockCreateAdminClient.mockReturnValue(adminClient)
+
+    const result = await releaseExpiredProductReservations()
+
+    expect(result).toEqual({ success: true, released: 2 })
+    expect(adminClient.rpc).toHaveBeenCalledWith("release_expired_product_reservations", { p_gym_id: "gym-1" })
+  })
+})
+

@@ -78,3 +78,18 @@ export function normalizePaymentNotes(raw: string | null | undefined): string | 
   const trimmed = raw?.trim()
   return trimmed ? trimmed : null
 }
+
+/**
+ * MercadoPago tiene más estados que nuestro enum de payments (pending,
+ * in_process, authorized, in_mediation son variantes de "todavía no se
+ * resolvió", y refunded/charged_back quedan fuera de alcance por ahora).
+ * Colapsa todo lo no accionable a null — el caller no escribe nada ni
+ * notifica nada para null, solo loguea y sigue: el webhook de seguimiento
+ * de MP eventualmente va a mandar un estado accionable para el mismo pago.
+ */
+export function resolveActionableMpStatus(mpStatus: string): "approved" | "rejected" | "cancelled" | null {
+  if (mpStatus === "approved") return "approved"
+  if (mpStatus === "rejected") return "rejected"
+  if (mpStatus === "cancelled") return "cancelled"
+  return null
+}

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 import { canCollectPayment } from "@/lib/payments"
+import { aggregateProductReport, getVisibleMemberPromotions, isValidProductPaymentMethod, type MemberProductPromotion, type ProductOrderReport, type ProductPaymentMethod } from "@/lib/products"
 
 export type ProductCategory = "bebidas" | "suplementos" | "indumentaria" | "accesorios" | "otro"
 
@@ -143,11 +144,11 @@ export async function updateProduct(productId: string, input: UpdateProductInput
     updates.base_cost = input.baseCost
   }
 
-  // .eq("gym_id", ...) además de RLS: no alcanza con confiar en que la
-  // policy bloquee un producto de otro gym — un UPDATE cuyo WHERE no
+  // .eq("gym_id", ...) ademÃ¡s de RLS: no alcanza con confiar en que la
+  // policy bloquee un producto de otro gym â€” un UPDATE cuyo WHERE no
   // matchea ninguna fila no lanza error (a diferencia de un INSERT que
-  // viola su policy), así que sin este chequeo explícito la función
-  // devolvería { success: true } sin haber tocado nada.
+  // viola su policy), asÃ­ que sin este chequeo explÃ­cito la funciÃ³n
+  // devolverÃ­a { success: true } sin haber tocado nada.
   const { data, error } = await (supabase
     .from("products" as never)
     .update(updates as never)
@@ -275,12 +276,12 @@ export async function updateVariant(variantId: string, input: UpdateVariantInput
     updates.cost_price = input.costPrice
   }
 
-  // product_variants no tiene columna gym_id propia (se llega al gym vía
-  // product_id -> products.gym_id), así que acá el chequeo de tenant lo
-  // hace la RLS de la tabla (join contra products+profiles) — pero igual
-  // hay que leer .select("id") y confirmar que devolvió fila: un UPDATE
+  // product_variants no tiene columna gym_id propia (se llega al gym vÃ­a
+  // product_id -> products.gym_id), asÃ­ que acÃ¡ el chequeo de tenant lo
+  // hace la RLS de la tabla (join contra products+profiles) â€” pero igual
+  // hay que leer .select("id") y confirmar que devolviÃ³ fila: un UPDATE
   // bloqueado por RLS matchea 0 filas sin lanzar error, y sin este chequeo
-  // la función reportaría éxito sin haber cambiado nada.
+  // la funciÃ³n reportarÃ­a Ã©xito sin haber cambiado nada.
   const { data, error } = await (supabase
     .from("product_variants" as never)
     .update(updates as never)
@@ -351,7 +352,17 @@ export async function restockVariant(variantId: string, quantity: number, newCos
   return { success: true, newStock: data }
 }
 
-export async function recordSale(variantId: string, quantity: number, memberId?: string | null) {
+export type ProductSaleItemInput = {
+  variantId: string
+  quantity: number
+}
+
+export async function recordSale(
+  items: ProductSaleItemInput[],
+  memberId: string | null,
+  paymentMethod: ProductPaymentMethod | null,
+  paymentReference?: string | null
+) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
@@ -369,33 +380,65 @@ export async function recordSale(variantId: string, quantity: number, memberId?:
     return { error: "Sin permiso para vender productos" }
   }
 
-  if (quantity <= 0) return { error: "La cantidad debe ser mayor a cero" }
+  if (!isValidProductPaymentMethod(paymentMethod)) {
+    return { error: "El mÃ©todo de pago es obligatorio para ventas pagas" }
+  }
+
+  const normalizedItems = items.map((item) => ({
+    variant_id: item.variantId,
+    quantity: item.quantity,
+  }))
+
+  if (normalizedItems.length === 0) return { error: "La orden debe incluir al menos un producto" }
+  if (normalizedItems.some((item) => !item.variant_id || !Number.isInteger(item.quantity) || item.quantity <= 0)) {
+    return { error: "La cantidad debe ser mayor a cero" }
+  }
 
   const admin = createAdminClient()
-  const { data, error } = await (admin.rpc("record_product_sale" as never, {
-    p_variant_id: variantId,
+  const { data, error } = await (admin.rpc("create_product_order" as never, {
     p_gym_id: profile.gym_id,
     p_member_id: memberId ?? null,
-    p_quantity: quantity,
-    p_recorded_by: user.id,
+    p_items: normalizedItems,
+    p_created_by: user.id,
+    p_order_type: "sale",
+    p_payment_method: paymentMethod,
+    p_payment_reference: paymentReference?.trim() || null,
+    p_reservation_minutes: 30,
   } as never) as unknown as Promise<{ data: string | null; error: { message: string } | null }>)
 
   if (error) return { error: error.message }
 
   revalidatePath("/productos")
-  return { success: true, saleId: data }
+  revalidatePath("/reports")
+  return { success: true, orderId: data }
+}
+
+export type ProductOrderHistoryItem = {
+  id: string
+  product_id: string
+  variant_id: string
+  quantity: number
+  unit_price: number
+  unit_cost: number
+  line_total: number
+  line_margin: number
+  products: { name: string } | null
+  product_variants: { name: string } | null
 }
 
 export type ProductSaleRow = {
   id: string
-  quantity: number
-  unit_price: number
-  unit_cost: number
+  status: "reserved" | "paid" | "cancelled" | "expired"
+  order_type: "sale" | "reservation"
   total_amount: number
+  paid_amount: number | null
+  payment_method: ProductPaymentMethod | null
+  payment_reference: string | null
   created_at: string
-  product_variants: { name: string; products: { name: string } | null } | null
-  profiles: { full_name: string | null } | null
-  recorded_by_profile: { full_name: string | null } | null
+  paid_at: string | null
+  member_profile: { full_name: string | null } | null
+  created_by_profile: { full_name: string | null } | null
+  product_order_items: ProductOrderHistoryItem[]
 }
 
 export async function getProductSales() {
@@ -413,14 +456,9 @@ export async function getProductSales() {
     return { error: "Solo un admin puede ver el historial de ventas" }
   }
 
-  // profiles!product_sales_member_id_fkey: product_sales tiene DOS FKs a
-  // profiles (member_id y recorded_by) — sin el hint del nombre de
-  // constraint, PostgREST no sabe cuál de las dos usar para el embed y
-  // devuelve un error de relación ambigua (mismo patrón ya usado en
-  // app/actions/nutrition.ts con nutrition_plans, que tiene la misma forma).
   const { data, error } = await (supabase
-    .from("product_sales" as never)
-    .select("id, quantity, unit_price, unit_cost, total_amount, created_at, product_variants(name, products(name)), profiles!product_sales_member_id_fkey(full_name), recorded_by_profile:profiles!product_sales_recorded_by_fkey(full_name)")
+    .from("product_orders" as never)
+    .select("id, status, order_type, total_amount, paid_amount, payment_method, payment_reference, created_at, paid_at, member_profile:profiles!product_orders_member_id_fkey(full_name), created_by_profile:profiles!product_orders_created_by_fkey(full_name), product_order_items(id, product_id, variant_id, quantity, unit_price, unit_cost, line_total, line_margin, products(name), product_variants(name))")
     .eq("gym_id", (me as { gym_id: string }).gym_id)
     .order("created_at", { ascending: false })
     .limit(200) as unknown as Promise<{ data: ProductSaleRow[] | null; error: { message: string } | null }>)
@@ -429,3 +467,381 @@ export async function getProductSales() {
 
   return { sales: data ?? [] }
 }
+
+export async function getProductReport(startDate?: string, endDate?: string): Promise<{ report?: ProductOrderReport; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, gym_id")
+    .eq("id", user.id)
+    .single()
+
+  if (!me || (me as { role: string }).role !== "admin") {
+    return { error: "Solo un admin puede ver reportes de productos" }
+  }
+
+  const gymId = (me as { gym_id: string }).gym_id
+  const from = startDate ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+  const to = endDate ?? new Date().toISOString()
+
+  const { data: itemRows, error: itemError } = await (supabase
+    .from("product_order_items" as never)
+    .select("quantity, line_total, line_margin, products(id, name), product_variants(id, name), product_orders!inner(gym_id, status, payment_method, created_at, created_by_profile:profiles!product_orders_created_by_fkey(id, full_name))")
+    .eq("product_orders.gym_id", gymId)
+    .eq("product_orders.status", "paid")
+    .gte("product_orders.created_at", from)
+    .lte("product_orders.created_at", to) as unknown as Promise<{ data: Array<{
+      quantity: number
+      line_total: number
+      line_margin: number
+      products: { id: string; name: string } | null
+      product_variants: { id: string; name: string } | null
+      product_orders: {
+        payment_method: ProductPaymentMethod | null
+        created_by_profile: { id: string; full_name: string | null } | null
+      } | null
+    }> | null; error: { message: string } | null }>)
+
+  if (itemError) return { error: itemError.message }
+
+  const { data: stockRows, error: stockError } = await (supabase
+    .from("product_variants" as never)
+    .select("id, name, stock, products!inner(id, name, gym_id)")
+    .eq("products.gym_id", gymId)
+    .lte("stock", 5)
+    .order("stock", { ascending: true }) as unknown as Promise<{ data: Array<{
+      id: string
+      name: string
+      stock: number
+      products: { id: string; name: string } | null
+    }> | null; error: { message: string } | null }>)
+
+  if (stockError) return { error: stockError.message }
+
+  const rows = (itemRows ?? []).map((row) => ({
+    productId: row.products?.id ?? "unknown",
+    productName: row.products?.name ?? "Producto eliminado",
+    variantId: row.product_variants?.id ?? null,
+    variantName: row.product_variants?.name ?? null,
+    sellerId: row.product_orders?.created_by_profile?.id ?? null,
+    sellerName: row.product_orders?.created_by_profile?.full_name ?? null,
+    paymentMethod: row.product_orders?.payment_method ?? "other",
+    quantity: row.quantity,
+    revenue: row.line_total,
+    margin: row.line_margin,
+  }))
+
+  const lowStock = (stockRows ?? []).map((row) => ({
+    productId: row.products?.id ?? "unknown",
+    productName: row.products?.name ?? "Producto eliminado",
+    variantId: row.id,
+    variantName: row.name,
+    stock: row.stock,
+    threshold: 5,
+  }))
+
+  return { report: aggregateProductReport(rows, lowStock) }
+}
+
+
+export type ProductPromotionRow = {
+  id: string
+  gym_id: string
+  product_id: string | null
+  variant_id: string | null
+  title: string
+  description: string | null
+  image_url: string | null
+  public_price: number
+  cta_label: string | null
+  is_active: boolean
+  starts_at: string | null
+  ends_at: string | null
+  sort_order: number
+  created_at: string
+}
+
+export type UpsertProductPromotionInput = {
+  id?: string
+  productId?: string | null
+  variantId?: string | null
+  title: string
+  description?: string | null
+  imageUrl?: string | null
+  publicPrice: number
+  ctaLabel?: string | null
+  isActive: boolean
+  startsAt?: string | null
+  endsAt?: string | null
+  sortOrder?: number
+}
+
+export async function getProductPromotions() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase.from("profiles").select("role, gym_id").eq("id", user.id).single()
+  if (!me || (me as { role: string }).role !== "admin") return { error: "Solo un admin puede gestionar promociones" }
+
+  const { data, error } = await (supabase
+    .from("product_promotions" as never)
+    .select("id, gym_id, product_id, variant_id, title, description, image_url, public_price, cta_label, is_active, starts_at, ends_at, sort_order, created_at")
+    .eq("gym_id", (me as { gym_id: string }).gym_id)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false }) as unknown as Promise<{ data: ProductPromotionRow[] | null; error: { message: string } | null }>)
+
+  if (error) return { error: error.message }
+  return { promotions: data ?? [] }
+}
+
+export async function upsertProductPromotion(input: UpsertProductPromotionInput) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase.from("profiles").select("role, gym_id").eq("id", user.id).single()
+  if (!me || (me as { role: string }).role !== "admin") return { error: "Solo un admin puede gestionar promociones" }
+  if (!input.title.trim()) return { error: "El tÃ­tulo es obligatorio" }
+  if (input.publicPrice < 0) return { error: "El precio pÃºblico no puede ser negativo" }
+
+  const payload = {
+    ...(input.id ? { id: input.id } : {}),
+    gym_id: (me as { gym_id: string }).gym_id,
+    product_id: input.productId || null,
+    variant_id: input.variantId || null,
+    title: input.title.trim(),
+    description: input.description?.trim() || null,
+    image_url: input.imageUrl?.trim() || null,
+    public_price: input.publicPrice,
+    cta_label: input.ctaLabel?.trim() || null,
+    is_active: input.isActive,
+    starts_at: input.startsAt || null,
+    ends_at: input.endsAt || null,
+    sort_order: input.sortOrder ?? 0,
+    created_by: user.id,
+  }
+
+  const { data, error } = await (supabase.from("product_promotions" as never).upsert(payload as never).select("id").single() as unknown as Promise<{ data: { id: string } | null; error: { message: string } | null }>)
+  if (error) return { error: error.message }
+
+  revalidatePath("/productos")
+  revalidatePath("/dashboard")
+  return { success: true, id: data!.id }
+}
+
+export async function deleteProductPromotion(promotionId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase.from("profiles").select("role, gym_id").eq("id", user.id).single()
+  if (!me || (me as { role: string }).role !== "admin") return { error: "Solo un admin puede gestionar promociones" }
+
+  const { error } = await (supabase.from("product_promotions" as never).delete().eq("id", promotionId).eq("gym_id", (me as { gym_id: string }).gym_id) as unknown as Promise<{ error: { message: string } | null }>)
+  if (error) return { error: error.message }
+
+  revalidatePath("/productos")
+  revalidatePath("/dashboard")
+  return { success: true }
+}
+
+export async function getMemberProductPromotions(): Promise<{ promotions?: MemberProductPromotion[]; error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase.from("profiles").select("role, gym_id").eq("id", user.id).single()
+  if (!me || !(me as { gym_id: string | null }).gym_id) return { error: "Sin permiso" }
+
+  const profile = me as { role: string; gym_id: string }
+  if (!["member", "admin", "trainer"].includes(profile.role)) return { error: "Sin permiso" }
+  const now = new Date().toISOString()
+
+  const { data, error } = await (supabase
+    .from("product_promotions" as never)
+    .select("id, gym_id, title, description, image_url, public_price, cta_label, is_active, starts_at, ends_at")
+    .eq("gym_id", profile.gym_id)
+    .eq("is_active", true)
+    .or(`starts_at.is.null,starts_at.lte.${now}`)
+    .or(`ends_at.is.null,ends_at.gt.${now}`)
+    .order("sort_order", { ascending: true })
+    .limit(8) as unknown as Promise<{ data: Array<{ id: string; gym_id: string; title: string; description: string | null; image_url: string | null; public_price: number; cta_label: string | null; is_active: boolean; starts_at: string | null; ends_at: string | null }> | null; error: { message: string } | null }>)
+
+  if (error) return { error: error.message }
+  const promotions = getVisibleMemberPromotions((data ?? []).map((row) => ({
+    id: row.id,
+    gymId: row.gym_id,
+    title: row.title,
+    description: row.description,
+    imageUrl: row.image_url,
+    publicPrice: row.public_price,
+    ctaLabel: row.cta_label,
+    isActive: row.is_active,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+  })), profile.gym_id)
+
+  return { promotions }
+}
+
+export async function reserveProduct(items: ProductSaleItemInput[], memberId?: string | null) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase.from("profiles").select("role, gym_id").eq("id", user.id).single()
+  if (!me) return { error: "Sin permiso" }
+  const profile = me as { role: string; gym_id: string }
+  const reservationMemberId = profile.role === "member" ? user.id : (memberId || null)
+  if (!reservationMemberId) return { error: "ElegÃ­ un socio para reservar" }
+
+  const normalizedItems = items.map((item) => ({ variant_id: item.variantId, quantity: item.quantity }))
+  if (normalizedItems.length === 0) return { error: "La reserva debe incluir al menos un producto" }
+  if (normalizedItems.some((item) => !item.variant_id || !Number.isInteger(item.quantity) || item.quantity <= 0)) return { error: "La cantidad debe ser mayor a cero" }
+
+  const admin = createAdminClient()
+  const { data, error } = await (admin.rpc("create_product_order" as never, {
+    p_gym_id: profile.gym_id,
+    p_member_id: reservationMemberId,
+    p_items: normalizedItems,
+    p_created_by: user.id,
+    p_order_type: "reservation",
+    p_payment_method: null,
+    p_payment_reference: null,
+    p_reservation_minutes: 30,
+  } as never) as unknown as Promise<{ data: string | null; error: { message: string } | null }>)
+
+  if (error) return { error: error.message }
+  revalidatePath("/productos")
+  revalidatePath("/dashboard")
+  return { success: true, orderId: data }
+}
+
+export async function markProductOrderPaid(
+  orderId: string,
+  paymentMethod: ProductPaymentMethod | null,
+  paymentReference?: string | null,
+  paidAmount?: number | null
+) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, gym_id, can_collect_payments")
+    .eq("id", user.id)
+    .single()
+
+  if (!me) return { error: "Sin permiso" }
+
+  const profile = me as { role: string; gym_id: string; can_collect_payments: boolean }
+  if (!canCollectPayment(profile.role, profile.can_collect_payments === true)) {
+    return { error: "Sin permiso para cobrar productos" }
+  }
+
+  if (!isValidProductPaymentMethod(paymentMethod)) {
+    return { error: "El mÃ©todo de pago es obligatorio para cobrar la reserva" }
+  }
+
+  if (paidAmount != null && (!Number.isFinite(paidAmount) || paidAmount < 0)) {
+    return { error: "El importe pagado no puede ser negativo" }
+  }
+
+  const admin = createAdminClient()
+  const { data, error } = await (admin.rpc("mark_product_order_paid" as never, {
+    p_order_id: orderId,
+    p_gym_id: profile.gym_id,
+    p_paid_by: user.id,
+    p_payment_method: paymentMethod,
+    p_payment_reference: paymentReference?.trim() || null,
+    p_paid_amount: paidAmount ?? null,
+  } as never) as unknown as Promise<{ data: string | null; error: { message: string } | null }>)
+
+  if (error) return { error: error.message }
+  revalidatePath("/productos")
+  revalidatePath("/reports")
+  revalidatePath("/dashboard")
+  return { success: data === orderId, orderId: data }
+}
+
+export async function cancelProductReservation(orderId: string, reason?: string | null) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase.from("profiles").select("role, gym_id").eq("id", user.id).single()
+  if (!me) return { error: "Sin permiso" }
+
+  const admin = createAdminClient()
+  const { data, error } = await (admin.rpc("cancel_product_order" as never, {
+    p_order_id: orderId,
+    p_gym_id: (me as { gym_id: string }).gym_id,
+    p_cancelled_by: user.id,
+    p_reason: reason?.trim() || null,
+  } as never) as unknown as Promise<{ data: string | null; error: { message: string } | null }>)
+
+  if (error) return { error: error.message }
+  revalidatePath("/productos")
+  revalidatePath("/dashboard")
+  return { success: data === orderId }
+}
+
+export async function releaseExpiredProductReservations() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase.from("profiles").select("role, gym_id").eq("id", user.id).single()
+  if (!me || (me as { role: string }).role !== "admin") return { error: "Solo un admin puede liberar reservas vencidas" }
+
+  const admin = createAdminClient()
+  const { data, error } = await (admin.rpc("release_expired_product_reservations" as never, { p_gym_id: (me as { gym_id: string }).gym_id } as never) as unknown as Promise<{ data: number | null; error: { message: string } | null }>)
+  if (error) return { error: error.message }
+
+  revalidatePath("/productos")
+  revalidatePath("/dashboard")
+  return { success: true, released: data ?? 0 }
+}
+export async function reserveProductPromotion(promotionId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, gym_id")
+    .eq("id", user.id)
+    .single()
+
+  if (!me || (me as { role: string }).role !== "member") return { error: "Solo un socio puede reservar promociones" }
+
+  const { data: promotion, error: promoError } = await (supabase
+    .from("product_promotions" as never)
+    .select("id, gym_id, variant_id, is_active, starts_at, ends_at")
+    .eq("id", promotionId)
+    .eq("gym_id", (me as { gym_id: string }).gym_id)
+    .single() as unknown as Promise<{ data: { id: string; gym_id: string; variant_id: string | null; is_active: boolean; starts_at: string | null; ends_at: string | null } | null; error: { message: string } | null }>)
+
+  if (promoError) return { error: promoError.message }
+  if (!promotion?.variant_id) return { error: "Esta promociÃ³n no tiene una variante reservable" }
+
+  const visible = getVisibleMemberPromotions([{
+    id: promotion.id,
+    gymId: promotion.gym_id,
+    title: "PromociÃ³n",
+    publicPrice: 0,
+    isActive: promotion.is_active,
+    startsAt: promotion.starts_at,
+    endsAt: promotion.ends_at,
+  }], (me as { gym_id: string }).gym_id)
+
+  if (visible.length === 0) return { error: "La promociÃ³n no estÃ¡ activa" }
+
+  return reserveProduct([{ variantId: promotion.variant_id, quantity: 1 }], user.id)
+}
+

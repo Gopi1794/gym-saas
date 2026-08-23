@@ -63,6 +63,23 @@ async function handleCheckout(req: NextRequest) {
   const isLocalhost = appUrl.startsWith("http://localhost")
   const externalRef = `${user.id}__${profile.gym_id}__${body.membership_type}__${Date.now()}`
 
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + 30 * 60 * 1000)
+
+  const { error: checkoutError } = await admin
+    .from("payment_checkouts" as never)
+    .insert({
+      gym_id: profile.gym_id,
+      external_reference: externalRef,
+      kind: "membership",
+      expires_at: expiresAt.toISOString(),
+    } as never)
+
+  if (checkoutError) {
+    console.error("[mp/checkout] error registrando payment_checkouts:", checkoutError)
+    return NextResponse.json({ error: "Error al registrar el intento de pago" }, { status: 500 })
+  }
+
   const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
     method: "POST",
     headers: {
@@ -86,6 +103,9 @@ async function handleCheckout(req: NextRequest) {
       ...(!isLocalhost && { auto_return: "approved" }),
       external_reference: externalRef,
       notification_url: `${appUrl}/api/mp/webhook?gym_id=${profile.gym_id}`,
+      expires: true,
+      expiration_date_from: now.toISOString(),
+      expiration_date_to: expiresAt.toISOString(),
     }),
   })
 

@@ -2,11 +2,12 @@ import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import TabSwitcher from "@/components/ui/TabSwitcher"
-import { getProducts, getProductSales } from "@/app/actions/products"
+import { getProducts, getProductPromotions, getProductSales } from "@/app/actions/products"
 import { canCollectPayment } from "@/lib/payments"
 import ProductCatalogPanel from "@/components/products/ProductCatalogPanel"
 import SellProductPanel from "@/components/products/SellProductPanel"
 import ProductSalesPanel from "@/components/products/ProductSalesPanel"
+import ProductPromotionPanel from "@/components/products/ProductPromotionPanel"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Productos" }
@@ -32,9 +33,9 @@ export default async function ProductsPage({
   const canSell = canCollectPayment(profile.role, profile.can_collect_payments === true)
 
   const tabs = [
-    { key: "catalogo", label: "Catálogo" },
+    { key: "catalogo", label: "CatÃ¡logo" },
     ...(canSell ? [{ key: "vender", label: "Vender" }] : []),
-    ...(isAdmin ? [{ key: "ventas", label: "Ventas" }] : []),
+    ...(isAdmin ? [{ key: "ventas", label: "Ventas" }, { key: "promociones", label: "Promociones" }] : []),
   ]
   const requestedTab = searchParams.tab ?? "catalogo"
   const tab = tabs.some(t => t.key === requestedTab) ? requestedTab : "catalogo"
@@ -58,6 +59,11 @@ export default async function ProductsPage({
     content = salesResult.sales
       ? <ProductSalesPanel sales={salesResult.sales} />
       : <p className="text-sm text-red-500">{salesResult.error}</p>
+  } else if (tab === "promociones" && isAdmin) {
+    const [productsResult, promotionsResult] = await Promise.all([getProducts(true), getProductPromotions()])
+    content = productsResult.products && promotionsResult.promotions
+      ? <ProductPromotionPanel products={productsResult.products} promotions={promotionsResult.promotions} />
+      : <p className="text-sm text-red-500">{productsResult.error ?? promotionsResult.error}</p>
   } else {
     const productsResult = await getProducts(isAdmin)
     content = productsResult.products
@@ -69,10 +75,12 @@ export default async function ProductsPage({
     <div className="space-y-5 pb-8">
       <div>
         <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">Productos</h1>
-        <p className="text-muted-foreground">Catálogo, stock y ventas del mostrador</p>
+        <p className="text-muted-foreground">CatÃ¡logo, stock y ventas del mostrador</p>
       </div>
       <TabSwitcher tabs={tabs} activeTab={tab} />
       {content}
     </div>
   )
 }
+
+
