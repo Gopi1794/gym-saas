@@ -21,7 +21,7 @@ import {
   getProducts, createProduct, updateProduct, toggleProductActive,
   createVariant, updateVariant, toggleVariantActive,
   restockVariant, recordSale, getProductSales, getProductReport,
-  getMemberProductPromotions, reserveProduct, markProductOrderPaid, cancelProductReservation, releaseExpiredProductReservations, upsertProductPromotion,
+  getMemberProducts, getMemberProductPromotions, reserveProduct, markProductOrderPaid, cancelProductReservation, releaseExpiredProductReservations, upsertProductPromotion,
 } from "./products"
 
 function mockUser(id: string | null) {
@@ -35,7 +35,7 @@ beforeEach(() => {
 describe("getProducts", () => {
   it("devuelve solo los productos activos por defecto", async () => {
     const supabase = createMockSupabase([
-      { data: { gym_id: "gym-1" }, error: null },
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
       {
         data: [
           { id: "p1", is_active: true, product_variants: [] },
@@ -52,9 +52,9 @@ describe("getProducts", () => {
     expect(result).toEqual({ products: [{ id: "p1", is_active: true, product_variants: [] }] })
   })
 
-  it("con includeInactive, devuelve tambiÃ©n los desactivados", async () => {
+  it("con includeInactive, devuelve también los desactivados", async () => {
     const supabase = createMockSupabase([
-      { data: { gym_id: "gym-1" }, error: null },
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
       {
         data: [
           { id: "p1", is_active: true, product_variants: [] },
@@ -69,6 +69,19 @@ describe("getProducts", () => {
     const result = await getProducts(true)
 
     expect(result.products).toHaveLength(2)
+  })
+
+  it("no expone el catálogo interno a members", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "member", gym_id: "gym-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("member-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getProducts()
+
+    expect(result).toEqual({ error: "Sin permiso" })
+    expect(supabase.from).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -97,10 +110,25 @@ describe("createProduct", () => {
       gym_id: "gym-1",
       name: "Whey Protein",
       category: "suplementos",
+      image_url: null,
       base_price: 15000,
       base_cost: 9000,
       created_by: "admin-1",
     })
+  })
+
+  it("normaliza y persiste image_url al crear", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
+      { data: { id: "new-product-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    await createProduct({ ...INPUT, imageUrl: "  https://cdn.example.com/whey.png  " })
+
+    const insertPayload = (supabase.chains[1].insert as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(insertPayload).toMatchObject({ image_url: "https://cdn.example.com/whey.png" })
   })
 
   it("un trainer no puede crear productos", async () => {
@@ -145,6 +173,21 @@ describe("updateProduct", () => {
     expect(updatePayload).toEqual({ name: "Whey Protein Doble Chocolate" })
   })
 
+  it("normaliza image_url al actualizar y permite limpiarla", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
+      { data: [{ id: "product-1" }], error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await updateProduct("product-1", { imageUrl: "   " })
+
+    expect(result).toEqual({ success: true })
+    const updatePayload = (supabase.chains[1].update as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(updatePayload).toEqual({ image_url: null })
+  })
+
   it("un trainer no puede actualizar productos", async () => {
     const supabase = createMockSupabase([
       { data: { role: "trainer", gym_id: "gym-1" }, error: null },
@@ -157,7 +200,7 @@ describe("updateProduct", () => {
     expect(result).toEqual({ error: "Solo un admin puede editar productos" })
   })
 
-  it("un producto de otro gym no matchea el UPDATE y devuelve error en vez de Ã©xito silencioso", async () => {
+  it("un producto de otro gym no matchea el UPDATE y devuelve error en vez de éxito silencioso", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1" }, error: null },
       { data: [], error: null },
@@ -266,7 +309,7 @@ describe("updateVariant", () => {
     expect(updatePayload).toEqual({ price: 1800 })
   })
 
-  it("una variante que no matchea el UPDATE (de otro gym, o inexistente) devuelve error en vez de Ã©xito silencioso", async () => {
+  it("una variante que no matchea el UPDATE (de otro gym, o inexistente) devuelve error en vez de éxito silencioso", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin" }, error: null },
       { data: [], error: null },
@@ -351,7 +394,7 @@ describe("restockVariant", () => {
     expect(supabase.rpc).not.toHaveBeenCalled()
   })
 
-  it("rechaza venta paga sin mÃ©todo antes de llamar al RPC", async () => {
+  it("rechaza venta paga sin método antes de llamar al RPC", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
     ])
@@ -360,7 +403,7 @@ describe("restockVariant", () => {
 
     const result = await recordSale([{ variantId: "variant-1", quantity: 1 }], null, null)
 
-    expect(result).toEqual({ error: "El mÃ©todo de pago es obligatorio para ventas pagas" })
+    expect(result).toEqual({ error: "El método de pago es obligatorio para ventas pagas" })
     expect(mockCreateAdminClient).not.toHaveBeenCalled()
   })
 
@@ -436,7 +479,7 @@ describe("recordSale", () => {
     expect(mockCreateAdminClient).not.toHaveBeenCalled()
   })
 
-  it("rechaza venta paga sin mÃ©todo antes de llamar al RPC", async () => {
+  it("rechaza venta paga sin método antes de llamar al RPC", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
     ])
@@ -445,7 +488,7 @@ describe("recordSale", () => {
 
     const result = await recordSale([{ variantId: "variant-1", quantity: 1 }], null, null)
 
-    expect(result).toEqual({ error: "El mÃ©todo de pago es obligatorio para ventas pagas" })
+    expect(result).toEqual({ error: "El método de pago es obligatorio para ventas pagas" })
     expect(mockCreateAdminClient).not.toHaveBeenCalled()
   })
 
@@ -510,7 +553,7 @@ describe("getProductSales", () => {
 
 
 describe("getProductReport", () => {
-  it("agrega revenue de productos separado de pagos de membresÃ­as", async () => {
+  it("agrega revenue de productos separado de pagos de membresías", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1" }, error: null },
       {
@@ -566,6 +609,66 @@ describe("getProductReport", () => {
   })
 })
 
+describe("getMemberProducts", () => {
+  it("devuelve catálogo member-safe sin costos, sku ni datos internos", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "member", gym_id: "gym-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("member-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const adminClient = createMockSupabase([
+      {
+        data: [{
+          id: "product-1",
+          name: "Whey",
+          description: "Proteína",
+          category: "suplementos",
+          image_url: "https://cdn.example.com/whey.png",
+          base_price: 15000,
+          base_cost: 9000,
+          is_active: true,
+          product_variants: [
+            { id: "variant-1", name: "1kg", sku: "WHEY-1KG", price: null, cost_price: 9500, stock: 3, is_active: true },
+            { id: "variant-2", name: "2kg", sku: "WHEY-2KG", price: 28000, cost_price: 18000, stock: 0, is_active: false },
+          ],
+        }],
+        error: null,
+      },
+    ])
+    mockCreateAdminClient.mockReturnValue(adminClient)
+
+    const result = await getMemberProducts()
+
+    expect(result.products).toEqual([{
+      id: "product-1",
+      name: "Whey",
+      description: "Proteína",
+      category: "suplementos",
+      image_url: "https://cdn.example.com/whey.png",
+      base_price: 15000,
+      product_variants: [{ id: "variant-1", name: "1kg", price: 15000, stock: 3 }],
+    }])
+    expect(result.products?.[0]).not.toHaveProperty("base_cost")
+    expect(result.products?.[0].product_variants[0]).not.toHaveProperty("cost_price")
+    expect(result.products?.[0].product_variants[0]).not.toHaveProperty("sku")
+    expect(adminClient.chains[0].select).toHaveBeenCalledWith("id, name, description, category, image_url, base_price, is_active, product_variants(id, name, price, stock, is_active)")
+  })
+
+  it("rechaza perfiles que no son member", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "trainer", gym_id: "gym-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("trainer-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getMemberProducts()
+
+    expect(result).toEqual({ error: "Sin permiso" })
+    expect(mockCreateAdminClient).not.toHaveBeenCalled()
+  })
+})
+
 describe("product promotions and reservations", () => {
   it("getMemberProductPromotions devuelve solo campos seguros para socios", async () => {
     const supabase = createMockSupabase([
@@ -575,7 +678,7 @@ describe("product promotions and reservations", () => {
           id: "promo-1",
           gym_id: "gym-1",
           title: "Whey promo",
-          description: "ProteÃ­na",
+          description: "Proteína",
           image_url: null,
           public_price: 12000,
           cta_label: "Reservar",
@@ -594,7 +697,7 @@ describe("product promotions and reservations", () => {
     expect(result.promotions).toEqual([{
       id: "promo-1",
       title: "Whey promo",
-      description: "ProteÃ­na",
+      description: "Proteína",
       image_url: null,
       price: 12000,
       cta_label: "Reservar",
@@ -661,18 +764,18 @@ describe("product promotions and reservations", () => {
     const adminClient = { rpc: vi.fn().mockResolvedValueOnce({ data: orderId, error: null }) }
     mockCreateAdminClient.mockReturnValue(adminClient)
 
-    const result = await cancelProductReservation(orderId, "cliente pidiÃ³ cancelar")
+    const result = await cancelProductReservation(orderId, "cliente pidió cancelar")
 
     expect(result).toEqual({ success: true })
     expect(adminClient.rpc).toHaveBeenCalledWith("cancel_product_order", {
       p_order_id: orderId,
       p_gym_id: "gym-1",
       p_cancelled_by: "admin-1",
-      p_reason: "cliente pidiÃ³ cancelar",
+      p_reason: "cliente pidió cancelar",
     })
   })
 
-  it("markProductOrderPaid cobra una reserva con mÃ©todo, referencia e importe", async () => {
+  it("markProductOrderPaid cobra una reserva con método, referencia e importe", async () => {
     const orderId = "0a2107df-9fb6-47b5-8c6c-9f4dbca2a7f4"
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
@@ -695,7 +798,7 @@ describe("product promotions and reservations", () => {
     })
   })
 
-  it("markProductOrderPaid rechaza mÃ©todo invÃ¡lido antes del RPC", async () => {
+  it("markProductOrderPaid rechaza método inválido antes del RPC", async () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1", can_collect_payments: false }, error: null },
     ])
@@ -704,7 +807,7 @@ describe("product promotions and reservations", () => {
 
     const result = await markProductOrderPaid("0a2107df-9fb6-47b5-8c6c-9f4dbca2a7f4", null)
 
-    expect(result).toEqual({ error: "El mÃ©todo de pago es obligatorio para cobrar la reserva" })
+    expect(result).toEqual({ error: "El método de pago es obligatorio para cobrar la reserva" })
     expect(mockCreateAdminClient).not.toHaveBeenCalled()
   })
 

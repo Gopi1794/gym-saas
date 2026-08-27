@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, PackagePlus, Pencil, EyeOff, Eye } from "lucide-react"
+import { Plus, PackagePlus, Pencil, EyeOff, Eye, ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Alert } from "@/components/ui/alert"
 import { toggleProductActive, toggleVariantActive, type Product } from "@/app/actions/products"
+import type { MemberProduct } from "@/lib/products"
 import ProductFormDialog from "./ProductFormDialog"
 import VariantFormDialog from "./VariantFormDialog"
 import RestockDialog from "./RestockDialog"
@@ -17,7 +18,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   otro: "Otro",
 }
 
-export default function ProductCatalogPanel({ products, isAdmin }: { products: Product[]; isAdmin: boolean }) {
+type CatalogProduct = Product | MemberProduct
+
+export default function ProductCatalogPanel({ products, isAdmin }: { products: CatalogProduct[]; isAdmin: boolean }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [toggleError, setToggleError] = useState<string | null>(null)
@@ -65,12 +68,22 @@ export default function ProductCatalogPanel({ products, isAdmin }: { products: P
                 onClick={() => setExpanded(expanded === product.id ? null : product.id)}
                 className="flex w-full items-center justify-between text-left"
               >
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{product.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {CATEGORY_LABELS[product.category]} · ${Number(product.base_price).toLocaleString("es-AR")}
-                    {!product.is_active && " · Desactivado"}
-                  </p>
+                <div className="flex items-center gap-3">
+                  {product.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={product.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                      <ImageIcon className="h-5 w-5" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{product.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {CATEGORY_LABELS[product.category]} · ${Number(product.base_price).toLocaleString("es-AR")}
+                      {"is_active" in product && !product.is_active && " · Desactivado"}
+                    </p>
+                  </div>
                 </div>
               </button>
 
@@ -79,7 +92,7 @@ export default function ProductCatalogPanel({ products, isAdmin }: { products: P
                   {isAdmin && (
                     <div className="flex flex-wrap gap-2">
                       <ProductFormDialog
-                        product={product}
+                        product={product as Product}
                         trigger={<Button size="sm" variant="outline"><Pencil className="mr-1.5 h-3.5 w-3.5" />Editar producto</Button>}
                       />
                       <VariantFormDialog
@@ -90,9 +103,9 @@ export default function ProductCatalogPanel({ products, isAdmin }: { products: P
                         size="sm"
                         variant="outline"
                         disabled={busyId === product.id}
-                        onClick={() => handleToggleProduct(product.id, !product.is_active)}
+                        onClick={() => handleToggleProduct(product.id, !(product as Product).is_active)}
                       >
-                        {product.is_active
+                        {(product as Product).is_active
                           ? <><EyeOff className="mr-1.5 h-3.5 w-3.5" />Desactivar</>
                           : <><Eye className="mr-1.5 h-3.5 w-3.5" />Reactivar</>}
                       </Button>
@@ -111,7 +124,7 @@ export default function ProductCatalogPanel({ products, isAdmin }: { products: P
                             <p className="text-sm text-foreground">{variant.name}</p>
                             <p className="text-xs text-muted-foreground">
                               Stock: {variant.stock}
-                              {!variant.is_active && " · Desactivada"}
+                              {"is_active" in variant && !variant.is_active && " · Desactivada"}
                             </p>
                           </div>
                           {isAdmin && (
@@ -123,16 +136,16 @@ export default function ProductCatalogPanel({ products, isAdmin }: { products: P
                               />
                               <VariantFormDialog
                                 productId={product.id}
-                                variant={variant}
+                                variant={variant as Product["product_variants"][number]}
                                 trigger={<Button size="sm" variant="ghost"><Pencil className="h-3.5 w-3.5" /></Button>}
                               />
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 disabled={busyId === variant.id}
-                                onClick={() => handleToggleVariant(variant.id, !variant.is_active)}
+                                onClick={() => handleToggleVariant(variant.id, !(variant as Product["product_variants"][number]).is_active)}
                               >
-                                {variant.is_active ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                {(variant as Product["product_variants"][number]).is_active ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                               </Button>
                             </div>
                           )}
