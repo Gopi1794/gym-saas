@@ -5,14 +5,16 @@ import {
   calculateOrderTotals,
   calculateSaleTotal,
   getVisibleMemberPromotions,
+  normalizeOptionalUrl,
   resolveVariantCost,
   resolveVariantPrice,
+  toMemberProduct,
   validateProductOrderItems,
   validateProductPayment,
 } from "./products"
 
 describe("resolveVariantPrice", () => {
-  it("usa el precio de la variante cuando estÃ¡ definido", () => {
+  it("usa el precio de la variante cuando está definido", () => {
     expect(resolveVariantPrice({ base_price: 1000 }, { price: 1500 })).toBe(1500)
   })
 
@@ -22,7 +24,7 @@ describe("resolveVariantPrice", () => {
 })
 
 describe("resolveVariantCost", () => {
-  it("usa el costo de la variante cuando estÃ¡ definido", () => {
+  it("usa el costo de la variante cuando está definido", () => {
     expect(resolveVariantCost({ base_cost: 400 }, { cost_price: 600 })).toBe(600)
   })
 
@@ -46,7 +48,7 @@ describe("calculateMargin", () => {
     expect(calculateMargin(1500, 900, 2)).toBe(1200)
   })
 
-  it("puede ser negativo si se vende a pÃ©rdida â€” no es un caso de error", () => {
+  it("puede ser negativo si se vende a pérdida — no es un caso de error", () => {
     expect(calculateMargin(500, 900, 1)).toBe(-400)
   })
 
@@ -56,7 +58,7 @@ describe("calculateMargin", () => {
 })
 
 describe("calculateOrderTotals", () => {
-  it("suma totales, margen y unidades de Ã³rdenes multi-item", () => {
+  it("suma totales, margen y unidades de órdenes multi-item", () => {
     expect(
       calculateOrderTotals([
         { variantId: "v1", quantity: 2, unitPrice: 1000, unitCost: 600 },
@@ -76,28 +78,66 @@ describe("validateProductOrderItems", () => {
         { variantId: "nostock", quantity: 11, unitPrice: 100, unitCost: 50, stock: 10 },
       ])
     ).toEqual([
-      "Cantidad invÃ¡lida para la variante zero",
-      "Cantidad invÃ¡lida para la variante negative",
-      "Cantidad invÃ¡lida para la variante decimal",
+      "Cantidad inválida para la variante zero",
+      "Cantidad inválida para la variante negative",
+      "Cantidad inválida para la variante decimal",
       "Stock insuficiente para la variante nostock",
     ])
   })
 })
 
 describe("validateProductPayment", () => {
-  it("rechaza ventas pagas sin mÃ©todo de pago", () => {
+  it("rechaza ventas pagas sin método de pago", () => {
     expect(validateProductPayment({ status: "paid", paymentMethod: null })).toEqual([
-      "El mÃ©todo de pago es obligatorio para ventas pagas",
+      "El método de pago es obligatorio para ventas pagas",
     ])
   })
 
-  it("no exige mÃ©todo de pago para reservas", () => {
+  it("no exige método de pago para reservas", () => {
     expect(validateProductPayment({ status: "reserved", paymentMethod: null })).toEqual([])
   })
 })
 
+describe("member-safe product mapping", () => {
+  it("normaliza URLs opcionales", () => {
+    expect(normalizeOptionalUrl("  https://cdn.example.com/product.png  ")).toBe("https://cdn.example.com/product.png")
+    expect(normalizeOptionalUrl("   ")).toBeNull()
+    expect(normalizeOptionalUrl(null)).toBeNull()
+  })
+
+  it("devuelve solo campos públicos y resuelve precio de variante", () => {
+    const product = toMemberProduct({
+      id: "product-1",
+      name: "Agua",
+      description: null,
+      category: "bebidas",
+      image_url: null,
+      base_price: 1000,
+      base_cost: 500,
+      is_active: true,
+      product_variants: [
+        { id: "variant-1", name: "500ml", price: null, stock: 10, is_active: true },
+        { id: "variant-2", name: "1L", price: 1800, stock: 0, is_active: false },
+      ],
+    })
+
+    expect(product).toEqual({
+      id: "product-1",
+      name: "Agua",
+      description: null,
+      category: "bebidas",
+      image_url: null,
+      base_price: 1000,
+      product_variants: [{ id: "variant-1", name: "500ml", price: 1000, stock: 10 }],
+    })
+    expect(product).not.toHaveProperty("base_cost")
+    expect(product.product_variants[0]).not.toHaveProperty("cost_price")
+    expect(product.product_variants[0]).not.toHaveProperty("sku")
+  })
+})
+
 describe("aggregateProductReport", () => {
-  it("devuelve ceros para rangos sin Ã³rdenes", () => {
+  it("devuelve ceros para rangos sin órdenes", () => {
     expect(aggregateProductReport([])).toEqual({
       revenue: 0,
       margin: 0,
@@ -109,7 +149,7 @@ describe("aggregateProductReport", () => {
     })
   })
 
-  it("agrega revenue, margen, unidades, mÃ©todos y vendedores", () => {
+  it("agrega revenue, margen, unidades, métodos y vendedores", () => {
     expect(
       aggregateProductReport([
         {
@@ -202,7 +242,7 @@ describe("getVisibleMemberPromotions", () => {
         {
           id: "promo-1",
           gymId: "gym-1",
-          title: "ProteÃ­na",
+          title: "Proteína",
           description: null,
           imageUrl: null,
           publicPrice: 15000,
@@ -219,7 +259,7 @@ describe("getVisibleMemberPromotions", () => {
 
     expect(promotion).toEqual({
       id: "promo-1",
-      title: "ProteÃ­na",
+      title: "Proteína",
       description: null,
       image_url: null,
       price: 15000,

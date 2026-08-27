@@ -27,6 +27,7 @@ export default function ProductFormDialog({ product, trigger }: Props) {
   const [name, setName] = useState(product?.name ?? "")
   const [description, setDescription] = useState(product?.description ?? "")
   const [category, setCategory] = useState<ProductCategory>(product?.category ?? "otro")
+  const [imageUrl, setImageUrl] = useState(product?.image_url ?? "")
   const [basePrice, setBasePrice] = useState(String(product?.base_price ?? ""))
   const [baseCost, setBaseCost] = useState(String(product?.base_cost ?? ""))
   const [loading, setLoading] = useState(false)
@@ -41,6 +42,7 @@ export default function ProductFormDialog({ product, trigger }: Props) {
       name,
       description: description.trim() || null,
       category,
+      imageUrl,
       basePrice: Number(basePrice),
       baseCost: Number(baseCost),
     }
@@ -90,6 +92,10 @@ export default function ProductFormDialog({ product, trigger }: Props) {
               rows={2}
               className="w-full rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground focus:border-brand-500/50 focus:outline-none focus:ring-1 focus:ring-brand-500/30 resize-none"
             />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm text-muted-foreground">URL de imagen (opcional)</label>
+            <Input type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

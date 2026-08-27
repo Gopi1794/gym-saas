@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import TabSwitcher from "@/components/ui/TabSwitcher"
-import { getProducts, getProductPromotions, getProductSales } from "@/app/actions/products"
+import { getMemberProducts, getProducts, getProductPromotions, getProductSales } from "@/app/actions/products"
 import { canCollectPayment } from "@/lib/payments"
 import ProductCatalogPanel from "@/components/products/ProductCatalogPanel"
 import SellProductPanel from "@/components/products/SellProductPanel"
@@ -27,14 +27,15 @@ export default async function ProductsPage({
     .single()
 
   const profile = profileData as { gym_id: string | null; role: string; can_collect_payments: boolean } | null
-  if (!profile || profile.role === "member") redirect("/dashboard")
+  if (!profile) redirect("/dashboard")
 
   const isAdmin = profile.role === "admin"
+  const isMember = profile.role === "member"
   const canSell = canCollectPayment(profile.role, profile.can_collect_payments === true)
 
   const tabs = [
-    { key: "catalogo", label: "CatÃ¡logo" },
-    ...(canSell ? [{ key: "vender", label: "Vender" }] : []),
+    { key: "catalogo", label: "Catálogo" },
+    ...(!isMember && canSell ? [{ key: "vender", label: "Vender" }] : []),
     ...(isAdmin ? [{ key: "ventas", label: "Ventas" }, { key: "promociones", label: "Promociones" }] : []),
   ]
   const requestedTab = searchParams.tab ?? "catalogo"
@@ -42,7 +43,7 @@ export default async function ProductsPage({
 
   let content: React.ReactNode
 
-  if (tab === "vender" && canSell) {
+  if (tab === "vender" && !isMember && canSell) {
     const productsResult = await getProducts()
     const { data: members } = await supabase
       .from("profiles")
@@ -65,7 +66,7 @@ export default async function ProductsPage({
       ? <ProductPromotionPanel products={productsResult.products} promotions={promotionsResult.promotions} />
       : <p className="text-sm text-red-500">{productsResult.error ?? promotionsResult.error}</p>
   } else {
-    const productsResult = await getProducts(isAdmin)
+    const productsResult = isMember ? await getMemberProducts() : await getProducts(isAdmin)
     content = productsResult.products
       ? <ProductCatalogPanel products={productsResult.products} isAdmin={isAdmin} />
       : <p className="text-sm text-red-500">{productsResult.error}</p>
@@ -75,7 +76,7 @@ export default async function ProductsPage({
     <div className="space-y-5 pb-8">
       <div>
         <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">Productos</h1>
-        <p className="text-muted-foreground">CatÃ¡logo, stock y ventas del mostrador</p>
+        <p className="text-muted-foreground">Catálogo, stock y ventas del mostrador</p>
       </div>
       <TabSwitcher tabs={tabs} activeTab={tab} />
       {content}

@@ -79,6 +79,43 @@ export type MemberProductPromotion = {
   cta_label: string | null
 }
 
+export type MemberProductVariantInput = {
+  id: string
+  name: string
+  price: number | null
+  stock: number
+  is_active?: boolean
+}
+
+export type MemberProductInput = {
+  id: string
+  name: string
+  description: string | null
+  category: string
+  image_url: string | null
+  base_price: number
+  base_cost?: number
+  is_active?: boolean
+  product_variants: MemberProductVariantInput[]
+}
+
+export type MemberProductVariant = {
+  id: string
+  name: string
+  price: number
+  stock: number
+}
+
+export type MemberProduct = {
+  id: string
+  name: string
+  description: string | null
+  category: string
+  image_url: string | null
+  base_price: number
+  product_variants: MemberProductVariant[]
+}
+
 export const PRODUCT_PAYMENT_METHODS = ["cash", "mercadopago", "transfer", "card", "other"] as const
 
 const emptyMethodTotals = (): Record<ProductPaymentMethod, number> => ({
@@ -92,7 +129,7 @@ const emptyMethodTotals = (): Record<ProductPaymentMethod, number> => ({
 const roundMoney = (amount: number): number => Math.round(amount * 100) / 100
 
 // resolveVariantPrice/resolveVariantCost: cada variante puede fijar su
-// propio precio/costo, o heredar el del producto (Ãºtil para productos con
+// propio precio/costo, o heredar el del producto (útil para productos con
 // variantes de igual valor, ej. una remera talle S/M/L al mismo precio).
 export function resolveVariantPrice(
   product: { base_price: number },
@@ -112,7 +149,7 @@ export function calculateSaleTotal(unitPrice: number, quantity: number): number 
   return roundMoney(unitPrice * quantity)
 }
 
-// Puede devolver un nÃºmero negativo (venta a pÃ©rdida) â€” es informaciÃ³n
+// Puede devolver un número negativo (venta a pérdida) — es información
 // real, no un caso de error; sub-proyecto 3 (reportes) la necesita tal cual.
 export function calculateMargin(unitPrice: number, unitCost: number, quantity: number): number {
   return roundMoney((unitPrice - unitCost) * quantity)
@@ -140,7 +177,7 @@ export function validateProductOrderItems(items: ProductOrderPricedItem[]): stri
 
   for (const item of items) {
     if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-      errors.push(`Cantidad invÃ¡lida para la variante ${item.variantId}`)
+      errors.push(`Cantidad inválida para la variante ${item.variantId}`)
     }
 
     if (typeof item.stock === "number" && item.quantity > item.stock) {
@@ -155,13 +192,37 @@ export function isValidProductPaymentMethod(method: unknown): method is ProductP
   return typeof method === "string" && PRODUCT_PAYMENT_METHODS.includes(method as ProductPaymentMethod)
 }
 
+export function normalizeOptionalUrl(value?: string | null): string | null {
+  const normalized = value?.trim()
+  return normalized ? normalized : null
+}
+
+export function toMemberProduct(product: MemberProductInput): MemberProduct {
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    category: product.category,
+    image_url: product.image_url,
+    base_price: product.base_price,
+    product_variants: product.product_variants
+      .filter((variant) => variant.is_active !== false)
+      .map((variant) => ({
+        id: variant.id,
+        name: variant.name,
+        price: variant.price ?? product.base_price,
+        stock: variant.stock,
+      })),
+  }
+}
+
 export function validateProductPayment(input: ProductPaymentValidationInput): string[] {
   if (input.status !== "paid") {
     return []
   }
 
   if (!isValidProductPaymentMethod(input.paymentMethod)) {
-    return ["El mÃ©todo de pago es obligatorio para ventas pagas"]
+    return ["El método de pago es obligatorio para ventas pagas"]
   }
 
   return []
