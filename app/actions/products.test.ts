@@ -18,7 +18,7 @@ vi.mock("next/cache", () => ({
 }))
 
 import {
-  getProducts, createProduct, updateProduct, toggleProductActive,
+  getProducts, createProduct, replaceProductImagesFromStorage, updateProduct, toggleProductActive,
   createVariant, updateVariant, toggleVariantActive,
   restockVariant, recordSale, getProductSales, getProductReport,
   getMemberProducts, getMemberProductPromotions, reserveProduct, markProductOrderPaid, cancelProductReservation, releaseExpiredProductReservations, upsertProductPromotion,
@@ -104,7 +104,7 @@ describe("createProduct", () => {
 
     const result = await createProduct(INPUT)
 
-    expect(result).toEqual({ success: true, id: "new-product-1" })
+    expect(result).toEqual({ success: true, id: "new-product-1", gymId: "gym-1" })
     const insertPayload = (supabase.chains[1].insert as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(insertPayload).toMatchObject({
       gym_id: "gym-1",
@@ -133,8 +133,8 @@ describe("createProduct", () => {
     expect(insertPayload).toMatchObject({ image_url: "https://cdn.example.com/whey.png" })
     const imagePayload = (supabase.chains[3].insert as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(imagePayload).toEqual([
-      { product_id: "new-product-1", gym_id: "gym-1", image_url: "https://cdn.example.com/whey.png", sort_order: 0, is_primary: true },
-      { product_id: "new-product-1", gym_id: "gym-1", image_url: "https://cdn.example.com/whey-2.png", sort_order: 1, is_primary: false },
+      { product_id: "new-product-1", gym_id: "gym-1", image_url: "https://cdn.example.com/whey.png", storage_path: null, sort_order: 0, is_primary: true },
+      { product_id: "new-product-1", gym_id: "gym-1", image_url: "https://cdn.example.com/whey-2.png", storage_path: null, sort_order: 1, is_primary: false },
     ])
   })
 
@@ -161,6 +161,21 @@ describe("createProduct", () => {
     const result = await createProduct({ ...INPUT, basePrice: -100 })
 
     expect(result).toEqual({ error: "El precio no puede ser negativo" })
+  })
+})
+
+describe("replaceProductImagesFromStorage", () => {
+  it("rechaza paths que no pertenecen al gym o producto del admin", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await replaceProductImagesFromStorage("product-1", ["gym-2/product-1/foto.webp"])
+
+    expect(result).toEqual({ error: "Una imagen no pertenece a este producto" })
+    expect(supabase.from).toHaveBeenCalledTimes(1)
   })
 })
 

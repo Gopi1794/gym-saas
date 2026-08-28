@@ -8,6 +8,7 @@ import {
   aggregateProductReport,
   getVisibleMemberPromotions,
   isValidProductPaymentMethod,
+  isProductImageStoragePath,
   normalizeImageUrls,
   normalizeOptionalUrl,
   toMemberProduct,
@@ -17,6 +18,8 @@ import {
   type ProductOrderReport,
   type ProductPaymentMethod,
 } from "@/lib/products"
+
+const PRODUCT_IMAGES_BUCKET = "product-images"
 
 export type ProductCategory = "bebidas" | "suplementos" | "indumentaria" | "accesorios" | "otro"
 
@@ -120,11 +123,75 @@ export async function createProduct(input: CreateProductInput) {
 
   if (error) return { error: error.message }
 
-  const imageError = await replaceProductImages(supabase, data!.id, (me as { gym_id: string }).gym_id, imageUrls)
+  const imageError = await replaceProductImages(
+    supabase,
+    data!.id,
+    (me as { gym_id: string }).gym_id,
+    imageUrls.map((imageUrl) => ({ imageUrl })),
+  )
   if (imageError) return { error: imageError }
 
   revalidatePath("/productos")
-  return { success: true, id: data!.id }
+  return { success: true, id: data!.id, gymId: (me as { gym_id: string }).gym_id }
+}
+
+export async function replaceProductImagesFromStorage(productId: string, storagePaths: string[]) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, gym_id")
+    .eq("id", user.id)
+    .single()
+
+  if (!me || (me as { role: string }).role !== "admin") {
+    return { error: "Solo un admin puede actualizar imágenes" }
+  }
+
+  const gymId = (me as { gym_id: string }).gym_id
+  const paths = [...new Set(storagePaths.map((path) => path.trim()).filter(Boolean))]
+  if (paths.length > 6) return { error: "Podés subir hasta 6 imágenes por producto" }
+  if (paths.some((path) => !isProductImageStoragePath(path, gymId, productId))) {
+    return { error: "Una imagen no pertenece a este producto" }
+  }
+
+  const { data: existing, error: existingError } = await (supabase
+    .from("product_images" as never)
+    .select("storage_path")
+    .eq("product_id", productId)
+    .eq("gym_id", gymId) as unknown as Promise<{ data: Array<{ storage_path: string | null }> | null; error: { message: string } | null }>)
+  if (existingError) return { error: existingError.message }
+
+  const { data: product, error: productError } = await (supabase
+    .from("products" as never)
+    .update({ image_url: paths[0] ? getProductImagePublicUrl(paths[0]) : null } as never)
+    .eq("id", productId)
+    .eq("gym_id", gymId)
+    .select("id") as unknown as Promise<{ data: { id: string }[] | null; error: { message: string } | null }>)
+  if (productError) return { error: productError.message }
+  if (!product?.length) return { error: "Producto no encontrado" }
+
+  const imageError = await replaceProductImages(
+    supabase,
+    productId,
+    gymId,
+    paths.map((storagePath) => ({ imageUrl: getProductImagePublicUrl(storagePath), storagePath })),
+  )
+  if (imageError) return { error: imageError }
+
+  const obsoletePaths = (existing ?? [])
+    .map((image) => image.storage_path)
+    .filter((path): path is string => path !== null)
+    .filter((path) => !paths.includes(path))
+  if (obsoletePaths.length > 0) {
+    const { error: removeError } = await supabase.storage.from(PRODUCT_IMAGES_BUCKET).remove(obsoletePaths)
+    if (removeError) console.error("No se pudieron limpiar imágenes reemplazadas", removeError)
+  }
+
+  revalidatePath("/productos")
+  return { success: true }
 }
 
 export type UpdateProductInput = {
@@ -187,7 +254,12 @@ export async function updateProduct(productId: string, input: UpdateProductInput
   if (!data || data.length === 0) return { error: "Producto no encontrado" }
 
   if (shouldReplaceImages) {
-    const imageError = await replaceProductImages(supabase, productId, (me as { gym_id: string }).gym_id, imageUrls)
+    const imageError = await replaceProductImages(
+      supabase,
+      productId,
+      (me as { gym_id: string }).gym_id,
+      imageUrls.map((imageUrl) => ({ imageUrl })),
+    )
     if (imageError) return { error: imageError }
   }
 
@@ -241,7 +313,7 @@ async function replaceProductImages(
   supabase: ReturnType<typeof createClient>,
   productId: string,
   gymId: string,
-  imageUrls: string[],
+  images: Array<{ imageUrl: string; storagePath?: string }>,
 ): Promise<string | null> {
   const { error: deleteError } = await (supabase.from("product_images" as never) as any)
     .delete()
@@ -249,19 +321,25 @@ async function replaceProductImages(
     .eq("gym_id", gymId)
 
   if (deleteError) return deleteError.message
-  if (imageUrls.length === 0) return null
+  if (images.length === 0) return null
 
   const { error: insertError } = await (supabase.from("product_images" as never) as any).insert(
-    imageUrls.map((imageUrl, index) => ({
+    images.map(({ imageUrl, storagePath }, index) => ({
       product_id: productId,
       gym_id: gymId,
       image_url: imageUrl,
+      storage_path: storagePath ?? null,
       sort_order: index,
       is_primary: index === 0,
     })) as never
   )
 
   return insertError?.message ?? null
+}
+
+function getProductImagePublicUrl(storagePath: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  return `${baseUrl}/storage/v1/object/public/${PRODUCT_IMAGES_BUCKET}/${storagePath}`
 }
 
 export async function toggleProductActive(productId: string, isActive: boolean) {

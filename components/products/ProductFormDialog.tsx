@@ -3,11 +3,16 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Alert } from "@/components/ui/alert"
-import { createProduct, updateProduct, type Product, type ProductCategory } from "@/app/actions/products"
+import { createClient } from "@/lib/supabase/client"
+import {
+  createProduct,
+  replaceProductImagesFromStorage,
+  updateProduct,
+  type Product,
+  type ProductCategory,
+} from "@/app/actions/products"
 
 const CATEGORY_LABELS: Record<ProductCategory, string> = {
   bebidas: "Bebidas",
@@ -15,6 +20,14 @@ const CATEGORY_LABELS: Record<ProductCategory, string> = {
   indumentaria: "Indumentaria",
   accesorios: "Accesorios",
   otro: "Otro",
+}
+
+const MAX_IMAGES = 6
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
 }
 
 interface Props {
@@ -27,15 +40,32 @@ export default function ProductFormDialog({ product, trigger }: Props) {
   const [name, setName] = useState(product?.name ?? "")
   const [description, setDescription] = useState(product?.description ?? "")
   const [category, setCategory] = useState<ProductCategory>(product?.category ?? "otro")
-  const [imageUrls, setImageUrls] = useState(
-    product?.product_images?.length
-      ? product.product_images.map((image) => image.image_url).join("\n")
-      : product?.image_url ?? ""
-  )
+  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [removeImages, setRemoveImages] = useState(false)
   const [basePrice, setBasePrice] = useState(String(product?.base_price ?? ""))
   const [baseCost, setBaseCost] = useState(String(product?.base_cost ?? ""))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const existingImageCount = product?.product_images?.length ?? (product?.image_url ? 1 : 0)
+
+  function handleFiles(files: FileList | null) {
+    const selected = Array.from(files ?? [])
+    if (selected.length > MAX_IMAGES) {
+      setError(`Podés subir hasta ${MAX_IMAGES} imágenes por producto`)
+      return
+    }
+    if (selected.some((file) => !(file.type in IMAGE_EXTENSIONS))) {
+      setError("Solo se permiten imágenes JPG, PNG o WebP")
+      return
+    }
+    if (selected.some((file) => file.size > MAX_IMAGE_BYTES)) {
+      setError("Cada imagen puede pesar hasta 5 MB")
+      return
+    }
+    setError(null)
+    setImageFiles(selected)
+    if (selected.length > 0) setRemoveImages(false)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -46,21 +76,56 @@ export default function ProductFormDialog({ product, trigger }: Props) {
       name,
       description: description.trim() || null,
       category,
-      imageUrls: imageUrls.split(/\n|,/).map((value) => value.trim()).filter(Boolean),
       basePrice: Number(basePrice),
       baseCost: Number(baseCost),
     }
+    let productId: string
+    let gymId: string
+    if (product) {
+      const result = await updateProduct(product.id, input)
+      if ("error" in result) {
+        setLoading(false)
+        setError(result.error ?? "No se pudo actualizar el producto")
+        return
+      }
+      productId = product.id
+      gymId = product.gym_id
+    } else {
+      const result = await createProduct(input)
+      if ("error" in result) {
+        setLoading(false)
+        setError(result.error ?? "No se pudo crear el producto")
+        return
+      }
+      productId = result.id
+      gymId = result.gymId
+    }
+    if (imageFiles.length > 0) {
+      const uploadResult = await uploadProductImages(imageFiles, gymId, productId)
+      if ("error" in uploadResult) {
+        setLoading(false)
+        setError(uploadResult.error ?? "No se pudieron subir las imágenes")
+        return
+      }
 
-    const result = product
-      ? await updateProduct(product.id, input)
-      : await createProduct(input)
+      const imageResult = await replaceProductImagesFromStorage(productId, uploadResult.paths)
+      if (imageResult.error) {
+        await createClient().storage.from("product-images").remove(uploadResult.paths)
+        setLoading(false)
+        setError(imageResult.error)
+        return
+      }
+    } else if (removeImages) {
+      const imageResult = await replaceProductImagesFromStorage(productId, [])
+      if (imageResult.error) {
+        setLoading(false)
+        setError(imageResult.error)
+        return
+      }
+    }
 
     setLoading(false)
-    if (result.error) {
-      setError(result.error)
-    } else {
-      setOpen(false)
-    }
+    setOpen(false)
   }
 
   return (
@@ -94,19 +159,23 @@ export default function ProductFormDialog({ product, trigger }: Props) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground focus:border-brand-500/50 focus:outline-none focus:ring-1 focus:ring-brand-500/30 resize-none"
+              className="w-full resize-none rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground focus:border-brand-500/50 focus:outline-none focus:ring-1 focus:ring-brand-500/30"
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Galeria de imagenes (opcional)</label>
-            <textarea
-              value={imageUrls}
-              onChange={(e) => setImageUrls(e.target.value)}
-              rows={3}
-              placeholder={"https://...\nhttps://..."}
-              className="w-full rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground focus:border-brand-500/50 focus:outline-none focus:ring-1 focus:ring-brand-500/30 resize-none"
-            />
-            <p className="text-xs text-muted-foreground">Una URL por linea. La primera se usa como imagen principal.</p>
+            <label className="text-sm text-muted-foreground">Imágenes del producto (opcional)</label>
+            <Input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => handleFiles(e.target.files)} />
+            <p className="text-xs text-muted-foreground">
+              JPG, PNG o WebP; hasta {MAX_IMAGES} imágenes y 5 MB cada una.
+              {product && " Si elegís archivos, reemplazan la galería actual."}
+            </p>
+            {imageFiles.length > 0 && <p className="text-xs text-foreground">{imageFiles.length} imagen{imageFiles.length === 1 ? "" : "es"} seleccionada{imageFiles.length === 1 ? "" : "s"}.</p>}
+            {product && existingImageCount > 0 && imageFiles.length === 0 && (
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input type="checkbox" checked={removeImages} onChange={(e) => setRemoveImages(e.target.checked)} />
+                Eliminar las {existingImageCount} imágenes actuales
+              </label>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -126,4 +195,25 @@ export default function ProductFormDialog({ product, trigger }: Props) {
       </DialogContent>
     </Dialog>
   )
+}
+
+async function uploadProductImages(files: File[], gymId: string, productId: string) {
+  const supabase = createClient()
+  const paths: string[] = []
+
+  for (const file of files) {
+    const extension = IMAGE_EXTENSIONS[file.type]
+    const path = `${gymId}/${productId}/${crypto.randomUUID()}.${extension}`
+    const { error } = await supabase.storage.from("product-images").upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    })
+    if (error) {
+      if (paths.length > 0) await supabase.storage.from("product-images").remove(paths)
+      return { error: "No se pudo subir una imagen. Verificá el formato y el tamaño." }
+    }
+    paths.push(path)
+  }
+
+  return { paths }
 }

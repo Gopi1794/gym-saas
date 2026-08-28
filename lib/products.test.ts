@@ -5,6 +5,7 @@ import {
   calculateOrderTotals,
   calculateSaleTotal,
   getVisibleMemberPromotions,
+  isProductImageStoragePath,
   normalizeImageUrls,
   normalizeOptionalUrl,
   resolveVariantCost,
@@ -100,6 +101,13 @@ describe("validateProductPayment", () => {
 })
 
 describe("member-safe product mapping", () => {
+  it("acepta solo paths de Storage que pertenecen al gym y producto indicados", () => {
+    expect(isProductImageStoragePath("gym-1/product-1/foto-1.webp", "gym-1", "product-1")).toBe(true)
+    expect(isProductImageStoragePath("gym-2/product-1/foto-1.webp", "gym-1", "product-1")).toBe(false)
+    expect(isProductImageStoragePath("gym-1/product-1/../../secreto.jpg", "gym-1", "product-1")).toBe(false)
+    expect(isProductImageStoragePath("gym-1/product-1/foto.gif", "gym-1", "product-1")).toBe(false)
+  })
+
   it("normaliza URLs opcionales", () => {
     expect(normalizeOptionalUrl("  https://cdn.example.com/product.png  ")).toBe("https://cdn.example.com/product.png")
     expect(normalizeOptionalUrl("   ")).toBeNull()

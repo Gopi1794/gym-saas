@@ -229,6 +229,16 @@ export function normalizeImageUrls(values?: Array<string | null | undefined> | n
   return urls
 }
 
+export function isProductImageStoragePath(path: string, gymId: string, productId: string): boolean {
+  const [pathGymId, pathProductId, fileName, ...rest] = path.split("/")
+  return (
+    rest.length === 0 &&
+    pathGymId === gymId &&
+    pathProductId === productId &&
+    /^[a-z0-9-]+\.(?:jpe?g|png|webp)$/i.test(fileName ?? "")
+  )
+}
+
 export function normalizeProductImages(
   images?: ProductImageInput[] | null,
   fallbackImageUrl?: string | null
