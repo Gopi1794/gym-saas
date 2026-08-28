@@ -5,6 +5,8 @@ import {
   calculateOrderTotals,
   calculateSaleTotal,
   getVisibleMemberPromotions,
+  isProductImageStoragePath,
+  normalizeImageUrls,
   normalizeOptionalUrl,
   resolveVariantCost,
   resolveVariantPrice,
@@ -99,10 +101,21 @@ describe("validateProductPayment", () => {
 })
 
 describe("member-safe product mapping", () => {
+  it("acepta solo paths de Storage que pertenecen al gym y producto indicados", () => {
+    expect(isProductImageStoragePath("gym-1/product-1/foto-1.webp", "gym-1", "product-1")).toBe(true)
+    expect(isProductImageStoragePath("gym-2/product-1/foto-1.webp", "gym-1", "product-1")).toBe(false)
+    expect(isProductImageStoragePath("gym-1/product-1/../../secreto.jpg", "gym-1", "product-1")).toBe(false)
+    expect(isProductImageStoragePath("gym-1/product-1/foto.gif", "gym-1", "product-1")).toBe(false)
+  })
+
   it("normaliza URLs opcionales", () => {
     expect(normalizeOptionalUrl("  https://cdn.example.com/product.png  ")).toBe("https://cdn.example.com/product.png")
     expect(normalizeOptionalUrl("   ")).toBeNull()
     expect(normalizeOptionalUrl(null)).toBeNull()
+    expect(normalizeImageUrls([" https://a.com/1.png ", "", "https://a.com/1.png", "https://a.com/2.png"])).toEqual([
+      "https://a.com/1.png",
+      "https://a.com/2.png",
+    ])
   })
 
   it("devuelve solo campos públicos y resuelve precio de variante", () => {
@@ -111,10 +124,14 @@ describe("member-safe product mapping", () => {
       name: "Agua",
       description: null,
       category: "bebidas",
-      image_url: null,
+      image_url: "https://cdn.example.com/principal.png",
       base_price: 1000,
       base_cost: 500,
       is_active: true,
+      product_images: [
+        { image_url: "https://cdn.example.com/secundaria.png", sort_order: 1, is_primary: false },
+        { image_url: "https://cdn.example.com/principal.png", sort_order: 0, is_primary: true },
+      ],
       product_variants: [
         { id: "variant-1", name: "500ml", price: null, stock: 10, is_active: true },
         { id: "variant-2", name: "1L", price: 1800, stock: 0, is_active: false },
@@ -126,8 +143,12 @@ describe("member-safe product mapping", () => {
       name: "Agua",
       description: null,
       category: "bebidas",
-      image_url: null,
+      image_url: "https://cdn.example.com/principal.png",
       base_price: 1000,
+      product_images: [
+        { id: undefined, image_url: "https://cdn.example.com/principal.png", alt_text: null, sort_order: 0, is_primary: true },
+        { id: undefined, image_url: "https://cdn.example.com/secundaria.png", alt_text: null, sort_order: 1, is_primary: false },
+      ],
       product_variants: [{ id: "variant-1", name: "500ml", price: 1000, stock: 10 }],
     })
     expect(product).not.toHaveProperty("base_cost")

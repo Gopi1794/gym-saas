@@ -5,7 +5,7 @@ import { Plus, PackagePlus, Pencil, EyeOff, Eye, ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Alert } from "@/components/ui/alert"
 import { toggleProductActive, toggleVariantActive, type Product } from "@/app/actions/products"
-import type { MemberProduct } from "@/lib/products"
+import { resolvePrimaryProductImage, type MemberProduct } from "@/lib/products"
 import ProductFormDialog from "./ProductFormDialog"
 import VariantFormDialog from "./VariantFormDialog"
 import RestockDialog from "./RestockDialog"
@@ -19,6 +19,14 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 
 type CatalogProduct = Product | MemberProduct
+
+function getGallery(product: CatalogProduct) {
+  return product.product_images?.length
+    ? product.product_images
+    : product.image_url
+      ? [{ image_url: product.image_url, alt_text: null, sort_order: 0, is_primary: true }]
+      : []
+}
 
 export default function ProductCatalogPanel({ products, isAdmin }: { products: CatalogProduct[]; isAdmin: boolean }) {
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -69,9 +77,9 @@ export default function ProductCatalogPanel({ products, isAdmin }: { products: C
                 className="flex w-full items-center justify-between text-left"
               >
                 <div className="flex items-center gap-3">
-                  {product.image_url ? (
+                  {resolvePrimaryProductImage(product) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={product.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                    <img src={resolvePrimaryProductImage(product)!} alt="" className="h-12 w-12 rounded-xl object-cover" />
                   ) : (
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                       <ImageIcon className="h-5 w-5" />
@@ -89,6 +97,15 @@ export default function ProductCatalogPanel({ products, isAdmin }: { products: C
 
               {expanded === product.id && (
                 <div className="space-y-2 border-t border-border pt-3">
+                  {getGallery(product).length > 1 && (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {getGallery(product).map((image) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={image.image_url} src={image.image_url} alt={image.alt_text ?? ""} className="h-24 w-full rounded-xl object-cover" />
+                      ))}
+                    </div>
+                  )}
+
                   {isAdmin && (
                     <div className="flex flex-wrap gap-2">
                       <ProductFormDialog

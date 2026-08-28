@@ -18,7 +18,7 @@ vi.mock("next/cache", () => ({
 }))
 
 import {
-  getProducts, createProduct, updateProduct, toggleProductActive,
+  getProducts, createProduct, replaceProductImagesFromStorage, updateProduct, toggleProductActive,
   createVariant, updateVariant, toggleVariantActive,
   restockVariant, recordSale, getProductSales, getProductReport,
   getMemberProducts, getMemberProductPromotions, reserveProduct, markProductOrderPaid, cancelProductReservation, releaseExpiredProductReservations, upsertProductPromotion,
@@ -104,7 +104,7 @@ describe("createProduct", () => {
 
     const result = await createProduct(INPUT)
 
-    expect(result).toEqual({ success: true, id: "new-product-1" })
+    expect(result).toEqual({ success: true, id: "new-product-1", gymId: "gym-1" })
     const insertPayload = (supabase.chains[1].insert as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(insertPayload).toMatchObject({
       gym_id: "gym-1",
@@ -121,14 +121,21 @@ describe("createProduct", () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1" }, error: null },
       { data: { id: "new-product-1" }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
     ])
     supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
     mockCreateClient.mockReturnValue(supabase)
 
-    await createProduct({ ...INPUT, imageUrl: "  https://cdn.example.com/whey.png  " })
+    await createProduct({ ...INPUT, imageUrls: ["  https://cdn.example.com/whey.png  ", "https://cdn.example.com/whey-2.png"] })
 
     const insertPayload = (supabase.chains[1].insert as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(insertPayload).toMatchObject({ image_url: "https://cdn.example.com/whey.png" })
+    const imagePayload = (supabase.chains[3].insert as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(imagePayload).toEqual([
+      { product_id: "new-product-1", gym_id: "gym-1", image_url: "https://cdn.example.com/whey.png", storage_path: null, sort_order: 0, is_primary: true },
+      { product_id: "new-product-1", gym_id: "gym-1", image_url: "https://cdn.example.com/whey-2.png", storage_path: null, sort_order: 1, is_primary: false },
+    ])
   })
 
   it("un trainer no puede crear productos", async () => {
@@ -157,6 +164,21 @@ describe("createProduct", () => {
   })
 })
 
+describe("replaceProductImagesFromStorage", () => {
+  it("rechaza paths que no pertenecen al gym o producto del admin", async () => {
+    const supabase = createMockSupabase([
+      { data: { role: "admin", gym_id: "gym-1" }, error: null },
+    ])
+    supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await replaceProductImagesFromStorage("product-1", ["gym-2/product-1/foto.webp"])
+
+    expect(result).toEqual({ error: "Una imagen no pertenece a este producto" })
+    expect(supabase.from).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe("updateProduct", () => {
   it("un admin puede actualizar el nombre", async () => {
     const supabase = createMockSupabase([
@@ -177,11 +199,12 @@ describe("updateProduct", () => {
     const supabase = createMockSupabase([
       { data: { role: "admin", gym_id: "gym-1" }, error: null },
       { data: [{ id: "product-1" }], error: null },
+      { data: null, error: null },
     ])
     supabase.auth.getUser.mockResolvedValue(mockUser("admin-1"))
     mockCreateClient.mockReturnValue(supabase)
 
-    const result = await updateProduct("product-1", { imageUrl: "   " })
+    const result = await updateProduct("product-1", { imageUrls: [] })
 
     expect(result).toEqual({ success: true })
     const updatePayload = (supabase.chains[1].update as ReturnType<typeof vi.fn>).mock.calls[0][0]
@@ -628,6 +651,10 @@ describe("getMemberProducts", () => {
           base_price: 15000,
           base_cost: 9000,
           is_active: true,
+          product_images: [
+            { image_url: "https://cdn.example.com/whey-front.png", sort_order: 0, is_primary: true },
+            { image_url: "https://cdn.example.com/whey-back.png", sort_order: 1, is_primary: false },
+          ],
           product_variants: [
             { id: "variant-1", name: "1kg", sku: "WHEY-1KG", price: null, cost_price: 9500, stock: 3, is_active: true },
             { id: "variant-2", name: "2kg", sku: "WHEY-2KG", price: 28000, cost_price: 18000, stock: 0, is_active: false },
@@ -645,14 +672,18 @@ describe("getMemberProducts", () => {
       name: "Whey",
       description: "Proteína",
       category: "suplementos",
-      image_url: "https://cdn.example.com/whey.png",
+      image_url: "https://cdn.example.com/whey-front.png",
       base_price: 15000,
+      product_images: [
+        { image_url: "https://cdn.example.com/whey-front.png", alt_text: null, sort_order: 0, is_primary: true },
+        { image_url: "https://cdn.example.com/whey-back.png", alt_text: null, sort_order: 1, is_primary: false },
+      ],
       product_variants: [{ id: "variant-1", name: "1kg", price: 15000, stock: 3 }],
     }])
     expect(result.products?.[0]).not.toHaveProperty("base_cost")
     expect(result.products?.[0].product_variants[0]).not.toHaveProperty("cost_price")
     expect(result.products?.[0].product_variants[0]).not.toHaveProperty("sku")
-    expect(adminClient.chains[0].select).toHaveBeenCalledWith("id, name, description, category, image_url, base_price, is_active, product_variants(id, name, price, stock, is_active)")
+    expect(adminClient.chains[0].select).toHaveBeenCalledWith("id, name, description, category, image_url, base_price, is_active, product_variants(id, name, price, stock, is_active), product_images(id, image_url, alt_text, sort_order, is_primary)")
   })
 
   it("rechaza perfiles que no son member", async () => {
