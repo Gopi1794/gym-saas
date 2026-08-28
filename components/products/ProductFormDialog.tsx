@@ -27,7 +27,11 @@ export default function ProductFormDialog({ product, trigger }: Props) {
   const [name, setName] = useState(product?.name ?? "")
   const [description, setDescription] = useState(product?.description ?? "")
   const [category, setCategory] = useState<ProductCategory>(product?.category ?? "otro")
-  const [imageUrl, setImageUrl] = useState(product?.image_url ?? "")
+  const [imageUrls, setImageUrls] = useState(
+    product?.product_images?.length
+      ? product.product_images.map((image) => image.image_url).join("\n")
+      : product?.image_url ?? ""
+  )
   const [basePrice, setBasePrice] = useState(String(product?.base_price ?? ""))
   const [baseCost, setBaseCost] = useState(String(product?.base_cost ?? ""))
   const [loading, setLoading] = useState(false)
@@ -42,7 +46,7 @@ export default function ProductFormDialog({ product, trigger }: Props) {
       name,
       description: description.trim() || null,
       category,
-      imageUrl,
+      imageUrls: imageUrls.split(/\n|,/).map((value) => value.trim()).filter(Boolean),
       basePrice: Number(basePrice),
       baseCost: Number(baseCost),
     }
@@ -94,8 +98,15 @@ export default function ProductFormDialog({ product, trigger }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">URL de imagen (opcional)</label>
-            <Input type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />
+            <label className="text-sm text-muted-foreground">Galeria de imagenes (opcional)</label>
+            <textarea
+              value={imageUrls}
+              onChange={(e) => setImageUrls(e.target.value)}
+              rows={3}
+              placeholder={"https://...\nhttps://..."}
+              className="w-full rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground focus:border-brand-500/50 focus:outline-none focus:ring-1 focus:ring-brand-500/30 resize-none"
+            />
+            <p className="text-xs text-muted-foreground">Una URL por linea. La primera se usa como imagen principal.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

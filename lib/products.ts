@@ -79,6 +79,22 @@ export type MemberProductPromotion = {
   cta_label: string | null
 }
 
+export type ProductImageInput = {
+  id?: string
+  image_url: string
+  alt_text?: string | null
+  sort_order?: number | null
+  is_primary?: boolean | null
+}
+
+export type ProductImage = {
+  id?: string
+  image_url: string
+  alt_text: string | null
+  sort_order: number
+  is_primary: boolean
+}
+
 export type MemberProductVariantInput = {
   id: string
   name: string
@@ -97,6 +113,7 @@ export type MemberProductInput = {
   base_cost?: number
   is_active?: boolean
   product_variants: MemberProductVariantInput[]
+  product_images?: ProductImageInput[] | null
 }
 
 export type MemberProductVariant = {
@@ -114,6 +131,7 @@ export type MemberProduct = {
   image_url: string | null
   base_price: number
   product_variants: MemberProductVariant[]
+  product_images: ProductImage[]
 }
 
 export const PRODUCT_PAYMENT_METHODS = ["cash", "mercadopago", "transfer", "card", "other"] as const
@@ -197,14 +215,58 @@ export function normalizeOptionalUrl(value?: string | null): string | null {
   return normalized ? normalized : null
 }
 
+export function normalizeImageUrls(values?: Array<string | null | undefined> | null): string[] {
+  const seen = new Set<string>()
+  const urls: string[] = []
+
+  for (const value of values ?? []) {
+    const normalized = normalizeOptionalUrl(value)
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    urls.push(normalized)
+  }
+
+  return urls
+}
+
+export function normalizeProductImages(
+  images?: ProductImageInput[] | null,
+  fallbackImageUrl?: string | null
+): ProductImage[] {
+  const normalized = (images ?? [])
+    .filter((image) => normalizeOptionalUrl(image.image_url))
+    .map((image, index) => ({
+      id: image.id,
+      image_url: normalizeOptionalUrl(image.image_url)!,
+      alt_text: image.alt_text ?? null,
+      sort_order: image.sort_order ?? index,
+      is_primary: image.is_primary === true,
+    }))
+    .sort((a, b) => a.sort_order - b.sort_order)
+
+  if (normalized.length > 0) {
+    const hasPrimary = normalized.some((image) => image.is_primary)
+    return hasPrimary ? normalized : normalized.map((image, index) => ({ ...image, is_primary: index === 0 }))
+  }
+
+  const fallback = normalizeOptionalUrl(fallbackImageUrl)
+  return fallback ? [{ image_url: fallback, alt_text: null, sort_order: 0, is_primary: true }] : []
+}
+
+export function resolvePrimaryProductImage(product: { image_url?: string | null; product_images?: ProductImageInput[] | null }): string | null {
+  const images = normalizeProductImages(product.product_images, product.image_url)
+  return images.find((image) => image.is_primary)?.image_url ?? images[0]?.image_url ?? null
+}
+
 export function toMemberProduct(product: MemberProductInput): MemberProduct {
   return {
     id: product.id,
     name: product.name,
     description: product.description,
     category: product.category,
-    image_url: product.image_url,
+    image_url: resolvePrimaryProductImage(product),
     base_price: product.base_price,
+    product_images: normalizeProductImages(product.product_images, product.image_url),
     product_variants: product.product_variants
       .filter((variant) => variant.is_active !== false)
       .map((variant) => ({

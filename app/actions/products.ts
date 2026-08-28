@@ -8,8 +8,10 @@ import {
   aggregateProductReport,
   getVisibleMemberPromotions,
   isValidProductPaymentMethod,
+  normalizeImageUrls,
   normalizeOptionalUrl,
   toMemberProduct,
+  type ProductImage,
   type MemberProduct,
   type MemberProductPromotion,
   type ProductOrderReport,
@@ -36,6 +38,7 @@ export type Product = {
   description: string | null
   category: ProductCategory
   image_url: string | null
+  product_images: ProductImage[]
   base_price: number
   base_cost: number
   is_active: boolean
@@ -57,10 +60,11 @@ export async function getProducts(includeInactive = false) {
 
   const { data, error } = await (supabase
     .from("products" as never)
-    .select("*, product_variants(*)")
+    .select("*, product_variants(*), product_images(id, image_url, alt_text, sort_order, is_primary)")
     .eq("gym_id", (me as { gym_id: string }).gym_id)
     .order("name")
-    .order("name", { referencedTable: "product_variants" }) as unknown as Promise<{ data: Product[] | null; error: { message: string } | null }>)
+    .order("name", { referencedTable: "product_variants" })
+    .order("sort_order", { referencedTable: "product_images" }) as unknown as Promise<{ data: Product[] | null; error: { message: string } | null }>)
 
   if (error) return { error: error.message }
 
@@ -73,6 +77,7 @@ export type CreateProductInput = {
   description: string | null
   category: ProductCategory
   imageUrl?: string | null
+  imageUrls?: string[] | null
   basePrice: number
   baseCost: number
 }
@@ -96,6 +101,8 @@ export async function createProduct(input: CreateProductInput) {
   if (input.basePrice < 0) return { error: "El precio no puede ser negativo" }
   if (input.baseCost < 0) return { error: "El costo no puede ser negativo" }
 
+  const imageUrls = normalizeImageUrls(input.imageUrls ?? [input.imageUrl])
+
   const { data, error } = await (supabase
     .from("products" as never)
     .insert({
@@ -103,7 +110,7 @@ export async function createProduct(input: CreateProductInput) {
       name: input.name.trim(),
       description: input.description,
       category: input.category,
-      image_url: normalizeOptionalUrl(input.imageUrl),
+      image_url: imageUrls[0] ?? null,
       base_price: input.basePrice,
       base_cost: input.baseCost,
       created_by: user.id,
@@ -112,6 +119,9 @@ export async function createProduct(input: CreateProductInput) {
     .single() as unknown as Promise<{ data: { id: string } | null; error: { message: string } | null }>)
 
   if (error) return { error: error.message }
+
+  const imageError = await replaceProductImages(supabase, data!.id, (me as { gym_id: string }).gym_id, imageUrls)
+  if (imageError) return { error: imageError }
 
   revalidatePath("/productos")
   return { success: true, id: data!.id }
@@ -122,6 +132,7 @@ export type UpdateProductInput = {
   description?: string | null
   category?: ProductCategory
   imageUrl?: string | null
+  imageUrls?: string[] | null
   basePrice?: number
   baseCost?: number
 }
@@ -148,7 +159,9 @@ export async function updateProduct(productId: string, input: UpdateProductInput
   }
   if (input.description !== undefined) updates.description = input.description
   if (input.category !== undefined) updates.category = input.category
-  if (input.imageUrl !== undefined) updates.image_url = normalizeOptionalUrl(input.imageUrl)
+  const shouldReplaceImages = input.imageUrls !== undefined || input.imageUrl !== undefined
+  const imageUrls = shouldReplaceImages ? normalizeImageUrls(input.imageUrls ?? [input.imageUrl]) : []
+  if (shouldReplaceImages) updates.image_url = imageUrls[0] ?? null
   if (input.basePrice !== undefined) {
     if (input.basePrice < 0) return { error: "El precio no puede ser negativo" }
     updates.base_price = input.basePrice
@@ -173,6 +186,11 @@ export async function updateProduct(productId: string, input: UpdateProductInput
   if (error) return { error: error.message }
   if (!data || data.length === 0) return { error: "Producto no encontrado" }
 
+  if (shouldReplaceImages) {
+    const imageError = await replaceProductImages(supabase, productId, (me as { gym_id: string }).gym_id, imageUrls)
+    if (imageError) return { error: imageError }
+  }
+
   revalidatePath("/productos")
   return { success: true }
 }
@@ -195,7 +213,7 @@ export async function getMemberProducts(): Promise<{ products?: MemberProduct[];
   const admin = createAdminClient()
   const { data, error } = await (admin
     .from("products" as never)
-    .select("id, name, description, category, image_url, base_price, is_active, product_variants(id, name, price, stock, is_active)")
+    .select("id, name, description, category, image_url, base_price, is_active, product_variants(id, name, price, stock, is_active), product_images(id, image_url, alt_text, sort_order, is_primary)")
     .eq("gym_id", (me as { gym_id: string }).gym_id)
     .eq("is_active", true)
     .order("name")
@@ -209,6 +227,7 @@ export async function getMemberProducts(): Promise<{ products?: MemberProduct[];
         base_price: number
         is_active: boolean
         product_variants: Array<{ id: string; name: string; price: number | null; stock: number; is_active: boolean }>
+        product_images: ProductImage[] | null
       }> | null
       error: { message: string } | null
     }>)
@@ -216,6 +235,33 @@ export async function getMemberProducts(): Promise<{ products?: MemberProduct[];
   if (error) return { error: error.message }
 
   return { products: (data ?? []).map(toMemberProduct) }
+}
+
+async function replaceProductImages(
+  supabase: ReturnType<typeof createClient>,
+  productId: string,
+  gymId: string,
+  imageUrls: string[],
+): Promise<string | null> {
+  const { error: deleteError } = await (supabase.from("product_images" as never) as any)
+    .delete()
+    .eq("product_id", productId)
+    .eq("gym_id", gymId)
+
+  if (deleteError) return deleteError.message
+  if (imageUrls.length === 0) return null
+
+  const { error: insertError } = await (supabase.from("product_images" as never) as any).insert(
+    imageUrls.map((imageUrl, index) => ({
+      product_id: productId,
+      gym_id: gymId,
+      image_url: imageUrl,
+      sort_order: index,
+      is_primary: index === 0,
+    })) as never
+  )
+
+  return insertError?.message ?? null
 }
 
 export async function toggleProductActive(productId: string, isActive: boolean) {
