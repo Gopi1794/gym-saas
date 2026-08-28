@@ -10,7 +10,6 @@ import {
   isValidProductPaymentMethod,
   isProductImageStoragePath,
   normalizeImageUrls,
-  normalizeOptionalUrl,
   toMemberProduct,
   type ProductImage,
   type MemberProduct,
