@@ -191,7 +191,7 @@ function MuscleNavigator({ selectedZone, minimized, onSelect }: { selectedZone: 
   const rightInset = minimized ? "lg:right-14" : "lg:right-[min(26rem,35vw)]"
 
   return (
-    <div className={`pointer-events-none absolute inset-y-0 left-0 right-0 z-10 flex items-center justify-between px-4 ${rightInset}`}>
+    <div className={`pointer-events-none absolute inset-x-0 top-20 z-30 flex items-center justify-between px-4 lg:inset-y-0 lg:top-auto lg:z-10 ${rightInset}`}>
       <button
         type="button"
         onClick={() => onSelect(previousZone)}
