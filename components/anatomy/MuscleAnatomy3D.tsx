@@ -345,7 +345,6 @@ export function MuscleAnatomy3D({ exercises, onClose }: MuscleAnatomy3DProps) {
             entry={MUSCLE_ANATOMY[selectedZone]}
             recommendation={getExerciseRecommendationForZone(selectedZone, exercises)}
             minimized={minimized}
-            onClose={onClose}
             onToggle={toggleMinimized}
           />
         )}
