@@ -2,6 +2,7 @@
 
 import { Component, Suspense, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from "react"
 import { createPortal } from "react-dom"
+import { motion } from "framer-motion"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { CameraControls, useGLTF, Html, Text } from "@react-three/drei"
 import * as THREE from "three"
