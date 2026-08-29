@@ -26,6 +26,14 @@ function setMaterialOpacity(object: { material?: THREE.Material | THREE.Material
   }
 }
 
+function setGroupMaterialOpacity(group: THREE.Group | null, opacity: number) {
+  group?.traverse((object) => {
+    if ("material" in object) {
+      setMaterialOpacity(object as THREE.Mesh, opacity)
+    }
+  })
+}
+
 function AnatomyFallback({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-zinc-950 p-6">
@@ -58,7 +66,7 @@ class AnatomyErrorBoundary extends Component<{ children: ReactNode; fallback: Re
 
 function MuscleMarker({ entry, onSelect, showCallout }: { entry: MuscleAnatomyEntry; onSelect: (zone: MuscleZone) => void; showCallout: boolean }) {
   const markerRootRef = useRef<THREE.Group>(null)
-  const lineRef = useRef<THREE.Line>(null)
+  const calloutRef = useRef<THREE.Group>(null)
   const dotRef = useRef<THREE.Mesh>(null)
   const ringRef = useRef<THREE.Mesh>(null)
   const labelRef = useRef<THREE.Group>(null)
@@ -88,24 +96,26 @@ function MuscleMarker({ entry, onSelect, showCallout }: { entry: MuscleAnatomyEn
 
     setMaterialOpacity(dotRef.current, dotOpacityRef.current)
     setMaterialOpacity(ringRef.current, dotOpacityRef.current * 0.75)
-    setMaterialOpacity(lineRef.current, calloutOpacityRef.current * 0.75)
+    setGroupMaterialOpacity(calloutRef.current, calloutOpacityRef.current * 0.75)
     setMaterialOpacity(textRef.current, calloutOpacityRef.current)
     markerRootRef.current.visible = Math.max(dotOpacityRef.current, calloutOpacityRef.current) > 0.01
   })
 
   return (
     <group ref={markerRootRef}>
-      <line ref={lineRef}>
-        <bufferGeometry
-          attach="geometry"
-          onUpdate={(geometry) => geometry.setFromPoints([
-            new THREE.Vector3(x, y, z),
-            new THREE.Vector3(...markerPosition),
-            new THREE.Vector3(...labelPosition),
-          ])}
-        />
-        <lineBasicMaterial color="#ef4444" transparent opacity={0.75} depthTest />
-      </line>
+      <group ref={calloutRef}>
+        <line>
+          <bufferGeometry
+            attach="geometry"
+            onUpdate={(geometry) => geometry.setFromPoints([
+              new THREE.Vector3(x, y, z),
+              new THREE.Vector3(...markerPosition),
+              new THREE.Vector3(...labelPosition),
+            ])}
+          />
+          <lineBasicMaterial color="#ef4444" transparent opacity={0.75} depthTest />
+        </line>
+      </group>
       <group
         ref={labelRef}
         position={labelPosition}

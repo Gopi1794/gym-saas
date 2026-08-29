@@ -99,7 +99,7 @@ describe("MuscleDetailSheet", () => {
     render(
       <MuscleDetailSheet
         entry={MUSCLE_ANATOMY.chest}
-        exercises={EXERCISES}
+        recommendation={{ exercises: EXERCISES, source: "direct" }}
         minimized
         onClose={vi.fn()}
         onToggle={vi.fn()}
