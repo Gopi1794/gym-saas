@@ -443,7 +443,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Cresta del tubérculo mayor del húmero",
     funcion: "Aducción, flexión y rotación interna del brazo",
     nodeNames: ["Pectoralis major muscle.el", "Pectoralis major muscle.er"],
-    pointPosition: [0.005276814103126526, 0.07152891159057617, 0.014552339911460876],
+    pointPosition: [0.19172227420787635, 1.3195691289398854, -0.016229230919791192],
   },
   pec_minor: {
     zone: "pec_minor",
@@ -453,7 +453,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Apófisis coracoides de la escápula",
     funcion: "Estabiliza y desciende la escápula; eleva las costillas en inspiración forzada",
     nodeNames: ["Pectoralis minor muscle.l", "Pectoralis minor muscle.r"],
-    pointPosition: [0.027459215372800827, -0.03701771795749664, 0.008477329276502132],
+    pointPosition: [0.10999276842227768, 1.334290886982461, 0.037255869761520816],
   },
   biceps: {
     zone: "biceps",
@@ -463,7 +463,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tuberosidad del radio y fascia del antebrazo (aponeurosis bicipital)",
     funcion: "Flexión del codo y supinación del antebrazo",
     nodeNames: ["Biceps brachii muscle.el", "Biceps brachii muscle.er"],
-    pointPosition: [0.022372692823410034, 0.09889441728591919, -0.013527833856642246],
+    pointPosition: [0.23465213643052407, 1.0637427072618018, -0.019650323790571106],
   },
   triceps: {
     zone: "triceps",
@@ -473,7 +473,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Olécranon del cúbito",
     funcion: "Extensión del codo",
     nodeNames: ["Triceps brachii muscle.el", "Triceps brachii muscle.er"],
-    pointPosition: [0.015791505575180054, 0.08141040802001953, -0.029830746352672577],
+    pointPosition: [0.21067643435714256, 1.1009191564432754, -0.053656613130917095],
   },
   shoulders: {
     zone: "shoulders",
@@ -483,7 +483,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tuberosidad deltoidea del húmero",
     funcion: "Abducción del brazo (elevación lateral)",
     nodeNames: ["Acromial part of deltoid muscle.l", "Acromial part of deltoid muscle.r"],
-    pointPosition: [0.16202393174171448, 0.004083115141838789, 0.007237554993480444],
+    pointPosition: [0.20313743662940453, 1.3671288937671426, -0.03053530392370432],
   },
   front_delts: {
     zone: "front_delts",
@@ -493,7 +493,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tuberosidad deltoidea del húmero",
     funcion: "Flexión y rotación interna del brazo",
     nodeNames: ["Clavicular part of deltoid muscle.l", "Clavicular part of deltoid muscle.r"],
-    pointPosition: [0.14730457961559296, 0.01307191327214241, 0.003624618286266923],
+    pointPosition: [0.15897937783835014, 1.3779676942286094, -0.003568909958264782],
   },
   rear_delts: {
     zone: "rear_delts",
@@ -503,7 +503,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tuberosidad deltoidea del húmero",
     funcion: "Extensión y rotación externa del brazo",
     nodeNames: ["Scapular spinal part of deltoid muscle.l", "Scapular spinal part of deltoid muscle.r"],
-    pointPosition: [0.15528571605682373, -0.00807541236281395, 0.01552328746765852],
+    pointPosition: [0.18292278847025267, 1.3422717108136912, -0.06701088895108337],
   },
   back: {
     zone: "back",
@@ -513,7 +513,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Corredera bicipital del húmero",
     funcion: "Aducción, extensión y rotación interna del brazo",
     nodeNames: ["Latissimus dorsi muscle.l", "Latissimus dorsi muscle.r"],
-    pointPosition: [-0.02242322452366352, -0.049411602318286896, 0.08975815773010254],
+    pointPosition: [0.06625735557205614, 1.0880115433832303, -0.06930657631808373],
   },
   traps: {
     zone: "traps",
@@ -527,7 +527,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
       "Descending part of trapezius muscle.l", "Descending part of trapezius muscle.r",
       "Transverse part of trapezius muscle.l", "Transverse part of trapezius muscle.r",
     ],
-    pointPosition: [-0.019175365567207336, -0.029026078060269356, 0.014692597091197968],
+    pointPosition: [0.038053877439899186, 1.312265076796196, -0.10428806525999343],
   },
   rhomboids: {
     zone: "rhomboids",
@@ -540,7 +540,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
       "Rhomboid major muscle.l", "Rhomboid major muscle.r",
       "Rhomboid minor muscle.l", "Rhomboid minor muscle.r",
     ],
-    pointPosition: [-0.010191659443080425, -0.039295393973588943, -0.001727525843307376],
+    pointPosition: [0.029562645829892098, 1.362468691760047, -0.09965517394455112],
   },
   serratus: {
     zone: "serratus",
@@ -550,7 +550,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Borde medial de la escápula (cara costal)",
     funcion: "Protrae la escápula y la estabiliza contra la caja torácica",
     nodeNames: ["Serratus anterior muscle.l", "Serratus anterior muscle.r"],
-    pointPosition: [0.028699181973934174, -0.05444220453500748, 0.016283871605992317],
+    pointPosition: [0.11495263490071883, 1.303064749991727, -0.03244206098166119],
   },
   core: {
     zone: "core",
@@ -560,7 +560,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Cartílagos costales de las costillas 5ª a 7ª y apófisis xifoides",
     funcion: "Flexión del tronco",
     nodeNames: ["Rectus abdominis muscle.l", "Rectus abdominis muscle.r"],
-    pointPosition: [0.01759221963584423, -0.026768352836370468, -0.023068103939294815],
+    pointPosition: [0.04097413469655631, 1.1085009158926376, 0.09763856169489013],
   },
   obliques: {
     zone: "obliques",
@@ -570,7 +570,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Cresta ilíaca y línea alba",
     funcion: "Flexión lateral y rotación del tronco",
     nodeNames: ["External abdominal oblique muscle.l", "External abdominal oblique muscle.r"],
-    pointPosition: [0.023284748196601868, -0.03169383108615875, -0.013722273521125317],
+    pointPosition: [0.063744249278888, 1.0711176136119518, 0.07793664444504456],
   },
   quads: {
     zone: "quads",
@@ -580,7 +580,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tuberosidad tibial vía tendón rotuliano",
     funcion: "Extensión de la rodilla",
     nodeNames: ["Quadriceps femoris muscle.el", "Quadriceps femoris muscle.er"],
-    pointPosition: [0.0007239452097564936, 0.01443503424525261, 0.00498938886448741],
+    pointPosition: [0.08563427762449105, 0.45788656336729505, 0.012444187662544872],
   },
   hamstrings: {
     zone: "hamstrings",
@@ -594,7 +594,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
       "Semitendinosus muscle.l", "Semitendinosus muscle.r",
       "Semimembranosus muscle.l", "Semimembranosus muscle.r",
     ],
-    pointPosition: [-0.012238800525665283, 0.15427368879318237, 0.0005893707275390625],
+    pointPosition: [0.1183620376264245, 0.40985578499659603, -0.04595087321785117],
   },
   glutes: {
     zone: "glutes",
@@ -604,7 +604,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Tracto iliotibial y línea áspera del fémur",
     funcion: "Extensión y rotación externa de la cadera",
     nodeNames: ["Gluteus maximus muscle.l", "Gluteus maximus muscle.r"],
-    pointPosition: [-0.04581790417432785, -0.03426723927259445, 0.020590437576174736],
+    pointPosition: [0.07832767939156215, 0.8527824780495955, -0.06686435346525538],
   },
   calves: {
     zone: "calves",
@@ -617,7 +617,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
       "Lateral head of gastrocnemius.l", "Lateral head of gastrocnemius.r",
       "Medial head of gastrocnemius.l", "Medial head of gastrocnemius.r",
     ],
-    pointPosition: [0.18762153387069702, 0.00381792476400733, -0.05340161547064781],
+    pointPosition: [0.10594226209682, 0.3656616159319598, -0.07409787124401496],
   },
   soleus: {
     zone: "soleus",
@@ -627,7 +627,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Calcáneo vía tendón de Aquiles",
     funcion: "Flexión plantar del tobillo (independiente de la posición de la rodilla)",
     nodeNames: ["Soleus muscle.l", "Soleus muscle.r"],
-    pointPosition: [0.17761975526809692, 0.011772572062909603, -0.012848015874624252],
+    pointPosition: [0.085938707574306, 0.28455447407854784, -0.05818861340975501],
   },
   lower_back: {
     zone: "lower_back",
@@ -637,7 +637,7 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     insercion: "Costillas, apófisis transversas y base del cráneo, según el fascículo",
     funcion: "Extensión de la columna vertebral",
     nodeNames: ["Erector spinae.ol", "Erector spinae.or"],
-    pointPosition: [0.019497819244861603, 0.07015073299407959, -0.056018177419900894],
+    pointPosition: [0.046878314102694385, 0.9678699957795948, -0.06814057182037628],
   },
 }
 ```
@@ -783,6 +783,8 @@ npm install --save-dev @gltf-transform/core @gltf-transform/functions @types/thr
 
 El script toma como entrada la carpeta local donde está `Startup.gltf` + `model.bin` (158MB, resultado de la conversión hecha durante el spike — no se commitea al repo) y produce `public/models/muscles.glb`. La ruta de entrada se pasa por variable de entorno para no hardcodear una ruta de la máquina del usuario.
 
+**Importante — por qué no alcanza con "conservar 50 nodos y borrar el resto":** en el modelo fuente los 19 músculos NO son nodos raíz de la escena (solo 21 de 7179 nodos lo son) — son hijos anidados de otros nodos (huesos, grupos de Z-Anatomy). Ej.: `Pectoralis major muscle.el` es hijo de `Humerus.l`. Si se descartan los nodos padre sin más, se pierde la transformación (posición/rotación) que ubica correctamente al músculo en el espacio. El script primero "hornea" la transformación mundial de cada músculo conservado con `getWorldMatrix()`/`setMatrix()` y lo re-parenta directo a la escena (`scene.addChild()`, que desengancha automáticamente del padre anterior) — recién ahí es seguro borrar todo lo demás.
+
 ```ts
 // scripts/build-anatomy-model.ts
 /**
@@ -816,29 +818,40 @@ async function main() {
   const io = new NodeIO()
   const document = await io.read(path.join(sourceDir!, "Startup.gltf"))
   const root = document.getRoot()
-
-  // Desvincula (pero no borra todavia) todo nodo que no este en KEEP_NAMES,
-  // sacandolo de la escena. prune() despues se encarga de limpiar meshes,
-  // accessors y buffers que quedaron sin referencias.
   const scene = root.listScenes()[0]
+
+  // Fase 1: para cada nodo de musculo a conservar, hornear su transformacion
+  // MUNDIAL (no la local, que es relativa a un hueso/grupo padre que vamos a
+  // borrar) y re-parentarlo directo a la escena. Tiene que pasar ANTES de
+  // borrar nada, porque getWorldMatrix() depende de la jerarquia original
+  // todavia intacta.
   let kept = 0
-  let removed = 0
   for (const node of root.listNodes()) {
     const name = node.getName()
-    if (KEEP_NAMES.has(name)) {
-      kept++
-      continue
-    }
-    node.dispose()
-    removed++
+    if (!KEEP_NAMES.has(name)) continue
+    const worldMatrix = node.getWorldMatrix()
+    node.setMatrix(worldMatrix)
+    scene.addChild(node)
+    kept++
   }
-  console.log(`Nodos conservados: ${kept} / esperados: ${KEEP_NAMES.size}`)
-  console.log(`Nodos eliminados: ${removed}`)
+  console.log(`Nodos conservados y re-parentados: ${kept} / esperados: ${KEEP_NAMES.size}`)
 
   if (kept < KEEP_NAMES.size) {
     console.error("Faltan nodos esperados — revisar MUSCLE_ANATOMY.nodeNames contra el modelo fuente.")
     process.exit(1)
   }
+
+  // Fase 2: ahora que los nodos a conservar ya estan desenganchados de sus
+  // padres originales, es seguro borrar todo lo demas (huesos, organos,
+  // etiquetas de texto de Z-Anatomy, nodos de grupo vacios).
+  let removed = 0
+  for (const node of root.listNodes()) {
+    const name = node.getName()
+    if (KEEP_NAMES.has(name)) continue
+    node.dispose()
+    removed++
+  }
+  console.log(`Nodos eliminados: ${removed}`)
 
   await document.transform(
     prune(),
@@ -878,24 +891,35 @@ npm install --save-dev meshoptimizer
 ANATOMY_SOURCE_DIR="C:/Users/gabri/Downloads/ImageToStl.com_Startup" npx tsx scripts/build-anatomy-model.ts
 ```
 
-Expected: imprime "Nodos conservados: 44 / esperados: 44" (19 zonas, algunas con más de un nodo — sumar `nodeNames.length` de las 19 entradas de `MUSCLE_ANATOMY`), sin advertencia de tamaño, y `public/models/muscles.glb` existe.
+Expected: imprime "Nodos conservados: 50 / esperados: 50" (19 zonas, algunas con más de un nodo — sumar `nodeNames.length` de las 19 entradas de `MUSCLE_ANATOMY`), sin advertencia de tamaño, y `public/models/muscles.glb` existe.
 
 Si el tamaño supera los 5MB: bajar `ratio` en `simplify()` (ej. `0.3`) y volver a correr — no commitear el resultado hasta que esté dentro del presupuesto.
 
 - [ ] **Step 5: Verificar el resultado cargándolo con un script de inspección rápido**
 
+Chequea tres cosas a la vez: la cantidad de nodos, que quedaron como hijos directos de la escena (no anidados bajo otro nodo — si esto falla, la Fase 1 del script no se ejecutó bien), y que su posición mundial coincide con el `pointPosition` que se puso en `MUSCLE_ANATOMY` para `chest`.
+
 ```bash
 node -e "
 const { NodeIO } = require('@gltf-transform/core');
 new NodeIO().read('public/models/muscles.glb').then(doc => {
-  const names = doc.getRoot().listNodes().map(n => n.getName());
-  console.log('Nodos en el .glb final:', names.length);
-  console.log(names.slice(0, 10));
+  const scene = doc.getRoot().listScenes()[0];
+  const nodes = doc.getRoot().listNodes();
+  console.log('Nodos en el .glb final:', nodes.length);
+  console.log(nodes.map(n => n.getName()).slice(0, 5));
+
+  const rootChildren = new Set(scene.listChildren().map(n => n.getName()));
+  const allAreRootChildren = nodes.every(n => rootChildren.has(n.getName()));
+  console.log('Todos son hijos directos de la escena:', allAreRootChildren);
+
+  const chestNode = nodes.find(n => n.getName() === 'Pectoralis major muscle.el');
+  console.log('Posicion mundial de Pectoralis major muscle.el:', chestNode.getWorldTranslation());
+  console.log('Deberia ser cercano a: [0.1917, 1.3196, -0.0162] (pointPosition de chest en MUSCLE_ANATOMY)');
 });
 "
 ```
 
-Expected: la cantidad de nodos coincide con la suma de `nodeNames` en `MUSCLE_ANATOMY` (44), y los nombres son reconocibles (ej. `Pectoralis major muscle.el`).
+Expected: 50 nodos, todos hijos directos de la escena (`true`), y la posición mundial impresa coincide (con margen de redondeo de punto flotante) con `[0.1917, 1.3196, -0.0162]`. Si `allAreRootChildren` da `false`, la Fase 1 del script (Step 2) no re-parentó correctamente algún nodo — no seguir a Step 6 hasta que esto de `true`.
 
 - [ ] **Step 6: Commit**
 

@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { daysUntilAR } from "@/lib/date-ar"
 
 const PUBLIC_PATHS = ["/", "/login", "/register", "/forgot-password"]
-const PUBLIC_PREFIXES = ["/api/"]
+const PUBLIC_PREFIXES = ["/api/", "/models/"]
 const ONBOARDING_PAGO = "/onboarding/pago"
 const PAYWALL_PATH = "/pagos/renovar"
 const PAYWALL_EXEMPT = [ONBOARDING_PAGO, PAYWALL_PATH, "/pagos/success", "/pagos/failure", "/pagos/pending", "/saas-admin/activate"]

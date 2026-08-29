@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type ElementType } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useRouter } from "next/navigation"
+import dynamic from "next/dynamic"
 import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X, Flame, Dumbbell, Wind, RefreshCw, ChevronDown, Info, Lightbulb, GripVertical } from "lucide-react"
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable"
@@ -19,15 +20,26 @@ import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { sileo } from "sileo"
 import { CATEGORY_ICONS, StrengthIcon } from "@/components/exercises/CategoryIcons"
+import { MuscleIcon } from "@/components/planes/MuscleIcon"
+import {
+  getMuscleMeta,
+  getMuscleZones,
+  getMuscleStatus,
+  statusLabel,
+  statusPillClass,
+  progressColor,
+  MUSCLE_ANATOMY,
+  type MuscleZone,
+} from "@/lib/muscle-anatomy"
+import type { Exercise } from "@/lib/muscle-exercises"
+
+const MuscleAnatomy3D = dynamic(
+  () => import("@/components/anatomy/MuscleAnatomy3D").then((module) => module.MuscleAnatomy3D),
+  { ssr: false },
+)
 
 const DAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 const DAY_FULL  = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-
-type Exercise = {
-  id: string; name: string; category: string
-  image_url: string | null; muscle_groups: string[]
-  is_timed: boolean
-}
 
 type SetConfig = {
   id: string
@@ -61,206 +73,6 @@ const PHASE_CARD: Record<Phase, string> = {
   warmup:   "bg-orange-50 border-orange-200/60 dark:bg-yellow-950/40 dark:border-yellow-900/20",
   main:     "bg-red-50 border-red-200/60 dark:bg-red-950/40 dark:border-red-900/20",
   cooldown: "bg-sky-50 border-sky-200/60 dark:bg-blue-950/40 dark:border-blue-900/20",
-}
-
-type MuscleZone = "chest" | "back" | "shoulders" | "biceps" | "triceps" | "quads" | "hamstrings" | "glutes" | "calves" | "core" | "obliques" | "traps" | "rhomboids" | "lower_back" | "soleus" | "serratus" | "pec_minor" | "rear_delts" | "front_delts"
-type MuscleStatus = "low" | "slightly-low" | "optimal" | "high"
-
-const MUSCLE_META: Record<string, { zone: MuscleZone; range: [number, number] }> = {
-  // Pecho
-  pecho:             { zone: "chest",       range: [10, 20] },
-  pectoral:          { zone: "chest",       range: [10, 20] },
-  pectorales:        { zone: "chest",       range: [10, 20] },
-  "pectoral menor":  { zone: "pec_minor",   range: [6,  12] },
-  serratos:          { zone: "serratus",    range: [6,  12] },
-  // Espalda
-  espalda:           { zone: "back",        range: [10, 20] },
-  dorsal:            { zone: "back",        range: [10, 20] },
-  dorsales:          { zone: "back",        range: [10, 20] },
-  "dorsal ancho":    { zone: "back",        range: [10, 20] },
-  trapecio:          { zone: "traps",       range: [8,  16] },
-  trapecios:         { zone: "traps",       range: [8,  16] },
-  romboides:         { zone: "rhomboids",   range: [6,  14] },
-  "espalda media":   { zone: "rhomboids",   range: [6,  14] },
-  lumbar:            { zone: "lower_back",  range: [6,  12] },
-  lumbares:          { zone: "lower_back",  range: [6,  12] },
-  "erector espinal": { zone: "lower_back",  range: [6,  12] },
-  // Hombros
-  hombros:               { zone: "shoulders",  range: [10, 18] },
-  deltoides:             { zone: "shoulders",  range: [10, 18] },
-  "deltoides lateral":   { zone: "shoulders",  range: [10, 18] },
-  "deltoides anterior":  { zone: "front_delts",range: [8,  16] },
-  "deltoides posterior": { zone: "rear_delts", range: [8,  16] },
-  // Brazos
-  biceps:   { zone: "biceps",   range: [8, 16] },
-  bíceps:   { zone: "biceps",   range: [8, 16] },
-  triceps:  { zone: "triceps",  range: [8, 16] },
-  tríceps:  { zone: "triceps",  range: [8, 16] },
-  // Core
-  abdomen:     { zone: "core",     range: [6, 14] },
-  abdominales: { zone: "core",     range: [6, 14] },
-  core:        { zone: "core",     range: [6, 14] },
-  oblicuos:    { zone: "obliques", range: [6, 14] },
-  // Piernas
-  cuadriceps:     { zone: "quads",      range: [10, 20] },
-  cuádriceps:     { zone: "quads",      range: [10, 20] },
-  aductores:      { zone: "quads",      range: [8,  16] },
-  isquiotibiales: { zone: "hamstrings", range: [8,  16] },
-  femorales:      { zone: "hamstrings", range: [8,  16] },
-  gluteos:        { zone: "glutes",     range: [8,  16] },
-  glúteos:        { zone: "glutes",     range: [8,  16] },
-  pantorrillas:   { zone: "calves",     range: [8,  16] },
-  gemelos:        { zone: "calves",     range: [8,  16] },
-  soleo:          { zone: "soleus",     range: [6,  14] },
-  sóleo:          { zone: "soleus",     range: [6,  14] },
-}
-
-function normalizeMuscle(muscle: string) {
-  return muscle.trim().toLowerCase()
-}
-
-function getMuscleMeta(muscle: string) {
-  return MUSCLE_META[normalizeMuscle(muscle)] ?? { zone: "core" as MuscleZone, range: [8, 16] as [number, number] }
-}
-
-function getMuscleStatus(sets: number, [min, max]: [number, number]): MuscleStatus {
-  if (sets > max) return "high"
-  if (sets >= min) return "optimal"
-  if (sets >= Math.max(1, Math.round(min * 0.75))) return "slightly-low"
-  return "low"
-}
-
-function statusLabel(status: MuscleStatus) {
-  return {
-    low: "BAJO",
-    "slightly-low": "LIGERAMENTE BAJO",
-    optimal: "ÓPTIMO",
-    high: "ALTO",
-  }[status]
-}
-
-function statusPillClass(status: MuscleStatus) {
-  return {
-    low: "bg-red-100 dark:bg-red-500/15 text-red-500",
-    "slightly-low": "bg-amber-100 dark:bg-amber-500/15 text-amber-500",
-    optimal: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-500",
-    high: "bg-orange-100 dark:bg-orange-500/15 text-orange-500",
-  }[status]
-}
-
-/**
- * Verde en 0% -> rojo en 100%, pasando por amarillo, como un gauge.
- * Luminosidad baja (40%) a propósito: al 50% da amarillo, que en 50%L
- * pierde casi todo el contraste como texto sobre fondo blanco.
- */
-function progressColor(percent: number) {
-  const t = Math.max(0, Math.min(1, percent / 100))
-  return `hsl(${120 * (1 - t)}, 70%, 40%)`
-}
-
-const MUSCLE_ZONE_IMAGE: Record<MuscleZone, string> = {
-  shoulders:   "1.png",   // Deltoides lateral
-  chest:       "2.png",   // Pectorales
-  triceps:     "3.png",   // Tríceps
-  core:        "5.png",   // Abdominales
-  obliques:    "6.png",   // Oblicuos
-  front_delts: "7.png",   // Deltoides anterior
-  calves:      "8.png",   // Gemelos
-  back:        "10.png",  // Dorsal ancho
-  traps:       "11.png",  // Trapecio
-  quads:       "14.png",  // Cuádriceps + Aductores
-  biceps:      "16.png",  // Bíceps
-  rhomboids:   "20.png",  // Romboides + Espalda media
-  hamstrings:  "22.png",  // Isquiotibiales + Glúteos
-  lower_back:  "23.png",  // Lumbar / Erector espinal
-  soleus:      "24.png",  // Sóleo + Gemelos
-  serratus:    "25.png",  // Serratos + Oblicuos
-  pec_minor:   "26.png",  // Pectoral menor
-  rear_delts:  "27.png",  // Deltoides posterior
-  glutes:      "28.png",  // Glúteos
-}
-
-function MuscleIcon({ zone, className }: { zone: MuscleZone; className?: string }) {
-  const [failed, setFailed] = useState(false)
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/muscles/${MUSCLE_ZONE_IMAGE[zone]}`
-  if (failed) return <MuscleSilhouette zone={zone} className={className} />
-  return (
-    <img
-      src={url}
-      alt={zone}
-      className={cn("object-contain", className)}
-      onError={() => setFailed(true)}
-    />
-  )
-}
-
-function MuscleSilhouette({ zone, className }: { zone: MuscleZone; className?: string }) {
-  const active = (target: MuscleZone | MuscleZone[]) => {
-    const targets = Array.isArray(target) ? target : [target]
-    return targets.includes(zone)
-  }
-
-  return (
-    <svg viewBox="0 0 64 96" className={className} aria-hidden="true">
-      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500/60">
-        <circle cx="32" cy="10" r="6" fill="currentColor" className="text-zinc-500/45" />
-        <path d="M25 20h14l5 23-4 26H24l-4-26 5-23Z" fill="currentColor" className="text-zinc-500/35" />
-        <path d="M24 25 12 37M40 25l12 12M24 69l-7 20M40 69l7 20" strokeWidth="7" />
-      </g>
-      <g className="text-red-500 drop-shadow-[0_0_7px_rgba(239,68,68,0.7)]" fill="currentColor" opacity="0.95">
-        {active("shoulders") && (
-          <>
-            <circle cx="22" cy="25" r="5" />
-            <circle cx="42" cy="25" r="5" />
-          </>
-        )}
-        {active("chest") && (
-          <>
-            <path d="M25 28c4-4 10-4 14 0l-2 11H27l-2-11Z" />
-            <path d="M32 28v12" stroke="rgba(0,0,0,.35)" strokeWidth="1" />
-          </>
-        )}
-        {active("back") && <path d="M23 25c5 4 13 4 18 0l2 20c-7 5-15 5-22 0l2-20Z" />}
-        {active("biceps") && (
-          <>
-            <path d="M15 36c5 2 7 9 4 15l-5-2c2-5 1-9-3-12l4-1Z" />
-            <path d="M49 36c-5 2-7 9-4 15l5-2c-2-5-1-9 3-12l-4-1Z" />
-          </>
-        )}
-        {active("triceps") && (
-          <>
-            <path d="M18 42c4 4 4 11 1 17l-5-2c2-5 2-10 0-14l4-1Z" />
-            <path d="M46 42c-4 4-4 11-1 17l5-2c-2-5-2-10 0-14l-4-1Z" />
-          </>
-        )}
-        {active("core") && <path d="M27 42h10l2 16H25l2-16Z" />}
-        {active("glutes") && (
-          <>
-            <path d="M24 60c4-3 7-3 8 2v7h-8v-9Z" />
-            <path d="M40 60c-4-3-7-3-8 2v7h8v-9Z" />
-          </>
-        )}
-        {active("quads") && (
-          <>
-            <path d="M24 70h8l-2 19h-7l1-19Z" />
-            <path d="M40 70h-8l2 19h7l-1-19Z" />
-          </>
-        )}
-        {active("hamstrings") && (
-          <>
-            <path d="M23 69h7l-1 19h-7l1-19Z" />
-            <path d="M41 69h-7l1 19h7l-1-19Z" />
-          </>
-        )}
-        {active("calves") && (
-          <>
-            <path d="M22 82h7l-1 11h-8l2-11Z" />
-            <path d="M42 82h-7l1 11h8l-2-11Z" />
-          </>
-        )}
-      </g>
-    </svg>
-  )
 }
 
 function SortableExerciseWrapper({
@@ -346,9 +158,10 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [pickerPhase, setPickerPhase] = useState<Phase>("main")
+  const [anatomyZone, setAnatomyZone] = useState<MuscleZone | null>(null)
 
   const muscleVolume = useMemo(() => {
-    const counts = new Map<string, number>()
+    const counts = new Map<MuscleZone, number>()
     for (const day of Object.values(days)) {
       for (const ex of day.exercises) {
         // set_configs es la fuente real de series desde que existe el flujo de
@@ -357,18 +170,20 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
         // fallback para ejercicios que nunca pasaron por ese flujo (generatePlan, CSV, etc).
         const setCount = ex.set_configs.length > 0 ? ex.set_configs.length : ex.sets
         for (const m of ex.exercises.muscle_groups ?? []) {
-          const key = m.charAt(0).toUpperCase() + m.slice(1).toLowerCase()
-          counts.set(key, (counts.get(key) ?? 0) + setCount)
+          for (const zone of getMuscleZones(m)) {
+            counts.set(zone, (counts.get(zone) ?? 0) + setCount)
+          }
         }
       }
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
   }, [days])
   const muscleVolumeStats = useMemo(() => {
-    return muscleVolume.map(([muscle, sets]) => {
-      const meta = getMuscleMeta(muscle)
+    return muscleVolume.flatMap(([zone, sets]) => {
+      const meta = getMuscleMeta(zone)
+      if (!meta) return []
       const status = getMuscleStatus(sets, meta.range)
-      return { muscle, sets, ...meta, status }
+      return [{ muscle: MUSCLE_ANATOMY[zone].displayName, sets, ...meta, status }]
     })
   }, [muscleVolume])
   const totalMuscleSets = muscleVolumeStats.reduce((sum, item) => sum + item.sets, 0)
@@ -1068,7 +883,11 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
                 const ringCircumference = 2 * Math.PI * 72
                 const ringColor = progressColor(progress)
                 return (
-                  <div key={muscle} className="relative rounded-[20px] overflow-hidden border border-zinc-200 dark:border-white/[5%] bg-white dark:bg-[#111214] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:shadow-none flex flex-col">
+                  <div
+                    key={muscle}
+                    onClick={() => setAnatomyZone(zone)}
+                    className="relative rounded-[20px] overflow-hidden border border-zinc-200 dark:border-white/[5%] bg-white dark:bg-[#111214] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:shadow-none flex flex-col cursor-pointer"
+                  >
                     {/* Series totales vs. recomendado */}
                     <span className="absolute right-3 top-3 z-10 flex h-7 min-w-7 items-center justify-center rounded-full bg-red-600 px-1.5 text-[13px] font-black text-white shadow-[0_2px_6px_rgba(220,38,38,0.4)]">
                       {sets}
@@ -1225,6 +1044,12 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
           </div>
         </DialogContent>
       </Dialog>}
+      {anatomyZone && (
+        <MuscleAnatomy3D
+          exercises={exercises}
+          onClose={() => setAnatomyZone(null)}
+        />
+      )}
     </div>
   )
 }
