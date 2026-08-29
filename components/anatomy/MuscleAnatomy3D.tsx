@@ -290,8 +290,21 @@ export function MuscleAnatomy3D({ exercises, onClose }: MuscleAnatomy3DProps) {
   }, [onClose])
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-0 backdrop-blur-sm dark:bg-black/70 lg:p-8">
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-slate-50 text-slate-950 lg:h-[min(900px,calc(100vh-4rem))] lg:max-w-[1440px] lg:rounded-3xl lg:border lg:border-cyan-700/15 lg:shadow-[0_32px_120px_rgba(15,23,42,0.24)] dark:bg-[#030712] dark:text-zinc-50 dark:lg:border-cyan-300/10 dark:lg:shadow-[0_32px_120px_rgba(0,0,0,0.65)]" role="dialog" aria-modal="true" aria-labelledby="anatomy-title">
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-0 backdrop-blur-sm dark:bg-black/70 lg:p-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+    >
+    <motion.div
+      className="relative flex h-full w-full flex-col overflow-hidden bg-slate-50 text-slate-950 lg:h-[min(900px,calc(100vh-4rem))] lg:max-w-[1440px] lg:rounded-3xl lg:border lg:border-cyan-700/15 lg:shadow-[0_32px_120px_rgba(15,23,42,0.24)] dark:bg-[#030712] dark:text-zinc-50 dark:lg:border-cyan-300/10 dark:lg:shadow-[0_32px_120px_rgba(0,0,0,0.65)]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="anatomy-title"
+      initial={{ opacity: 0, scale: 0.985, y: 12 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.28, ease: "easeOut" }}
+    >
       <div className="flex items-center justify-between px-4 py-3">
         <div>
           <p id="anatomy-title" className="font-heading text-sm uppercase tracking-wide text-slate-600 dark:text-zinc-400">Anatomía</p>
@@ -350,8 +363,8 @@ export function MuscleAnatomy3D({ exercises, onClose }: MuscleAnatomy3DProps) {
           />
         )}
       </div>
-    </div>
-    </div>,
+    </motion.div>
+    </motion.div>,
     document.body,
   )
 }
