@@ -16,7 +16,6 @@ describe("MuscleDetailSheet", () => {
         entry={MUSCLE_ANATOMY.chest}
         recommendation={{ exercises: EXERCISES, source: "direct" }}
         minimized={false}
-        onClose={vi.fn()}
         onToggle={vi.fn()}
       />
     )
@@ -31,11 +30,24 @@ describe("MuscleDetailSheet", () => {
         entry={MUSCLE_ANATOMY.chest}
         recommendation={{ exercises: EXERCISES, source: "direct" }}
         minimized={false}
-        onClose={vi.fn()}
         onToggle={vi.fn()}
       />
     )
     expect(screen.getByText("Press de banca")).toBeInTheDocument()
+  })
+
+  it("usa solo la flecha para ocultar el drawer de escritorio", () => {
+    render(
+      <MuscleDetailSheet
+        entry={MUSCLE_ANATOMY.chest}
+        recommendation={{ exercises: EXERCISES, source: "direct" }}
+        minimized={false}
+        onToggle={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole("button", { name: "Ocultar ficha" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Cerrar" })).not.toBeInTheDocument()
   })
 
   it("explica como se completan los ejercicios cuando la zona esta vacia", () => {
@@ -44,7 +56,6 @@ describe("MuscleDetailSheet", () => {
         entry={MUSCLE_ANATOMY.chest}
         recommendation={{ exercises: [], source: "none" }}
         minimized={false}
-        onClose={vi.fn()}
         onToggle={vi.fn()}
       />
     )
@@ -58,7 +69,6 @@ describe("MuscleDetailSheet", () => {
         entry={MUSCLE_ANATOMY.chest}
         recommendation={{ exercises: EXERCISES, source: "direct" }}
         minimized={true}
-        onClose={vi.fn()}
         onToggle={vi.fn()}
       />
     )
@@ -72,7 +82,6 @@ describe("MuscleDetailSheet", () => {
         entry={MUSCLE_ANATOMY.chest}
         recommendation={{ exercises: EXERCISES, source: "direct" }}
         minimized
-        onClose={vi.fn()}
         onToggle={onToggle}
       />
     )
@@ -87,7 +96,6 @@ describe("MuscleDetailSheet", () => {
         entry={MUSCLE_ANATOMY.chest}
         recommendation={{ exercises: EXERCISES, source: "direct" }}
         minimized={false}
-        onClose={vi.fn()}
         onToggle={vi.fn()}
       />
     )
@@ -101,7 +109,6 @@ describe("MuscleDetailSheet", () => {
         entry={MUSCLE_ANATOMY.chest}
         recommendation={{ exercises: EXERCISES, source: "direct" }}
         minimized
-        onClose={vi.fn()}
         onToggle={vi.fn()}
       />
     )

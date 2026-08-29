@@ -1,7 +1,7 @@
 ﻿"use client"
 
 import { AnimatePresence, motion } from "framer-motion"
-import { X, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import type { MuscleAnatomyEntry } from "@/lib/muscle-anatomy"
 import type { ExerciseRecommendation } from "@/lib/muscle-exercises"
 
@@ -9,11 +9,10 @@ interface MuscleDetailSheetProps {
   entry: MuscleAnatomyEntry
   recommendation: ExerciseRecommendation
   minimized: boolean
-  onClose: () => void
   onToggle: () => void
 }
 
-export function MuscleDetailSheet({ entry, recommendation, minimized, onClose, onToggle }: MuscleDetailSheetProps) {
+export function MuscleDetailSheet({ entry, recommendation, minimized, onToggle }: MuscleDetailSheetProps) {
   const { exercises, source } = recommendation
   return (
     <div
@@ -50,22 +49,13 @@ export function MuscleDetailSheet({ entry, recommendation, minimized, onClose, o
                     {entry.category}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={onToggle}
-                    className="hidden h-9 w-9 place-items-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-100 lg:grid"
-                    aria-label="Ocultar ficha"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={onClose}
-                    className="grid h-9 w-9 place-items-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-100"
-                    aria-label="Cerrar"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={onToggle}
+                  className="hidden h-9 w-9 place-items-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-100 lg:grid"
+                  aria-label="Ocultar ficha"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
 
               <div className="mt-4 space-y-2 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-[13px]">
