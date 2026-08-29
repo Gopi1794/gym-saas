@@ -21,13 +21,15 @@ export function MuscleDetailSheet({ entry, recommendation, minimized, onClose, o
       className={`absolute inset-x-0 bottom-0 z-20 rounded-t-3xl border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-md lg:inset-y-0 lg:right-0 lg:left-auto lg:overflow-y-auto lg:rounded-l-3xl lg:rounded-tr-none lg:border-t-0 lg:border-l lg:transition-[width] lg:duration-200 ${minimized ? "lg:w-14" : "lg:w-[min(26rem,35vw)]"}`}
       aria-label={`Detalles de ${entry.displayName}`}
     >
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center justify-center py-3 lg:hidden"
-        aria-label={minimized ? `Mostrar ficha de ${entry.displayName}` : "Minimizar"}
-      >
-        <span className="h-1 w-10 rounded-full bg-zinc-700" />
-      </button>
+      {!minimized && (
+        <button
+          onClick={onToggle}
+          className="flex w-full items-center justify-center py-3 lg:hidden"
+          aria-label="Minimizar"
+        >
+          <span className="h-1 w-10 rounded-full bg-zinc-700" />
+        </button>
+      )}
 
       {!minimized && (
         <div className="px-6 pb-8">
@@ -119,7 +121,7 @@ export function MuscleDetailSheet({ entry, recommendation, minimized, onClose, o
         <button
           onClick={onToggle}
           className="hidden h-full w-full items-start justify-center pt-6 text-zinc-400 hover:text-zinc-100 lg:flex"
-          aria-label={`Mostrar ficha de ${entry.displayName}`}
+          aria-label={`Abrir drawer de ${entry.displayName}`}
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
