@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type ElementType } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useRouter } from "next/navigation"
+import dynamic from "next/dynamic"
 import { ArrowLeft, Plus, Trash2, Search, Moon, Copy, X, Flame, Dumbbell, Wind, RefreshCw, ChevronDown, Info, Lightbulb, GripVertical } from "lucide-react"
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable"
@@ -20,16 +21,22 @@ import { cn } from "@/lib/utils"
 import { sileo } from "sileo"
 import { CATEGORY_ICONS, StrengthIcon } from "@/components/exercises/CategoryIcons"
 import { MuscleIcon } from "@/components/planes/MuscleIcon"
-import { MuscleAnatomy3D } from "@/components/anatomy/MuscleAnatomy3D"
 import {
   getMuscleMeta,
+  getMuscleZones,
   getMuscleStatus,
   statusLabel,
   statusPillClass,
   progressColor,
+  MUSCLE_ANATOMY,
   type MuscleZone,
 } from "@/lib/muscle-anatomy"
 import type { Exercise } from "@/lib/muscle-exercises"
+
+const MuscleAnatomy3D = dynamic(
+  () => import("@/components/anatomy/MuscleAnatomy3D").then((module) => module.MuscleAnatomy3D),
+  { ssr: false },
+)
 
 const DAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 const DAY_FULL  = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
@@ -154,7 +161,7 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
   const [anatomyZone, setAnatomyZone] = useState<MuscleZone | null>(null)
 
   const muscleVolume = useMemo(() => {
-    const counts = new Map<string, number>()
+    const counts = new Map<MuscleZone, number>()
     for (const day of Object.values(days)) {
       for (const ex of day.exercises) {
         // set_configs es la fuente real de series desde que existe el flujo de
@@ -163,18 +170,20 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
         // fallback para ejercicios que nunca pasaron por ese flujo (generatePlan, CSV, etc).
         const setCount = ex.set_configs.length > 0 ? ex.set_configs.length : ex.sets
         for (const m of ex.exercises.muscle_groups ?? []) {
-          const key = m.charAt(0).toUpperCase() + m.slice(1).toLowerCase()
-          counts.set(key, (counts.get(key) ?? 0) + setCount)
+          for (const zone of getMuscleZones(m)) {
+            counts.set(zone, (counts.get(zone) ?? 0) + setCount)
+          }
         }
       }
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
   }, [days])
   const muscleVolumeStats = useMemo(() => {
-    return muscleVolume.map(([muscle, sets]) => {
-      const meta = getMuscleMeta(muscle)
+    return muscleVolume.flatMap(([zone, sets]) => {
+      const meta = getMuscleMeta(zone)
+      if (!meta) return []
       const status = getMuscleStatus(sets, meta.range)
-      return { muscle, sets, ...meta, status }
+      return [{ muscle: MUSCLE_ANATOMY[zone].displayName, sets, ...meta, status }]
     })
   }, [muscleVolume])
   const totalMuscleSets = muscleVolumeStats.reduce((sum, item) => sum + item.sets, 0)
@@ -1037,7 +1046,6 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
       </Dialog>}
       {anatomyZone && (
         <MuscleAnatomy3D
-          initialZone={anatomyZone}
           exercises={exercises}
           onClose={() => setAnatomyZone(null)}
         />

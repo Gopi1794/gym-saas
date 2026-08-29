@@ -1,63 +1,46 @@
-export type MuscleZone = "chest" | "back" | "shoulders" | "biceps" | "triceps" | "quads" | "hamstrings" | "glutes" | "calves" | "core" | "obliques" | "traps" | "rhomboids" | "lower_back" | "soleus" | "serratus" | "pec_minor" | "rear_delts" | "front_delts"
+﻿export type MuscleZone = "chest" | "back" | "shoulders" | "biceps" | "triceps" | "quads" | "hamstrings" | "glutes" | "calves" | "core" | "obliques" | "traps" | "rhomboids" | "lower_back" | "soleus" | "serratus" | "pec_minor" | "rear_delts" | "front_delts" | "forearms" | "adductors" | "abductors" | "hip_flexors" | "rotator_cuff"
 export type MuscleStatus = "low" | "slightly-low" | "optimal" | "high"
 
-export const MUSCLE_META: Record<string, { zone: MuscleZone; range: [number, number] }> = {
-  // Pecho
-  pecho:             { zone: "chest",       range: [10, 20] },
-  pectoral:          { zone: "chest",       range: [10, 20] },
-  pectorales:        { zone: "chest",       range: [10, 20] },
-  "pectoral menor":  { zone: "pec_minor",   range: [6,  12] },
-  serratos:          { zone: "serratus",    range: [6,  12] },
-  // Espalda
-  espalda:           { zone: "back",        range: [10, 20] },
-  dorsal:            { zone: "back",        range: [10, 20] },
-  dorsales:          { zone: "back",        range: [10, 20] },
-  "dorsal ancho":    { zone: "back",        range: [10, 20] },
-  trapecio:          { zone: "traps",       range: [8,  16] },
-  trapecios:         { zone: "traps",       range: [8,  16] },
-  romboides:         { zone: "rhomboids",   range: [6,  14] },
-  "espalda media":   { zone: "rhomboids",   range: [6,  14] },
-  lumbar:            { zone: "lower_back",  range: [6,  12] },
-  lumbares:          { zone: "lower_back",  range: [6,  12] },
-  "erector espinal": { zone: "lower_back",  range: [6,  12] },
-  // Hombros
-  hombros:               { zone: "shoulders",  range: [10, 18] },
-  deltoides:             { zone: "shoulders",  range: [10, 18] },
-  "deltoides lateral":   { zone: "shoulders",  range: [10, 18] },
-  "deltoides anterior":  { zone: "front_delts",range: [8,  16] },
-  "deltoides posterior": { zone: "rear_delts", range: [8,  16] },
-  // Brazos
-  biceps:   { zone: "biceps",   range: [8, 16] },
-  bíceps:   { zone: "biceps",   range: [8, 16] },
-  triceps:  { zone: "triceps",  range: [8, 16] },
-  tríceps:  { zone: "triceps",  range: [8, 16] },
-  // Core
-  abdomen:     { zone: "core",     range: [6, 14] },
-  abdominales: { zone: "core",     range: [6, 14] },
-  core:        { zone: "core",     range: [6, 14] },
-  oblicuos:    { zone: "obliques", range: [6, 14] },
-  // Piernas
-  cuadriceps:     { zone: "quads",      range: [10, 20] },
-  cuádriceps:     { zone: "quads",      range: [10, 20] },
-  aductores:      { zone: "quads",      range: [8,  16] },
-  isquiotibiales: { zone: "hamstrings", range: [8,  16] },
-  femorales:      { zone: "hamstrings", range: [8,  16] },
-  gluteos:        { zone: "glutes",     range: [8,  16] },
-  glúteos:        { zone: "glutes",     range: [8,  16] },
-  pantorrillas:   { zone: "calves",     range: [8,  16] },
-  gemelos:        { zone: "calves",     range: [8,  16] },
-  soleo:          { zone: "soleus",     range: [6,  14] },
-  sóleo:          { zone: "soleus",     range: [6,  14] },
-}
+type MuscleMeta = { zone: MuscleZone; zones: MuscleZone[]; range: [number, number] }
 
 export function normalizeMuscle(muscle: string) {
-  return muscle.trim().toLowerCase()
+  return muscle.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+}
+
+const muscleMeta = (zone: MuscleZone, range: [number, number], zones: MuscleZone[] = [zone]): MuscleMeta => ({ zone, zones, range })
+
+// Los aliases pueden llegar desde seeds, CSVs o la IA en español, inglés, plural o con acentos.
+// Las etiquetas compuestas se distribuyen a las zonas musculares que realmente trabajan.
+export const MUSCLE_META: Record<string, MuscleMeta> = {
+  pecho: muscleMeta("chest", [10, 20]), chest: muscleMeta("chest", [10, 20]), pectoral: muscleMeta("chest", [10, 20]), pectorales: muscleMeta("chest", [10, 20]), "upper chest": muscleMeta("chest", [10, 20]),
+  "pectoral menor": muscleMeta("pec_minor", [6, 12]), "pec minor": muscleMeta("pec_minor", [6, 12]),
+  serratos: muscleMeta("serratus", [6, 12]), serrato: muscleMeta("serratus", [6, 12]), serratus: muscleMeta("serratus", [6, 12]),
+  espalda: muscleMeta("back", [10, 20]), back: muscleMeta("back", [10, 20]), dorsal: muscleMeta("back", [10, 20]), dorsales: muscleMeta("back", [10, 20]), "dorsal ancho": muscleMeta("back", [10, 20]), lats: muscleMeta("back", [10, 20]),
+  trapecio: muscleMeta("traps", [8, 16]), traps: muscleMeta("traps", [8, 16]), "espalda alta": muscleMeta("traps", [8, 16], ["traps", "rhomboids"]), "upper back": muscleMeta("traps", [8, 16], ["traps", "rhomboids"]),
+  romboides: muscleMeta("rhomboids", [6, 14]), rhomboids: muscleMeta("rhomboids", [6, 14]), "espalda media": muscleMeta("rhomboids", [6, 14]),
+  lumbar: muscleMeta("lower_back", [6, 12]), lumbares: muscleMeta("lower_back", [6, 12]), "erector espinal": muscleMeta("lower_back", [6, 12]), "lower back": muscleMeta("lower_back", [6, 12]),
+  hombros: muscleMeta("shoulders", [10, 18]), shoulders: muscleMeta("shoulders", [10, 18]), deltoides: muscleMeta("shoulders", [10, 18]), deltoids: muscleMeta("shoulders", [10, 18]), "deltoides lateral": muscleMeta("shoulders", [10, 18]), "medial delts": muscleMeta("shoulders", [10, 18]),
+  "deltoides anterior": muscleMeta("front_delts", [8, 16]), "front delts": muscleMeta("front_delts", [8, 16]), "deltoides posterior": muscleMeta("rear_delts", [8, 16]), "rear delts": muscleMeta("rear_delts", [8, 16]),
+  biceps: muscleMeta("biceps", [8, 16]), triceps: muscleMeta("triceps", [8, 16]), brazos: muscleMeta("biceps", [8, 16], ["biceps", "triceps", "forearms"]), arms: muscleMeta("biceps", [8, 16], ["biceps", "triceps", "forearms"]),
+  antebrazo: muscleMeta("forearms", [6, 14]), antebrazos: muscleMeta("forearms", [6, 14]), forearm: muscleMeta("forearms", [6, 14]), forearms: muscleMeta("forearms", [6, 14]),
+  abdomen: muscleMeta("core", [6, 14]), abdominales: muscleMeta("core", [6, 14]), core: muscleMeta("core", [6, 14]), "lower abs": muscleMeta("core", [6, 14]), oblicuos: muscleMeta("obliques", [6, 14]), obliques: muscleMeta("obliques", [6, 14]),
+  cuadriceps: muscleMeta("quads", [10, 20]), quads: muscleMeta("quads", [10, 20]), piernas: muscleMeta("quads", [10, 20], ["quads", "hamstrings", "calves"]), legs: muscleMeta("quads", [10, 20], ["quads", "hamstrings", "calves"]),
+  aductores: muscleMeta("adductors", [6, 12]), adductors: muscleMeta("adductors", [6, 12]), abductores: muscleMeta("abductors", [6, 12]), abductors: muscleMeta("abductors", [6, 12]), piriforme: muscleMeta("abductors", [6, 12]), piriformis: muscleMeta("abductors", [6, 12]),
+  isquiotibiales: muscleMeta("hamstrings", [8, 16]), femorales: muscleMeta("hamstrings", [8, 16]), hamstrings: muscleMeta("hamstrings", [8, 16]),
+  gluteos: muscleMeta("glutes", [8, 16]), glutes: muscleMeta("glutes", [8, 16]), pantorrillas: muscleMeta("calves", [8, 16]), calves: muscleMeta("calves", [8, 16]), gemelos: muscleMeta("calves", [8, 16]), soleo: muscleMeta("soleus", [6, 12]), soleus: muscleMeta("soleus", [6, 12]),
+  "flexores de cadera": muscleMeta("hip_flexors", [6, 12]), "hip flexors": muscleMeta("hip_flexors", [6, 12]), caderas: muscleMeta("hip_flexors", [6, 12]), hips: muscleMeta("hip_flexors", [6, 12]),
+  "manguito rotador": muscleMeta("rotator_cuff", [4, 10]), "rotator cuff": muscleMeta("rotator_cuff", [4, 10]),
+  "full body": muscleMeta("chest", [8, 16], ["chest", "back", "shoulders", "biceps", "triceps", "core", "quads", "hamstrings", "glutes", "calves"]),
+  estabilizadores: muscleMeta("core", [6, 14]), stabilizers: muscleMeta("core", [6, 14]),
 }
 
 export function getMuscleMeta(muscle: string) {
-  return MUSCLE_META[normalizeMuscle(muscle)] ?? { zone: "core" as MuscleZone, range: [8, 16] as [number, number] }
+  return MUSCLE_META[normalizeMuscle(muscle)] ?? null
 }
 
+export function getMuscleZones(muscle: string): MuscleZone[] {
+  return getMuscleMeta(muscle)?.zones ?? []
+}
 export function getMuscleStatus(sets: number, [min, max]: [number, number]): MuscleStatus {
   if (sets > max) return "high"
   if (sets >= min) return "optimal"
@@ -113,6 +96,11 @@ export const MUSCLE_ZONE_IMAGE: Record<MuscleZone, string> = {
   pec_minor:   "26.png",  // Pectoral menor
   rear_delts:  "27.png",  // Deltoides posterior
   glutes:      "28.png",  // Glúteos
+  forearms:    "16.png",  // Antebrazos (referencia de brazo)
+  adductors:   "14.png",  // Aductores (referencia de muslo)
+  abductors:   "28.png",  // Abductores (referencia de cadera)
+  hip_flexors: "5.png",   // Flexores de cadera (referencia de torso)
+  rotator_cuff:"27.png",  // Manguito rotador (referencia de hombro posterior)
 }
 
 export type MuscleAnatomyEntry = {
@@ -359,4 +347,74 @@ export const MUSCLE_ANATOMY: Record<MuscleZone, MuscleAnatomyEntry> = {
     pointPosition: [0.05340473743339608, -0.09336409777526378, -0.08047299929880149],
     facing: "back",
   },
+  forearms: {
+    zone: "forearms",
+    displayName: "Antebrazos",
+    category: "Brazo inferior",
+    origen: "Epicóndilos del húmero y superficies del radio y cúbito",
+    insercion: "Huesos de la mano mediante tendones que cruzan la muñeca",
+    funcion: "Flexión, extensión y agarre de la mano y la muñeca",
+    nodeNames: ["Forearm muscles.l", "Forearm muscles.r"],
+    pointPosition: [0.254, -0.18, 0.005],
+    facing: "front",
+  },
+  adductors: {
+    zone: "adductors",
+    displayName: "Aductores",
+    category: "Muslo interno",
+    origen: "Pubis e isquion",
+    insercion: "Fémur y tibia medial",
+    funcion: "Aduce la cadera y estabiliza la pelvis",
+    nodeNames: ["Adductor longus muscle.l", "Adductor longus muscle.r"],
+    pointPosition: [0.032, -0.5, 0.025],
+    facing: "front",
+  },
+  abductors: {
+    zone: "abductors",
+    displayName: "Abductores de Cadera",
+    category: "Cadera lateral",
+    origen: "Ilion",
+    insercion: "Trocánter mayor del fémur",
+    funcion: "Abduce y estabiliza la pelvis durante el apoyo unilateral",
+    nodeNames: ["Gluteus medius muscle.l", "Gluteus medius muscle.r"],
+    pointPosition: [0.145, -0.3, 0.01],
+    facing: "front",
+  },
+  hip_flexors: {
+    zone: "hip_flexors",
+    displayName: "Flexores de Cadera",
+    category: "Cadera anterior",
+    origen: "Vértebras lumbares y fosa ilíaca",
+    insercion: "Trocánter menor del fémur",
+    funcion: "Flexiona la cadera y contribuye a la estabilidad lumbopélvica",
+    nodeNames: ["Iliopsoas muscle.l", "Iliopsoas muscle.r"],
+    pointPosition: [0.075, -0.22, 0.075],
+    facing: "front",
+  },
+  rotator_cuff: {
+    zone: "rotator_cuff",
+    displayName: "Manguito Rotador",
+    category: "Hombro profundo",
+    origen: "Escápula",
+    insercion: "Tubérculos mayor y menor del húmero",
+    funcion: "Estabiliza la articulación del hombro y asiste sus rotaciones",
+    nodeNames: ["Supraspinatus muscle.l", "Supraspinatus muscle.r"],
+    pointPosition: [0.135, 0.225, -0.11],
+    facing: "back",
+  },
+}
+
+const LEFT_SIDE_ZONES = new Set<MuscleZone>([
+  "chest", "biceps", "shoulders", "rear_delts", "traps", "serratus",
+  "quads", "glutes", "soleus", "adductors", "hip_flexors",
+])
+
+const CENTERED_ZONES = new Set<MuscleZone>(["core", "lower_back"])
+
+// El modelo representa ambos lados del cuerpo. Se usa un solo punto por zona,
+// alternado entre ambos lados para evitar una columna de marcadores superpuestos.
+export function getAnatomyPointPosition(zone: MuscleZone): [number, number, number] {
+  const [x, y, z] = MUSCLE_ANATOMY[zone].pointPosition
+  if (CENTERED_ZONES.has(zone)) return [0, y, z]
+  return [LEFT_SIDE_ZONES.has(zone) ? -x : x, y, z]
 }

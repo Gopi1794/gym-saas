@@ -1,42 +1,159 @@
-"use client"
+﻿"use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Canvas, useFrame } from "@react-three/fiber"
-import { CameraControls, useGLTF, Html } from "@react-three/drei"
+import { Component, Suspense, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from "react"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
+import { CameraControls, useGLTF, Html, Text } from "@react-three/drei"
 import * as THREE from "three"
-import { X } from "lucide-react"
-import { MUSCLE_ANATOMY, type MuscleZone } from "@/lib/muscle-anatomy"
-import { getExercisesForZone, type Exercise } from "@/lib/muscle-exercises"
+import { ChevronLeft, ChevronRight, X } from "lucide-react"
+import { getAnatomyPointPosition, MUSCLE_ANATOMY, type MuscleAnatomyEntry, type MuscleZone } from "@/lib/muscle-anatomy"
+import { getExerciseRecommendationForZone, type Exercise } from "@/lib/muscle-exercises"
 import { MuscleDetailSheet } from "./MuscleDetailSheet"
 import { MuscleIcon } from "@/components/planes/MuscleIcon"
 
 const MODEL_PATH = "/models/muscles.glb"
 
 interface MuscleAnatomy3DProps {
-  initialZone: MuscleZone
   exercises: Exercise[]
   onClose: () => void
 }
 
-function Body({ onSelect, isIdle }: { onSelect: (zone: MuscleZone) => void; isIdle: boolean }) {
-  // El modelo (Male Full Body Ecorche, CC-BY-4.0 -- credito en el header de
-  // MuscleAnatomy3D de abajo) tiene solo 16 mallas sin nombre anatomico util
-  // (Object_N generico, ver scripts/build-ecorche2-model.ts) -- no hay forma
-  // de mapear una zona trackeada a una malla especifica, asi que a diferencia
-  // del modelo de Z-Anatomy que reemplaza, no hay highlight ni aislamiento de
-  // pieza: el cuerpo se ve siempre completo, y los 19 marcadores pulsantes
-  // (pointPosition) son la unica forma de seleccionar una zona. Por eso no
-  // hace falta clonar la escena cacheada de useGLTF -- nada muta sus
-  // materiales, asi que reusar la misma instancia entre re-aperturas del
-  // explorador es seguro (el unico caso en que clonar seria necesario es
-  // montar dos instancias de MuscleAnatomy3D a la vez, y el componente se usa
-  // como overlay de pantalla completa unico, nunca dos a la vez).
+function setMaterialOpacity(object: { material?: THREE.Material | THREE.Material[] } | null, opacity: number) {
+  if (!object?.material) return
+  const materials = Array.isArray(object.material) ? object.material : [object.material]
+  for (const material of materials) {
+    material.transparent = true
+    material.opacity = opacity
+  }
+}
+
+function AnatomyFallback({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-zinc-950 p-6">
+      <MuscleIcon zone="chest" className="h-40 w-32" />
+      <p className="max-w-sm text-center text-sm text-zinc-400">
+        No se pudo cargar el modelo 3D. Podés volver al plan y usar la vista de músculos.
+      </p>
+      <button onClick={onClose} className="rounded-full bg-zinc-800 px-4 py-2 text-sm text-zinc-200">
+        Volver
+      </button>
+    </div>
+  )
+}
+
+class AnatomyErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("No se pudo cargar el explorador de anatomía", error, info)
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children
+  }
+}
+
+function MuscleMarker({ entry, onSelect, showCallout }: { entry: MuscleAnatomyEntry; onSelect: (zone: MuscleZone) => void; showCallout: boolean }) {
+  const markerRootRef = useRef<THREE.Group>(null)
+  const lineRef = useRef<THREE.Line>(null)
+  const dotRef = useRef<THREE.Mesh>(null)
+  const ringRef = useRef<THREE.Mesh>(null)
+  const labelRef = useRef<THREE.Group>(null)
+  const textRef = useRef<THREE.Mesh>(null)
+  const dotOpacityRef = useRef(1)
+  const calloutOpacityRef = useRef(1)
+  const { camera } = useThree()
+  const [x, y, z] = getAnatomyPointPosition(entry.zone)
+  const surfaceOffset = entry.facing === "back" ? -0.065 : 0.065
+  const markerPosition: [number, number, number] = [x, y, z + surfaceOffset]
+  const horizontalOffset = x < 0 ? -0.085 : 0.085
+  const labelPosition: [number, number, number] = [markerPosition[0] + horizontalOffset, markerPosition[1], markerPosition[2]]
+
+  useFrame(({ clock }, delta) => {
+    if (!ringRef.current || !markerRootRef.current) return
+    const pulse = 1 + ((Math.sin(clock.elapsedTime * 3 + entry.pointPosition[1] * 10) + 1) * 0.14)
+    ringRef.current.scale.setScalar(pulse)
+    labelRef.current?.lookAt(camera.position)
+
+    const worldPosition = markerRootRef.current.getWorldPosition(new THREE.Vector3())
+    const worldRotation = markerRootRef.current.getWorldQuaternion(new THREE.Quaternion())
+    const facingNormal = new THREE.Vector3(0, 0, entry.facing === "back" ? -1 : 1).applyQuaternion(worldRotation)
+    const directionToCamera = camera.position.clone().sub(worldPosition).normalize()
+    const facesCamera = facingNormal.dot(directionToCamera) > 0.08
+    dotOpacityRef.current = THREE.MathUtils.damp(dotOpacityRef.current, facesCamera ? 1 : 0, 9, delta)
+    calloutOpacityRef.current = THREE.MathUtils.damp(calloutOpacityRef.current, facesCamera && showCallout ? 1 : 0, 9, delta)
+
+    setMaterialOpacity(dotRef.current, dotOpacityRef.current)
+    setMaterialOpacity(ringRef.current, dotOpacityRef.current * 0.75)
+    setMaterialOpacity(lineRef.current, calloutOpacityRef.current * 0.75)
+    setMaterialOpacity(textRef.current, calloutOpacityRef.current)
+    markerRootRef.current.visible = Math.max(dotOpacityRef.current, calloutOpacityRef.current) > 0.01
+  })
+
+  return (
+    <group ref={markerRootRef}>
+      <line ref={lineRef}>
+        <bufferGeometry
+          attach="geometry"
+          onUpdate={(geometry) => geometry.setFromPoints([
+            new THREE.Vector3(x, y, z),
+            new THREE.Vector3(...markerPosition),
+            new THREE.Vector3(...labelPosition),
+          ])}
+        />
+        <lineBasicMaterial color="#ef4444" transparent opacity={0.75} depthTest />
+      </line>
+      <group
+        ref={labelRef}
+        position={labelPosition}
+        onClick={(event) => {
+          event.stopPropagation()
+          onSelect(entry.zone)
+        }}
+      >
+        <mesh ref={dotRef}>
+          <sphereGeometry args={[0.018, 16, 16]} />
+          <meshBasicMaterial color="#ef4444" transparent depthTest depthWrite={false} />
+        </mesh>
+        <mesh ref={ringRef} raycast={() => null}>
+          <ringGeometry args={[0.025, 0.034, 24]} />
+          <meshBasicMaterial color="#ef4444" transparent opacity={0.75} depthTest depthWrite={false} side={THREE.DoubleSide} />
+        </mesh>
+        <Text
+          ref={textRef}
+          position={[0, 0.042, 0]}
+          fontSize={0.016}
+          color="#fecaca"
+          anchorX={horizontalOffset < 0 ? "right" : "left"}
+          anchorY="bottom"
+          outlineWidth={0.002}
+          outlineColor="#02040a"
+        >
+          {entry.displayName}
+        </Text>
+      </group>
+    </group>
+  )
+}
+
+function Body({ onSelect, onClear, isIdle, selectedZone }: { onSelect: (zone: MuscleZone) => void; onClear: () => void; isIdle: boolean; selectedZone: MuscleZone | null }) {
   const { scene } = useGLTF(MODEL_PATH)
   const groupRef = useRef<THREE.Group>(null)
-  // Referencias a los botones de cada marcador, para el fade manual en
-  // onOcclude de abajo (drei no anima la ocultación: por defecto alterna
-  // display:none/block de un frame a otro, ver comentario en el <Html>).
-  const markerElRefs = useRef(new Map<MuscleZone, HTMLButtonElement>())
+
+  useEffect(() => {
+    if (selectedZone) groupRef.current?.rotation.set(0, 0, 0)
+  }, [selectedZone])
+
+  function handleSelect(zone: MuscleZone) {
+    // Las coordenadas de MUSCLE_ANATOMY viven en la orientación frontal del
+    // modelo. Antes de enfocar una zona, se restablece el giro automático
+    // para que cámara y anatomía compartan el mismo sistema de referencia.
+    groupRef.current?.rotation.set(0, 0, 0)
+    onSelect(zone)
+  }
 
   useFrame((_, delta) => {
     if (isIdle && groupRef.current) {
@@ -45,83 +162,51 @@ function Body({ onSelect, isIdle }: { onSelect: (zone: MuscleZone) => void; isId
   })
 
   return (
-    <group ref={groupRef}>
+    <group ref={groupRef} onClick={onClear}>
       <primitive object={scene} />
-      {Object.values(MUSCLE_ANATOMY).map(entry => (
-        <Html
-          key={entry.zone}
-          position={entry.pointPosition}
-          center
-          distanceFactor={1.2}
-          // Por defecto drei usa zIndexRange=[16777271, 0] (ver
-          // node_modules/@react-three/drei/web/Html.js) -- con occlude
-          // activo (raycast, nuestro caso) el z-index final queda
-          // interpolado entre zIndexRange[0] y floor(zIndexRange[0]/2), o
-          // sea entre ~16.7M y ~8.4M. MuscleDetailSheet.tsx usa z-20 de
-          // Tailwind, así que sin overridear esto el marcador SIEMPRE queda
-          // por encima de la ficha (portal de Html vive fuera del árbol DOM
-          // normal, el stacking context de Tailwind no lo alcanza). Con
-          // [10, 0] el rango interpolado con occlude queda en [5, 10] --
-          // bien por debajo de z-20, y sigue habiendo profundidad relativa
-          // entre marcadores (el 2do valor no se usa cuando occlude está
-          // seteado, ver objectZIndex()/zRange en Html.js).
-          zIndexRange={[10, 0]}
-          // Occlude contra nuestro propio grupo (el <primitive> con las 16
-          // mallas del modelo), no el string 'raycast'/true de drei (que
-          // raycastea contra toda la escena de useThree() — en este canvas
-          // no hay nada más, así que el costo es el mismo, pero acotarlo a
-          // groupRef es más correcto: no depende de que nada más se agregue
-          // a la escena más adelante y queda explícito qué es "el cuerpo").
-          occlude={[groupRef]}
-          onOcclude={hidden => {
-            const btn = markerElRefs.current.get(entry.zone)
-            if (!btn) return
-            // drei no anima esto: por defecto hace el.style.display =
-            // hidden ? 'none' : 'block' de un frame a otro. Con onOcclude
-            // tomamos el control y hacemos un fade con la transition de
-            // Tailwind de abajo en vez del pop abrupto.
-            btn.style.opacity = hidden ? "0" : "1"
-            btn.style.pointerEvents = hidden ? "none" : "auto"
-          }}
-        >
-          <button
-            ref={el => {
-              if (el) markerElRefs.current.set(entry.zone, el)
-              else markerElRefs.current.delete(entry.zone)
-            }}
-            onClick={e => {
-              e.stopPropagation()
-              onSelect(entry.zone)
-            }}
-            className="relative grid h-4 w-4 place-items-center transition-opacity duration-150"
-            aria-label={`Ver ${entry.displayName}`}
-          >
-            <span className="absolute h-4 w-4 animate-ring-ping rounded-full bg-red-500" />
-            <span className="relative h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
-          </button>
-        </Html>
+      {Object.values(MUSCLE_ANATOMY).map((entry) => (
+        <MuscleMarker key={entry.zone} entry={entry} onSelect={handleSelect} showCallout={!selectedZone || selectedZone === entry.zone} />
       ))}
     </group>
   )
 }
 
-// Vista general (cámara alejada, cuerpo completo) usada cuando no hay zona
-// seleccionada o el usuario minimiza la ficha de detalle. En la versión con
-// el modelo de Z-Anatomy, Y=0.2 quedaba a un 11.2% de altura del pie (bbox Y
-// 0.0129 a 1.6777) -- un valor bajo, cerca del tobillo, no el centro del
-// cuerpo, pero es lo que se shippeaba antes y no hay pedido de rediseñarlo.
-// El modelo nuevo (bbox Y -1.0535 a 0.6113, misma ALTURA total 1.6648 mm
-// gracias a la normalizacion de scripts/build-ecorche2-model.ts, pero pivote
-// distinto -- ver nota en el reporte de Fase 1) no comparte el mismo origen
-// vertical: reusar el mismo Y=0.2 literal ubicaria la camara cerca del
-// pecho/cuello del modelo nuevo en vez de cerca del tobillo, encuadrando mal
-// la vista general (cuerpo cortado a la altura del pecho hacia abajo). Se
-// recalcula el mismo 11.2% de altura pero contra el bbox del modelo nuevo,
-// con la misma tecnica de normalizacion proporcional usada para las 19
-// pointPosition en lib/muscle-anatomy.ts -- no es un rediseño, es preservar
-// el mismo encuadre relativo.
-const GENERAL_VIEW_Y = -0.8664
-const GENERAL_VIEW_Z = 1.4
+function MuscleNavigator({ selectedZone, minimized, onSelect }: { selectedZone: MuscleZone | null; minimized: boolean; onSelect: (zone: MuscleZone) => void }) {
+  if (!selectedZone) return null
+
+  const zones = Object.keys(MUSCLE_ANATOMY) as MuscleZone[]
+  const currentIndex = zones.indexOf(selectedZone)
+  const previousZone = zones[(currentIndex - 1 + zones.length) % zones.length]
+  const nextZone = zones[(currentIndex + 1) % zones.length]
+  const rightInset = minimized ? "lg:right-14" : "lg:right-[min(26rem,35vw)]"
+
+  return (
+    <div className={`pointer-events-none absolute inset-y-0 left-0 right-0 z-10 flex items-center justify-between px-4 ${rightInset}`}>
+      <button
+        type="button"
+        onClick={() => onSelect(previousZone)}
+        className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-zinc-700 bg-zinc-950/85 text-zinc-200 shadow-lg backdrop-blur hover:bg-zinc-800"
+        aria-label={`Músculo anterior: ${MUSCLE_ANATOMY[previousZone].displayName}`}
+        title={MUSCLE_ANATOMY[previousZone].displayName}
+      >
+        <ChevronLeft className="h-5 w-5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => onSelect(nextZone)}
+        className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-zinc-700 bg-zinc-950/85 text-zinc-200 shadow-lg backdrop-blur hover:bg-zinc-800"
+        aria-label={`Músculo siguiente: ${MUSCLE_ANATOMY[nextZone].displayName}`}
+        title={MUSCLE_ANATOMY[nextZone].displayName}
+      >
+        <ChevronRight className="h-5 w-5" />
+      </button>
+    </div>
+  )
+}
+// Centro del bounding box del modelo (Y -1.0535 a 0.6113) y distancia
+// suficiente para ver el cuerpo completo en la vista general.
+const GENERAL_VIEW_Y = -0.2218
+const GENERAL_VIEW_Z = 2.4
 
 function CameraRig({ targetZone, controlsRef }: { targetZone: MuscleZone | null; controlsRef: React.RefObject<CameraControls> }) {
   // useEffect, no useMemo: los refs recién quedan asignados después del
@@ -132,9 +217,9 @@ function CameraRig({ targetZone, controlsRef }: { targetZone: MuscleZone | null;
   useEffect(() => {
     if (!controlsRef.current) return
     if (targetZone) {
-      const { pointPosition, facing } = MUSCLE_ANATOMY[targetZone]
-      const [x, y, z] = pointPosition
-      const distance = 0.4
+      const { facing } = MUSCLE_ANATOMY[targetZone]
+      const [x, y, z] = getAnatomyPointPosition(targetZone)
+      const distance = 0.85
       // BUG (encontrado y corregido acá): esto sumaba +distance sin signo,
       // así que la cámara SIEMPRE terminaba en z + 0.4 -- es decir, siempre
       // del mismo lado (+Z), mirando siempre en dirección -Z, sin importar
@@ -161,48 +246,50 @@ function CameraRig({ targetZone, controlsRef }: { targetZone: MuscleZone | null;
   return null
 }
 
-export function MuscleAnatomy3D({ initialZone, exercises, onClose }: MuscleAnatomy3DProps) {
-  const [selectedZone, setSelectedZone] = useState<MuscleZone | null>(initialZone)
+export function MuscleAnatomy3D({ exercises, onClose }: MuscleAnatomy3DProps) {
+  const [selectedZone, setSelectedZone] = useState<MuscleZone | null>(null)
   const [minimized, setMinimized] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [webglFailed, setWebglFailed] = useState(false)
   const controlsRef = useRef<CameraControls>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
 
-  const isIdle = minimized && !isDragging
+  const isIdle = (minimized || !selectedZone) && !isDragging
 
   function handleSelect(zone: MuscleZone) {
     setSelectedZone(zone)
     setMinimized(false)
   }
 
-  function handleMinimize() {
-    setMinimized(true)
+  function toggleMinimized() {
+    setMinimized((current) => !current)
   }
 
-  if (webglFailed) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-zinc-950 p-6">
-        <MuscleIcon zone={initialZone} className="h-40 w-32" />
-        <p className="text-center text-sm text-zinc-400">
-          Tu dispositivo no puede mostrar el modelo 3D. Mostrando la vista simple.
-        </p>
-        <button onClick={onClose} className="rounded-full bg-zinc-800 px-4 py-2 text-sm text-zinc-200">
-          Volver
-        </button>
-      </div>
-    )
+  function clearSelection() {
+    setSelectedZone(null)
+    setMinimized(false)
   }
+
+  useEffect(() => {
+    closeButtonRef.current?.focus()
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-zinc-950">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-0 backdrop-blur-sm lg:p-8">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#030712] lg:h-[min(900px,calc(100vh-4rem))] lg:max-w-[1440px] lg:rounded-3xl lg:border lg:border-cyan-300/10 lg:shadow-[0_32px_120px_rgba(0,0,0,0.65)]" role="dialog" aria-modal="true" aria-labelledby="anatomy-title">
       <div className="flex items-center justify-between px-4 py-3">
         <div>
-          <p className="font-heading text-sm uppercase tracking-wide text-zinc-400">Anatomía</p>
+          <p id="anatomy-title" className="font-heading text-sm uppercase tracking-wide text-zinc-400">Anatomía</p>
           {/* Atribución CC-BY-4.0 obligatoria del modelo 3D -- ver license.txt
               en la fuente descargada y el header de scripts/build-ecorche2-model.ts. */}
           <p className="text-[10px] text-zinc-600">&quot;Male Full Body Ecorche&quot; por Diego Luján García (CC-BY-4.0)</p>
         </div>
         <button
+          ref={closeButtonRef}
           onClick={onClose}
           className="grid h-9 w-9 place-items-center rounded-full border border-zinc-800 text-zinc-400 hover:text-zinc-100"
           aria-label="Cerrar explorador de anatomía"
@@ -212,38 +299,48 @@ export function MuscleAnatomy3D({ initialZone, exercises, onClose }: MuscleAnato
       </div>
 
       <div className="relative flex-1">
-        <Canvas
-          // Posicion inicial nada mas -- CameraRig la pisa en el primer
-          // efecto (initialZone siempre viene seteado), pero se mantiene
-          // consistente con GENERAL_VIEW_Y/Z de abajo para no arrancar en un
-          // punto arbitrario si ese primer efecto tardara en correr.
-          camera={{ position: [0, GENERAL_VIEW_Y, GENERAL_VIEW_Z], fov: 40 }}
-          onCreated={() => {}}
-          onError={() => setWebglFailed(true)}
-        >
-          <ambientLight intensity={0.7} />
-          <directionalLight position={[2, 2, 2]} intensity={1.2} />
-          <Body onSelect={handleSelect} isIdle={isIdle} />
-          <CameraRig targetZone={minimized ? null : selectedZone} controlsRef={controlsRef} />
-          <CameraControls
-            ref={controlsRef}
-            onStart={() => setIsDragging(true)}
-            onEnd={() => setIsDragging(false)}
-            minPolarAngle={Math.PI / 4}
-            maxPolarAngle={Math.PI - Math.PI / 4}
-          />
-        </Canvas>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(14,116,144,0.20),transparent_34%),radial-gradient(circle_at_15%_85%,rgba(127,29,29,0.16),transparent_28%),linear-gradient(180deg,#050b18_0%,#02040a_100%)]" />
+          <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(45,212,191,0.13)_1px,transparent_1px),linear-gradient(90deg,rgba(45,212,191,0.13)_1px,transparent_1px)] [background-size:42px_42px] [mask-image:linear-gradient(to_bottom,transparent,black_22%,black_78%,transparent)]" />
+          <div className="absolute left-1/2 top-1/2 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/10 blur-3xl" />
+        </div>
+
+        <AnatomyErrorBoundary fallback={<AnatomyFallback onClose={onClose} />}>
+          <Canvas
+            // Posición inicial: CameraRig la ajusta a la zona elegida después del primer commit.
+            camera={{ position: [0, GENERAL_VIEW_Y, GENERAL_VIEW_Z], fov: 40 }}
+            fallback={<AnatomyFallback onClose={onClose} />}
+            onPointerMissed={clearSelection}
+          >
+            <ambientLight intensity={0.7} />
+            <directionalLight position={[2, 2, 2]} intensity={1.2} />
+            <Suspense fallback={<Html center><p className="rounded-full bg-zinc-900 px-4 py-2 text-sm text-zinc-200">Cargando anatomía…</p></Html>}>
+              <Body onSelect={handleSelect} onClear={clearSelection} isIdle={isIdle} selectedZone={selectedZone} />
+            </Suspense>
+            <CameraRig targetZone={minimized ? null : selectedZone} controlsRef={controlsRef} />
+            <CameraControls
+              ref={controlsRef}
+              onStart={() => setIsDragging(true)}
+              onEnd={() => setIsDragging(false)}
+              minPolarAngle={Math.PI / 4}
+              maxPolarAngle={Math.PI - Math.PI / 4}
+            />
+          </Canvas>
+        </AnatomyErrorBoundary>
+
+        <MuscleNavigator selectedZone={selectedZone} minimized={minimized} onSelect={handleSelect} />
 
         {selectedZone && (
           <MuscleDetailSheet
             entry={MUSCLE_ANATOMY[selectedZone]}
-            exercises={getExercisesForZone(selectedZone, exercises)}
+            recommendation={getExerciseRecommendationForZone(selectedZone, exercises)}
             minimized={minimized}
             onClose={onClose}
-            onMinimize={handleMinimize}
+            onToggle={toggleMinimized}
           />
         )}
       </div>
+    </div>
     </div>
   )
 }
