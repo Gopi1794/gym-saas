@@ -5,6 +5,7 @@ import { daysUntilAR } from "@/lib/date-ar"
 import type { Profile } from "@/types"
 import FeaturedCard from "@/components/dashboard/FeaturedCard"
 import ActivityCard from "@/components/dashboard/ActivityCard"
+import AdminActivityStrip from "@/components/dashboard/AdminActivityStrip"
 import RecentCheckIns from "@/components/dashboard/RecentCheckIns"
 import TodayWorkoutCard from "@/components/dashboard/TodayWorkoutCard"
 import WeeklyTrainingSummary from "@/components/dashboard/WeeklyTrainingSummary"
@@ -345,7 +346,6 @@ export default async function DashboardPage() {
     : 0
 
   // Admin chart data
-  const adminMembersProgress = totalMembers ? (activeMembers ?? 0) / totalMembers : 0
   const checkInWeekData = Array.from({ length: 7 }, (_, i) => {
     const day = new Date(todayDate)
     day.setDate(todayDate.getDate() - (6 - i))
@@ -481,17 +481,13 @@ export default async function DashboardPage() {
           </div>
         </div>
       ) : p?.role !== "member" ? (
-        <div>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-100">Actividad</h2>
-            <span className="text-xs font-medium text-brand-500">Hoy</span>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <ActivityCard label="Miembros" value={totalMembers ?? 0} chart="ring" color="violet" progress={adminMembersProgress} />
-            <ActivityCard label="Check-ins hoy" value={todayCheckIns ?? 0} chart="bar" color="cyan" data={checkInWeekData} />
-            <ActivityCard label="Activos" value={activeMembers ?? 0} chart="none" color="emerald" />
-          </div>
-        </div>
+        <AdminActivityStrip
+          totalMembers={totalMembers ?? 0}
+          activeMembers={activeMembers ?? 0}
+          todayCheckIns={todayCheckIns ?? 0}
+          checkInWeekData={checkInWeekData}
+          membersUpToDateRate={membersUpToDateRate}
+        />
       ) : null}
 
       {/* Badge strip â€” members only */}
@@ -528,5 +524,3 @@ export default async function DashboardPage() {
     </div>
   )
 }
-
-
