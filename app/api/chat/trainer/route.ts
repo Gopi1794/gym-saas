@@ -5,6 +5,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generatePlan } from "@/app/actions/generate-plan"
+import { getUsdaCoreNutrients, type UsdaFoodNutrient } from "@/lib/usda-nutrients"
 import { addNutritionTotals, emptyNutritionTotals, getMissingNutritionProfileFields, nutritionTotalsForFood, validateNutritionTarget, type FoodNutrition, type NutritionTotals } from "@/lib/nutrition-target-validation"
 
 const anthropic = new Anthropic()
@@ -190,45 +191,54 @@ async function findOrImportFood(supabase: any, gymId: string, foodNameEn: string
 
   if (existing) return (existing as { id: string }).id
 
-  // 2. Fallback: USDA FoodData Central
+  // SR Legacy retains the USDA nutrient IDs consumed by our nutrition model.
   const apiKey = process.env.USDA_API_KEY ?? ""
-  if (!apiKey) return null
+  if (!apiKey) {
+    console.warn("[trainer-chat] USDA import skipped: missing API key")
+    return null
+  }
 
   try {
     const res = await fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: foodNameEn, dataType: ["Foundation", "SR Legacy"], pageSize: 1 }),
+      body: JSON.stringify({ query: foodNameEn, dataType: ["SR Legacy"], pageSize: 1 }),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.warn("[trainer-chat] USDA search failed", { status: res.status, query: foodNameEn })
+      return null
+    }
 
-    const data = await res.json() as { foods?: { foodNutrients?: { nutrientId: number; value: number }[] }[] }
-    const food = data.foods?.[0]
-    if (!food) return null
+    const data = await res.json() as { foods?: { foodNutrients?: UsdaFoodNutrient[] }[] }
+    const nutrients = getUsdaCoreNutrients(data.foods?.[0]?.foodNutrients ?? [])
+    if (!nutrients) {
+      console.warn("[trainer-chat] USDA returned incomplete nutrients", { query: foodNameEn })
+      return null
+    }
 
-    const get = (id: number) => food.foodNutrients?.find(n => n.nutrientId === id)?.value ?? 0
-
-    const { data: newFood } = await supabase
+    const { data: newFood, error } = await supabase
       .from("foods")
       .insert({
         gym_id: gymId,
         name: foodNameEs,
-        calories: get(1008),
-        protein: get(1003),
-        carbs: get(1005),
-        fat: get(1004),
-        fiber: get(1079),
-        sodium: get(1093),
+        ...nutrients,
       })
       .select("id")
       .single()
 
-    return newFood ? (newFood as { id: string }).id : null
-  } catch {
+    if (error || !newFood) {
+      console.error("[trainer-chat] USDA food insert failed", { query: foodNameEn })
+      return null
+    }
+    return (newFood as { id: string }).id
+  } catch (error) {
+    console.error("[trainer-chat] USDA import failed", {
+      query: foodNameEn,
+      message: error instanceof Error ? error.message : "unknown error",
+    })
     return null
   }
 }
-
 type NutritionPlanRow = {
   id: string
   name: string
