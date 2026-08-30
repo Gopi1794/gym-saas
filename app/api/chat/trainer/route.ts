@@ -5,6 +5,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generatePlan } from "@/app/actions/generate-plan"
+import { addNutritionTotals, emptyNutritionTotals, getMissingNutritionProfileFields, nutritionTotalsForFood, validateNutritionTarget, type FoodNutrition, type NutritionTotals } from "@/lib/nutrition-target-validation"
 
 const anthropic = new Anthropic()
 
@@ -87,12 +88,12 @@ Cuando el usuario pide crear un plan a partir de una descripción corta (no un d
 </flujo_plan_desde_documento>
 
 <flujo_nutricion>
-1. Para crear el plan necesitás: peso, altura, edad, frecuencia de entrenamiento y objetivo del miembro. Si falta alguno y no está en el sistema, preguntás por todos los faltantes en UNA sola pregunta.
-2. Mostrás los macros calculados y pedís confirmación antes de crear.
-3. El sistema devuelve el plan_id entre corchetes — lo guardás y reutilizás.
-4. Después de crear, preguntás: "¿Querés que arme las comidas del día?"
-5. Si dice que sí: generás comidas según objetivo (volumen = 5 comidas abundantes, definición = 4-5 controladas), las mostrás completas con alimentos y cantidades, y pedís confirmación antes de ejecutar add_meals_to_plan.
-6. Para cada alimento: food_name en inglés (búsqueda USDA) y food_name_es en español.
+1. Cuando el pedido menciona nutrición, comidas, alimentos o un plan nutricional de un miembro por nombre, llamás PRIMERO a get_member_nutrition_context. Nunca preguntás peso, altura, objetivo, calorías o el plan antes de leer esa tool.
+2. Si existe un plan activo, usás su plan_id, objetivo y targets exactos. Si falta algún dato para crear un plan nuevo, preguntás SOLO los campos faltantes que informó la tool, en una única pregunta.
+3. Para crear un plan nuevo, mostrás los macros calculados y pedís confirmación antes de crear.
+4. Para armar o completar comidas, usás las kcal restantes informadas por la tool. Mostrás alimentos, cantidades y total estimado del día; el total debe quedar dentro de ±4% (mínimo 75 kcal) del target. Pedís confirmación antes de ejecutar add_meals_to_plan.
+5. Si add_meals_to_plan informa una diferencia fuera del rango, NO se guardó nada: corregís cantidades, mostrás el nuevo total y pedís una nueva confirmación.
+6. Para cada alimento usás food_name en inglés (búsqueda USDA) y food_name_es en español.
 </flujo_nutricion>
 
 <flujo_eliminar>
@@ -147,21 +148,19 @@ type MemberProfile = {
 }
 
 function calculateNutritionTargets(
-  profile: MemberProfile | null,
+  profile: MemberProfile,
   goal: string,
   overrideCalories?: number
 ) {
-  const weight = Number(profile?.weight_kg ?? 75)
-  const height = Number(profile?.height_cm ?? 170)
-  const age = profile?.date_of_birth
-    ? Math.floor((Date.now() - new Date(profile.date_of_birth).getTime()) / (365.25 * 86400000))
-    : 25
+  const weight = Number(profile.weight_kg)
+  const height = Number(profile.height_cm)
+  const age = Math.floor((Date.now() - new Date(profile.date_of_birth!).getTime()) / (365.25 * 86400000))
 
   const bmr = 10 * weight + 6.25 * height - 5 * age + 5
   const activityMap: Record<string, number> = {
     never: 1.2, "1-2": 1.375, "3-4": 1.55, "5+": 1.725,
   }
-  const tdee = Math.round(bmr * (activityMap[profile?.training_frequency ?? "3-4"] ?? 1.55))
+  const tdee = Math.round(bmr * (activityMap[profile.training_frequency ?? "3-4"] ?? 1.55))
   const surplusMap: Record<string, number> = {
     volumen: 350, definicion: -400, perdida_moderada: -300,
     mantenimiento: 0, recomposicion: 0, rendimiento: 200,
@@ -176,7 +175,6 @@ function calculateNutritionTargets(
   const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4))
   return { calories: Math.round(calories), protein, carbs, fat }
 }
-
 // ── USDA food import ──────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -231,6 +229,39 @@ async function findOrImportFood(supabase: any, gymId: string, foodNameEn: string
   }
 }
 
+type NutritionPlanRow = {
+  id: string
+  name: string
+  goal: string
+  target_calories: number | null
+  target_protein: number | null
+  target_carbs: number | null
+  target_fat: number | null
+}
+
+type NutritionMealRow = {
+  nutrition_meal_items: Array<{
+    quantity_grams: number
+    foods: FoodNutrition | FoodNutrition[] | null
+  }> | null
+}
+
+async function getNutritionPlanTotals(
+  db: ReturnType<typeof createAdminClient>,
+  planId: string,
+): Promise<NutritionTotals> {
+  const { data: meals } = await (db.from("nutrition_meals" as never)
+    .select("nutrition_meal_items(quantity_grams, foods(calories, protein, carbs, fat))")
+    .eq("plan_id", planId) as unknown as Promise<{ data: NutritionMealRow[] | null }>)
+
+  return (meals ?? []).reduce((total, meal) => {
+    const mealTotal = (meal.nutrition_meal_items ?? []).reduce((current, item) => {
+      const food = Array.isArray(item.foods) ? item.foods[0] : item.foods
+      return food ? addNutritionTotals(current, nutritionTotalsForFood(food, Number(item.quantity_grams))) : current
+    }, emptyNutritionTotals())
+    return addNutritionTotals(total, mealTotal)
+  }, emptyNutritionTotals())
+}
 // ── Helpers ───────────────────────────────────────────────────
 
 const norm = (s: string) =>
@@ -400,6 +431,17 @@ export async function POST(req: NextRequest) {
             notes: { type: "string" },
           },
           required: ["member_name", "goal"],
+        },
+      },
+      {
+        name: "get_member_nutrition_context",
+        description: "Obtiene el perfil nutricional, plan activo, objetivos diarios y totales actuales de un miembro. Usalo siempre antes de pedir datos o proponer comidas para un miembro.",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            member_name: { type: "string", description: "Nombre del miembro" },
+          },
+          required: ["member_name"],
         },
       },
       {
@@ -600,6 +642,52 @@ export async function POST(req: NextRequest) {
         return { text: `Plan de entrenamiento creado correctamente. [plan_id: ${result.planId}]`, planId: result.planId }
       }
 
+      // get_member_nutrition_context
+      if (name === "get_member_nutrition_context") {
+        const i = input as { member_name: string }
+        if (!i.member_name) return { text: "Falta el nombre del miembro." }
+        const resolved = resolveMember(members ?? null, i.member_name)
+        if ("text" in resolved) return { text: resolved.text }
+        const match = resolved.member
+
+        const { data: memberProfile } = await (adminDb.from("profiles" as never)
+          .select("weight_kg, height_cm, date_of_birth, training_frequency")
+          .eq("id", match.id)
+          .eq("gym_id", profile.gym_id)
+          .maybeSingle() as unknown as Promise<{ data: MemberProfile | null }>)
+        const missing = getMissingNutritionProfileFields(memberProfile)
+        const { data: plan } = await (adminDb.from("nutrition_plans" as never)
+          .select("id, name, goal, target_calories, target_protein, target_carbs, target_fat")
+          .eq("member_id", match.id)
+          .eq("gym_id", profile.gym_id)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle() as unknown as Promise<{ data: NutritionPlanRow | null }>)
+
+        const profileSummary = missing.length === 0
+          ? "Perfil nutricional completo."
+          : `Datos faltantes para crear un plan: ${missing.join(", ")}.`
+        if (!plan) {
+          return { text: `Contexto nutricional de ${match.full_name}: no tiene un plan activo. ${profileSummary}` }
+        }
+        if (!plan.target_calories) {
+          return { text: `Contexto nutricional de ${match.full_name}: plan activo "${plan.name}" [plan_id: ${plan.id}] sin calorías objetivo. ${profileSummary}` }
+        }
+
+        const totals = await getNutritionPlanTotals(adminDb, plan.id)
+        const targets = {
+          calories: Number(plan.target_calories),
+          protein: Number(plan.target_protein ?? 0),
+          carbs: Number(plan.target_carbs ?? 0),
+          fat: Number(plan.target_fat ?? 0),
+        }
+        return {
+          text: `Contexto nutricional de ${match.full_name}: plan activo "${plan.name}" [plan_id: ${plan.id}], objetivo ${plan.goal}. Target diario: ${targets.calories} kcal · ${targets.protein}g proteína · ${targets.carbs}g carbohidratos · ${targets.fat}g grasas. Cargado actualmente: ${totals.calories} kcal · ${totals.protein}g proteína · ${totals.carbs}g carbohidratos · ${totals.fat}g grasas. Restante: ${Math.round(targets.calories - totals.calories)} kcal. ${profileSummary}`,
+          nutritionPlanId: plan.id,
+        }
+      }
+
       // create_nutrition_plan
       if (name === "create_nutrition_plan") {
         const i = input as { member_name: string; goal: "volumen" | "definicion" | "mantenimiento" | "recomposicion" | "rendimiento" | "perdida_moderada"; plan_name?: string; target_calories?: number; notes?: string }
@@ -607,13 +695,23 @@ export async function POST(req: NextRequest) {
         const resolved = resolveMember(members ?? null, i.member_name)
         if ("text" in resolved) return { text: resolved.text }
         const match = resolved.member
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: mp } = await (supabase as any).from("profiles").select("weight_kg, height_cm, date_of_birth, training_frequency").eq("id", match.id).single() as { data: MemberProfile | null }
-        const targets = calculateNutritionTargets(mp, i.goal, i.target_calories)
+        const { data: memberProfile } = await (adminDb.from("profiles" as never)
+          .select("weight_kg, height_cm, date_of_birth, training_frequency")
+          .eq("id", match.id)
+          .eq("gym_id", profile.gym_id)
+          .maybeSingle() as unknown as Promise<{ data: MemberProfile | null }>)
+        const missing = getMissingNutritionProfileFields(memberProfile)
+        if (missing.length > 0 || !memberProfile) {
+          return { text: `No se creó ningún plan. Faltan datos de ${match.full_name}: ${missing.join(", ")}.` }
+        }
+
+        const targets = calculateNutritionTargets(memberProfile, i.goal, i.target_calories)
         const goalLabels: Record<string, string> = { volumen: "Volumen", definicion: "Definición", mantenimiento: "Mantenimiento", recomposicion: "Recomposición", rendimiento: "Rendimiento", perdida_moderada: "Pérdida moderada" }
         const planName = i.plan_name ?? `Plan ${goalLabels[i.goal]} — ${match.full_name}`
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: plan, error } = await (supabase as any).from("nutrition_plans").insert({ gym_id: profile.gym_id, member_id: match.id, name: planName, goal: i.goal, target_calories: targets.calories, target_protein: targets.protein, target_carbs: targets.carbs, target_fat: targets.fat, notes: i.notes ?? null, is_active: true }).select("id").single() as { data: { id: string } | null; error: unknown }
+        const { data: plan, error } = await (adminDb.from("nutrition_plans" as never)
+          .insert({ gym_id: profile.gym_id, member_id: match.id, name: planName, goal: i.goal, target_calories: targets.calories, target_protein: targets.protein, target_carbs: targets.carbs, target_fat: targets.fat, notes: i.notes ?? null, is_active: true } as never)
+          .select("id")
+          .single() as unknown as Promise<{ data: { id: string } | null; error: unknown }>)
         if (error || !plan) return { text: "No pude crear el plan nutricional. Intentá de nuevo." }
         return { text: `Plan creado para ${match.full_name} [plan_id: ${plan.id}]: ${targets.calories} kcal · ${targets.protein}g proteína · ${targets.carbs}g carbos · ${targets.fat}g grasa. ¿Querés que arme las comidas del día?`, nutritionPlanId: plan.id }
       }
@@ -621,24 +719,70 @@ export async function POST(req: NextRequest) {
       // add_meals_to_plan
       if (name === "add_meals_to_plan") {
         const i = input as { plan_id: string; meals: { name: string; time_label?: string; items: { food_name: string; food_name_es: string; quantity_grams: number }[] }[] }
-        const skippedFoods: string[] = []
-        let mealIndex = 0
-        for (const meal of i.meals) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: createdMeal } = await (supabase as any).from("nutrition_meals").insert({ plan_id: i.plan_id, name: meal.name, time_label: meal.time_label ?? null, order_index: mealIndex++ }).select("id").single() as { data: { id: string } | null }
-          if (!createdMeal) continue
-          for (const item of meal.items) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const foodId = await findOrImportFood(supabase as any, profile.gym_id, item.food_name, item.food_name_es)
-            if (!foodId) { skippedFoods.push(item.food_name_es); continue }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase as any).from("nutrition_meal_items").insert({ meal_id: createdMeal.id, food_id: foodId, quantity_grams: item.quantity_grams })
-          }
-        }
-        const warning = skippedFoods.length > 0 ? ` No se encontraron: ${skippedFoods.join(", ")} — agregálos manualmente.` : ""
-        return { text: `Listo. ${i.meals.length} comidas agregadas al plan.${warning}`, nutritionPlanId: i.plan_id }
-      }
+        const { data: plan } = await (adminDb.from("nutrition_plans" as never)
+          .select("id, target_calories")
+          .eq("id", i.plan_id)
+          .eq("gym_id", profile.gym_id)
+          .maybeSingle() as unknown as Promise<{ data: { id: string; target_calories: number | null } | null }>)
+        if (!plan?.target_calories) return { text: "No se guardó ninguna comida: el plan no existe, no pertenece a este gym o no tiene calorías objetivo." }
 
+        const unresolvedFoods: string[] = []
+        const resolvedMeals: Array<{ name: string; timeLabel?: string; items: Array<{ foodId: string; quantityGrams: number }> }> = []
+        let proposedTotals = emptyNutritionTotals()
+        for (const meal of i.meals) {
+          const resolvedItems: Array<{ foodId: string; quantityGrams: number }> = []
+          for (const item of meal.items) {
+            const foodId = await findOrImportFood(adminDb as never, profile.gym_id, item.food_name, item.food_name_es)
+            if (!foodId) { unresolvedFoods.push(item.food_name_es); continue }
+            const { data: food } = await (adminDb.from("foods" as never)
+              .select("calories, protein, carbs, fat")
+              .eq("id", foodId)
+              .maybeSingle() as unknown as Promise<{ data: FoodNutrition | null }>)
+            if (!food) { unresolvedFoods.push(item.food_name_es); continue }
+            proposedTotals = addNutritionTotals(proposedTotals, nutritionTotalsForFood(food, Number(item.quantity_grams)))
+            resolvedItems.push({ foodId, quantityGrams: item.quantity_grams })
+          }
+          resolvedMeals.push({ name: meal.name, timeLabel: meal.time_label, items: resolvedItems })
+        }
+        if (unresolvedFoods.length > 0) {
+          return { text: `No se guardó ninguna comida: no pude obtener la información nutricional de ${[...new Set(unresolvedFoods)].join(", ")}.` }
+        }
+
+        const currentTotals = await getNutritionPlanTotals(adminDb, plan.id)
+        const total = addNutritionTotals(currentTotals, proposedTotals)
+        const validation = validateNutritionTarget(total.calories, Number(plan.target_calories))
+        if (!validation.isWithinTarget) {
+          return { text: `No se guardó ninguna comida. El total diario quedaría en ${total.calories} kcal frente a un objetivo de ${plan.target_calories} kcal (diferencia: ${validation.difference > 0 ? "+" : ""}${validation.difference} kcal; tolerancia: ±${validation.tolerance} kcal). Ajustá cantidades y pedí confirmación nuevamente.` }
+        }
+
+        const { data: lastMeal } = await (adminDb.from("nutrition_meals" as never)
+          .select("order_index")
+          .eq("plan_id", plan.id)
+          .order("order_index", { ascending: false })
+          .limit(1)
+          .maybeSingle() as unknown as Promise<{ data: { order_index: number } | null }>)
+        let mealIndex = (lastMeal?.order_index ?? -1) + 1
+        const createdMealIds: string[] = []
+        try {
+          for (const meal of resolvedMeals) {
+            const { data: createdMeal, error: mealError } = await (adminDb.from("nutrition_meals" as never)
+              .insert({ plan_id: plan.id, name: meal.name, time_label: meal.timeLabel ?? null, order_index: mealIndex++ } as never)
+              .select("id")
+              .single() as unknown as Promise<{ data: { id: string } | null; error: unknown }>)
+            if (mealError || !createdMeal) throw new Error("No se pudo guardar una comida.")
+            createdMealIds.push(createdMeal.id)
+            const { error: itemError } = await adminDb.from("nutrition_meal_items" as never).insert(
+              meal.items.map(item => ({ meal_id: createdMeal.id, food_id: item.foodId, quantity_grams: item.quantityGrams })) as never,
+            )
+            if (itemError) throw new Error("No se pudieron guardar los alimentos.")
+          }
+        } catch {
+          if (createdMealIds.length > 0) await adminDb.from("nutrition_meals" as never).delete().in("id", createdMealIds)
+          return { text: "No se guardó ninguna comida porque falló la escritura. Intentá de nuevo." }
+        }
+
+        return { text: `Listo. ${resolvedMeals.length} comidas agregadas al plan. Total diario validado: ${total.calories} kcal · ${total.protein}g proteína · ${total.carbs}g carbohidratos · ${total.fat}g grasas.`, nutritionPlanId: plan.id }
+      }
       // get_member_plans
       if (name === "get_member_plans") {
         const i = input as { member_name: string }
