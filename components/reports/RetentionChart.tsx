@@ -1,68 +1,58 @@
 "use client"
 
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts"
+import { Cell, Label, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
 
 interface Props {
   upToDate: number
-  expiringSoon: number  // subconjunto de upToDate (vencen en ≤7 días) — informativo, no una porción propia del gráfico
+  expiringSoon: number
   expired: number
 }
 
-const COLORS = ["#10b981", "#ef4444"]
+const COLORS = ["#D50000", "#71717a"]
 
 export default function RetentionChart({ upToDate, expiringSoon, expired }: Props) {
   const total = upToDate + expired
   const data = [
-    { name: "Al día",   value: upToDate },
+    { name: "Al día", value: upToDate },
     { name: "Vencidos", value: expired },
-  ].filter(d => d.value > 0)
+  ].filter((item) => item.value > 0)
 
   if (total === 0) {
-    return <p className="text-sm text-muted-foreground text-center py-8">Sin socios registrados.</p>
+    return <p className="py-8 text-center text-sm text-muted-foreground">Sin socios registrados.</p>
   }
 
+  const rate = Math.round((upToDate / total) * 100)
+
   return (
-    <div className="space-y-4">
-      {/* Stats row */}
+    <div className="grid items-center gap-2 sm:grid-cols-[1fr_190px]">
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl bg-emerald-500/10 px-4 py-3 text-center">
-          <p className="text-2xl font-black text-emerald-500">{upToDate}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Al día</p>
-          {expiringSoon > 0 && (
-            <p className="text-[11px] text-amber-500 mt-1">{expiringSoon} vencen en ≤7 días</p>
-          )}
+        <div className="rounded-xl border border-brand-500/20 bg-brand-500/10 px-4 py-3">
+          <p className="text-2xl font-black tracking-tight text-brand-600 dark:text-brand-400">{upToDate}</p>
+          <p className="mt-1 text-xs font-medium text-foreground">Al día</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">{expiringSoon > 0 ? `${expiringSoon} vencen esta semana` : "sin vencimientos próximos"}</p>
         </div>
-        <div className="rounded-xl bg-red-500/10 px-4 py-3 text-center">
-          <p className="text-2xl font-black text-red-500">{expired}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Vencidos</p>
+        <div className="rounded-xl border border-border bg-muted/35 px-4 py-3">
+          <p className="text-2xl font-black tracking-tight text-foreground">{expired}</p>
+          <p className="mt-1 text-xs font-medium text-foreground">Vencidos</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">requieren seguimiento</p>
         </div>
       </div>
 
-      {/* Donut */}
-      <ResponsiveContainer width="100%" height={200}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={55}
-            outerRadius={85}
-            paddingAngle={3}
-            dataKey="value"
-          >
-            {data.map((_, i) => (
-              <Cell key={i} fill={COLORS[["Al día", "Vencidos"].indexOf(data[i].name)]} />
-            ))}
-          </Pie>
-          <Tooltip
-            formatter={(v) => [`${v} socios (${Math.round(Number(v) / total * 100)}%)`, ""]}
-            contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }}
-            labelStyle={{ color: "hsl(var(--foreground))" }}
-            itemStyle={{ color: "hsl(var(--foreground))" }}
-          />
-          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-        </PieChart>
-      </ResponsiveContainer>
+      <div className="h-44">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={data} dataKey="value" innerRadius={50} outerRadius={70} paddingAngle={5} cornerRadius={8} stroke="none">
+              {data.map((item) => <Cell key={item.name} fill={COLORS[item.name === "Al día" ? 0 : 1]} />)}
+              <Label value={`${rate}%`} position="center" className="fill-foreground text-xl font-black" />
+              <Label value="al día" position="center" dy={18} className="fill-muted-foreground text-[10px] font-semibold uppercase tracking-wider" />
+            </Pie>
+            <Tooltip
+              formatter={(value) => [`${value} socios`, ""]}
+              contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   )
 }
