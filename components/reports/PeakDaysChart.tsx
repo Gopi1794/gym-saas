@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts"
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
 const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 
@@ -10,58 +10,37 @@ interface Props {
 
 export default function PeakDaysChart({ byDay }: Props) {
   const max = Math.max(...byDay, 1)
-  const data = byDay.map((count, i) => ({ day: DAYS[i], count }))
-  const total = byDay.reduce((a, b) => a + b, 0)
-  const peakIdx = byDay.indexOf(max)
+  const data = byDay.map((count, index) => ({ day: DAYS[index], count }))
+  const total = byDay.reduce((sum, count) => sum + count, 0)
+  const peakIndex = byDay.indexOf(max)
 
   if (total === 0) {
-    return <p className="text-sm text-muted-foreground text-center py-8">Sin registros aún.</p>
+    return <p className="py-8 text-center text-sm text-muted-foreground">Sin registros aún.</p>
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex gap-4 text-sm">
-        <div>
-          <span className="text-muted-foreground">Día pico: </span>
-          <span className="font-semibold text-brand-500">{DAYS[peakIdx]}</span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Asistencias: </span>
-          <span className="font-semibold text-foreground">{max}</span>
-        </div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+        <p className="text-muted-foreground">Día pico <span className="font-bold text-brand-600 dark:text-brand-400">{DAYS[peakIndex]}</span></p>
+        <p className="text-muted-foreground">Asistencias <span className="font-bold text-foreground">{max}</span></p>
       </div>
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={data} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
-          <XAxis
-            dataKey="day"
-            tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-            tickLine={false}
-            axisLine={false}
-            allowDecimals={false}
-          />
-          <Tooltip
-            cursor={{ fill: "hsl(var(--muted))" }}
-            contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }}
-            labelStyle={{ color: "hsl(var(--foreground))" }}
-            itemStyle={{ color: "hsl(var(--foreground))" }}
-            formatter={(v) => [`${v} check-ins`, "Asistencias"]}
-          />
-          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-            {data.map((d, i) => (
-              <Cell
-                key={i}
-                fill={d.count === max ? "#D50000" : "hsl(var(--muted-foreground))"}
-                fillOpacity={d.count === max ? 1 : 0.35}
-              />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="h-52">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 4, right: 0, left: -20, bottom: 0 }} barCategoryGap="24%">
+            <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 5" />
+            <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
+            <Tooltip
+              cursor={{ fill: "hsl(var(--muted))", fillOpacity: 0.35 }}
+              contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }}
+              formatter={(value) => [`${value} check-ins`, "Asistencias"]}
+            />
+            <Bar dataKey="count" radius={[8, 8, 8, 8]}>
+              {data.map((item) => <Cell key={item.day} fill="#D50000" fillOpacity={item.count === max ? 1 : 0.22} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   )
 }
