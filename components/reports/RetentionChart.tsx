@@ -1,14 +1,12 @@
 "use client"
 
-import { Cell, Label, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
+import { MonoRoundedDonutChart } from "@/components/mono-charts/MonoRoundedDonutChart"
 
 interface Props {
   upToDate: number
   expiringSoon: number
   expired: number
 }
-
-const COLORS = ["#D50000", "#71717a"]
 
 export default function RetentionChart({ upToDate, expiringSoon, expired }: Props) {
   const total = upToDate + expired
@@ -38,21 +36,7 @@ export default function RetentionChart({ upToDate, expiringSoon, expired }: Prop
         </div>
       </div>
 
-      <div className="h-44">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={data} dataKey="value" innerRadius={50} outerRadius={70} paddingAngle={5} cornerRadius={8} stroke="none">
-              {data.map((item) => <Cell key={item.name} fill={COLORS[item.name === "Al día" ? 0 : 1]} />)}
-              <Label value={`${rate}%`} position="center" className="fill-foreground text-xl font-black" />
-              <Label value="al día" position="center" dy={18} className="fill-muted-foreground text-[10px] font-semibold uppercase tracking-wider" />
-            </Pie>
-            <Tooltip
-              formatter={(value) => [`${value} socios`, ""]}
-              contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
+      <MonoRoundedDonutChart data={data} centerValue={`${rate}%`} centerLabel="al día" valueFormatter={(value) => `${value} socios`} />
     </div>
   )
 }
