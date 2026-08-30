@@ -195,7 +195,7 @@ export default async function ReportsPage() {
         </div>
       </div>
 
-      <ProductKpiCards report={productReportResult.report ?? { revenue: 0, margin: 0, units: 0, topProducts: [], byMethod: { cash: 0, mercadopago: 0, transfer: 0, card: 0, other: 0 }, bySeller: [], lowStock: [] }} />
+      <ProductKpiCards report={productReportResult.report ?? { revenue: 0, margin: 0, marginPercentage: 0, units: 0, paidOrders: 0, averageOrderValue: 0, topProducts: [], byMethod: { cash: 0, mercadopago: 0, transfer: 0, card: 0, other: 0 }, bySeller: [], lowStock: [] }} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Socios al dÃ­a */}

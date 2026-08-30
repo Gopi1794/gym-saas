@@ -667,17 +667,18 @@ export async function getProductReport(startDate?: string, endDate?: string): Pr
 
   const { data: itemRows, error: itemError } = await (supabase
     .from("product_order_items" as never)
-    .select("quantity, line_total, line_margin, products(id, name), product_variants(id, name), product_orders!inner(gym_id, status, payment_method, created_at, created_by_profile:profiles!product_orders_created_by_fkey(id, full_name))")
+    .select("quantity, line_total, line_margin, products(id, name), product_variants(id, name), product_orders!inner(id, gym_id, status, payment_method, paid_at, created_by_profile:profiles!product_orders_created_by_fkey(id, full_name))")
     .eq("product_orders.gym_id", gymId)
     .eq("product_orders.status", "paid")
-    .gte("product_orders.created_at", from)
-    .lte("product_orders.created_at", to) as unknown as Promise<{ data: Array<{
+    .gte("product_orders.paid_at", from)
+    .lte("product_orders.paid_at", to) as unknown as Promise<{ data: Array<{
       quantity: number
       line_total: number
       line_margin: number
       products: { id: string; name: string } | null
       product_variants: { id: string; name: string } | null
       product_orders: {
+        id: string
         payment_method: ProductPaymentMethod | null
         created_by_profile: { id: string; full_name: string | null } | null
       } | null
@@ -700,6 +701,7 @@ export async function getProductReport(startDate?: string, endDate?: string): Pr
   if (stockError) return { error: stockError.message }
 
   const rows = (itemRows ?? []).map((row) => ({
+    orderId: row.product_orders?.id ?? null,
     productId: row.products?.id ?? "unknown",
     productName: row.products?.name ?? "Producto eliminado",
     variantId: row.product_variants?.id ?? null,

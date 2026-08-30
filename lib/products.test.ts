@@ -162,7 +162,10 @@ describe("aggregateProductReport", () => {
     expect(aggregateProductReport([])).toEqual({
       revenue: 0,
       margin: 0,
+      marginPercentage: 0,
       units: 0,
+      paidOrders: 0,
+      averageOrderValue: 0,
       topProducts: [],
       byMethod: { cash: 0, mercadopago: 0, transfer: 0, card: 0, other: 0 },
       bySeller: [],
@@ -174,6 +177,7 @@ describe("aggregateProductReport", () => {
     expect(
       aggregateProductReport([
         {
+          orderId: "order-1",
           productId: "p1",
           productName: "Agua",
           sellerId: "u1",
@@ -184,6 +188,7 @@ describe("aggregateProductReport", () => {
           margin: 800,
         },
         {
+          orderId: "order-1",
           productId: "p1",
           productName: "Agua",
           sellerId: "u1",
@@ -197,7 +202,10 @@ describe("aggregateProductReport", () => {
     ).toMatchObject({
       revenue: 3000,
       margin: 1200,
+      marginPercentage: 40,
       units: 3,
+      paidOrders: 1,
+      averageOrderValue: 3000,
       byMethod: { cash: 2000, mercadopago: 0, transfer: 0, card: 1000, other: 0 },
       topProducts: [{ productId: "p1", productName: "Agua", units: 3, revenue: 3000, margin: 1200 }],
       bySeller: [{ sellerId: "u1", sellerName: "Admin", revenue: 3000, units: 3 }],

@@ -30,9 +30,11 @@ export default function ProductKpiCards({ report }: { report: ProductOrderReport
         <p className="text-xs text-muted-foreground mt-0.5">Ingresos de productos separados de membresías</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard label="Revenue productos" value={formatARS(report.revenue)} hint="solo órdenes pagas" />
-        <KpiCard label="Margen" value={formatARS(report.margin)} hint="precio menos costo" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <KpiCard label="Facturación" value={formatARS(report.revenue)} hint="órdenes cobradas" />
+        <KpiCard label="Margen" value={`${report.marginPercentage}%`} hint={formatARS(report.margin)} />
+        <KpiCard label="Órdenes pagas" value={report.paidOrders} hint="cobradas este período" />
+        <KpiCard label="Ticket promedio" value={formatARS(report.averageOrderValue)} hint="por orden cobrada" />
         <KpiCard label="Unidades" value={report.units} hint="vendidas este período" />
         <KpiCard label="Stock bajo" value={report.lowStock.length} hint="variantes con 5 o menos" />
       </div>

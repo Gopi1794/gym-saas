@@ -23,8 +23,9 @@ import MonthlyTrainingCalendar from "@/components/dashboard/MonthlyTrainingCalen
 import PersonalRecordsCard from "@/components/dashboard/PersonalRecordsCard"
 import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, startOfTodayAR } from "@/lib/date-ar"
 import { computeMonthToDateRevenue } from "@/lib/revenue"
-import { getMemberProductPromotions } from "@/app/actions/products"
+import { getMemberProductPromotions, getProductReport } from "@/app/actions/products"
 import ProductPromotionsCarousel from "@/components/dashboard/ProductPromotionsCarousel"
+import ProductCommerceKpi from "@/components/dashboard/ProductCommerceKpi"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Dashboard" }
@@ -61,6 +62,9 @@ export default async function DashboardPage() {
   const firstOfMonth = firstOfMonthAR()
   const twelveMonthsAgo = firstOfMonthsAgoAR(11)
   const sevenDaysAgo = daysAgoAR(6)
+  const productReportPromise = p?.role === "admin"
+    ? getProductReport(firstOfMonth, new Date().toISOString())
+    : null
 
   const [
     { count: totalMembers },
@@ -352,6 +356,7 @@ export default async function DashboardPage() {
   const greeting = hour < 12 ? "Buenos dÃ­as" : hour < 18 ? "Buenas tardes" : "Buenas noches"
   const firstName = p?.full_name?.split(" ")[0] ?? ""
   const dateLabel = `${DAYS[dayOfWeekAR()]}, ${todayDate.getDate()} ${MONTHS[todayDate.getMonth()]}`
+  const productReportResult = productReportPromise ? await productReportPromise : null
 
   return (
     <div className="space-y-5 pb-2">
@@ -439,6 +444,9 @@ export default async function DashboardPage() {
           <div data-tour="revenue-chart">
             <RevenueChart payments={paymentsLast12Months ?? []} />
           </div>
+          {p?.role === "admin" && productReportResult?.report && (
+            <ProductCommerceKpi report={productReportResult.report} />
+          )}
         </>
       )}
 

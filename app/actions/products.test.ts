@@ -588,6 +588,7 @@ describe("getProductReport", () => {
             products: { id: "product-1", name: "Agua" },
             product_variants: { id: "variant-1", name: "500ml" },
             product_orders: {
+              id: "order-1",
               payment_method: "cash",
               created_by_profile: { id: "admin-1", full_name: "Admin" },
             },
@@ -610,13 +611,18 @@ describe("getProductReport", () => {
     expect(result.report).toMatchObject({
       revenue: 3000,
       margin: 1000,
+      marginPercentage: 33.33,
       units: 2,
+      paidOrders: 1,
+      averageOrderValue: 3000,
       byMethod: { cash: 3000, mercadopago: 0, transfer: 0, card: 0, other: 0 },
       bySeller: [{ sellerId: "admin-1", sellerName: "Admin", revenue: 3000, units: 2 }],
       lowStock: [{ productId: "product-2", productName: "Whey", variantId: "variant-low", variantName: "1kg", stock: 3, threshold: 5 }],
     })
     expect(supabase.from).toHaveBeenCalledWith("product_order_items")
     expect(supabase.from).toHaveBeenCalledWith("product_variants")
+    expect(supabase.chains[1].gte).toHaveBeenCalledWith("product_orders.paid_at", "2026-08-01T00:00:00Z")
+    expect(supabase.chains[1].lte).toHaveBeenCalledWith("product_orders.paid_at", "2026-08-31T23:59:59Z")
   })
 
   it("un trainer no puede ver reportes de productos", async () => {
