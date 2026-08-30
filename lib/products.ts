@@ -20,6 +20,7 @@ export type ProductPaymentValidationInput = {
 }
 
 export type ProductReportRow = {
+  orderId?: string | null
   productId: string
   productName: string
   variantId?: string | null
@@ -44,7 +45,10 @@ export type ProductLowStockRow = {
 export type ProductOrderReport = {
   revenue: number
   margin: number
+  marginPercentage: number
   units: number
+  paidOrders: number
+  averageOrderValue: number
   topProducts: Array<{ productId: string; productName: string; units: number; revenue: number; margin: number }>
   byMethod: Record<ProductPaymentMethod, number>
   bySeller: Array<{ sellerId: string | null; sellerName: string; revenue: number; units: number }>
@@ -344,8 +348,10 @@ export function aggregateProductReport(rows: ProductReportRow[], lowStock: Produ
   let revenue = 0
   let margin = 0
   let units = 0
+  const paidOrderIds = new Set<string>()
 
   for (const row of rows) {
+    if (row.orderId) paidOrderIds.add(row.orderId)
     revenue += row.revenue
     margin += row.margin
     units += row.quantity
@@ -378,7 +384,10 @@ export function aggregateProductReport(rows: ProductReportRow[], lowStock: Produ
   return {
     revenue: roundMoney(revenue),
     margin: roundMoney(margin),
+    marginPercentage: revenue === 0 ? 0 : roundMoney((margin / revenue) * 100),
     units,
+    paidOrders: paidOrderIds.size,
+    averageOrderValue: paidOrderIds.size === 0 ? 0 : roundMoney(revenue / paidOrderIds.size),
     topProducts: [...products.values()].sort((a, b) => b.revenue - a.revenue),
     byMethod,
     bySeller: [...sellers.values()].sort((a, b) => b.revenue - a.revenue),
