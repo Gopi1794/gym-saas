@@ -131,13 +131,85 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["exercise_favorites"]["Insert"]>
         Relationships: []
       }
+      access_devices: {
+        Row: {
+          id: string
+          gym_id: string
+          name: string
+          device_uid: string
+          token_hash: string
+          status: "active" | "disabled"
+          last_seen_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          gym_id: string
+          name: string
+          device_uid: string
+          token_hash: string
+          status?: "active" | "disabled"
+          last_seen_at?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["access_devices"]["Insert"]>
+        Relationships: []
+      }
+      member_access_credentials: {
+        Row: {
+          id: string
+          gym_id: string
+          member_id: string
+          credential_hash: string
+          kind: "nfc" | "serial_test"
+          label: string | null
+          status: "active" | "disabled" | "lost"
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          gym_id: string
+          member_id: string
+          credential_hash: string
+          kind?: "nfc" | "serial_test"
+          label?: string | null
+          status?: "active" | "disabled" | "lost"
+          created_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["member_access_credentials"]["Insert"]>
+        Relationships: []
+      }
+      access_events: {
+        Row: {
+          id: string
+          gym_id: string
+          device_id: string | null
+          member_id: string | null
+          credential_hash: string | null
+          result: "accepted" | "rejected" | "expired" | "unknown_credential" | "disabled_device"
+          reason: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          gym_id: string
+          device_id?: string | null
+          member_id?: string | null
+          credential_hash?: string | null
+          result: "accepted" | "rejected" | "expired" | "unknown_credential" | "disabled_device"
+          reason?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["access_events"]["Insert"]>
+        Relationships: []
+      }
       check_ins: {
         Row: {
           id: string
           user_id: string
           gym_id: string
           checked_in_at: string
-          method: "qr" | "manual"
+          method: "qr" | "manual" | "device" | "nfc"
           checked_out_at: string | null
         }
         Insert: {
@@ -146,7 +218,7 @@ export interface Database {
           gym_id: string
           checked_in_at?: string
           checked_out_at?: string | null
-          method?: "qr" | "manual"
+          method?: "qr" | "manual" | "device" | "nfc"
         }
         Update: Partial<Database["public"]["Tables"]["check_ins"]["Insert"]>
         Relationships: [
@@ -542,3 +614,5 @@ export interface Database {
     Enums: Record<never, never>
   }
 }
+
+

@@ -8,6 +8,7 @@ import GymSettingsPanel from "@/components/admin/GymSettingsPanel"
 import MembershipPlansPanel from "@/components/admin/MembershipPlansPanel"
 import ExportPanel from "@/components/admin/ExportPanel"
 import GymNutritionDefaultsPanel from "@/components/admin/GymNutritionDefaultsPanel"
+import AccessDevicesPanel from "@/components/admin/AccessDevicesPanel"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Administración" }
@@ -35,6 +36,7 @@ export default async function AdminPage({
     { key: "pagos",          label: "Pagos" },
     { key: "membresias",     label: "Membresías" },
     { key: "nutricion",      label: "Nutrición" },
+    { key: "accesos",        label: "Accesos" },
     { key: "exportaciones",  label: "Exportaciones" },
     { key: "configuracion",  label: "Configuración" },
   ]
@@ -65,6 +67,32 @@ export default async function AdminPage({
     }
 
     content = <MembershipPlansPanel initialPlans={plans ?? []} memberCounts={memberCounts} />
+  } else if (tab === "accesos") {
+    const { data: devices } = await (supabase.from("access_devices" as never) as any)
+      .select("id, name, device_uid, status, last_seen_at, created_at")
+      .eq("gym_id", gymId)
+      .order("created_at", { ascending: false })
+
+    const { data: members } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("gym_id", gymId)
+      .eq("role", "member")
+      .order("full_name") as unknown as { data: any[] | null }
+
+    const { data: credentials } = await (supabase.from("member_access_credentials" as never) as any)
+      .select("id, kind, label, status, created_at, profiles(full_name)")
+      .eq("gym_id", gymId)
+      .order("created_at", { ascending: false })
+      .limit(100)
+
+    const { data: events } = await (supabase.from("access_events" as never) as any)
+      .select("id, result, reason, created_at, profiles(full_name), access_devices(name, device_uid)")
+      .eq("gym_id", gymId)
+      .order("created_at", { ascending: false })
+      .limit(50)
+
+    content = <AccessDevicesPanel devices={devices ?? []} members={members ?? []} credentials={credentials ?? []} events={events ?? []} />
   } else if (tab === "nutricion") {
     content = <GymNutritionDefaultsPanel gymId={gymId} />
   } else {
@@ -104,3 +132,4 @@ export default async function AdminPage({
     </div>
   )
 }
+
