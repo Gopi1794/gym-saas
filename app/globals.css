@@ -144,6 +144,159 @@
   to   { stroke-dashoffset: -58; }
 }
 
+@keyframes voltia-current-sweep {
+  0%   { opacity: 0; transform: translateX(-55%) skewX(-18deg); }
+  18%  { opacity: 0.7; }
+  60%  { opacity: 0.28; }
+  100% { opacity: 0; transform: translateX(150%) skewX(-18deg); }
+}
+
+@keyframes voltia-bolt-strike {
+  0%, 100% { opacity: 0.82; transform: scale(1) rotate(-8deg); }
+  8%       { opacity: 1; transform: scale(1.18) rotate(-4deg); }
+  12%      { opacity: 0.72; transform: scale(0.96) rotate(-10deg); }
+  18%      { opacity: 1; transform: scale(1.08) rotate(-6deg); }
+  28%      { opacity: 0.84; transform: scale(1) rotate(-8deg); }
+}
+
+@keyframes voltia-ring-pulse {
+  0%, 100% { opacity: 0.28; transform: scale(0.74); }
+  46%      { opacity: 0.82; transform: scale(1.08); }
+}
+
+@keyframes voltia-spark-a {
+  0%, 100% { opacity: 0; transform: translate(-50%, -50%) rotate(-28deg) translateX(0) scaleX(0.35); }
+  16%      { opacity: 1; transform: translate(-50%, -50%) rotate(-28deg) translateX(16px) scaleX(1); }
+  32%      { opacity: 0; transform: translate(-50%, -50%) rotate(-28deg) translateX(26px) scaleX(0.25); }
+}
+
+@keyframes voltia-spark-b {
+  0%, 100% { opacity: 0; transform: translate(-50%, -50%) rotate(28deg) translateX(0) scaleX(0.35); }
+  22%      { opacity: 0.9; transform: translate(-50%, -50%) rotate(28deg) translateX(14px) scaleX(0.95); }
+  38%      { opacity: 0; transform: translate(-50%, -50%) rotate(28deg) translateX(24px) scaleX(0.25); }
+}
+
+@keyframes voltia-spark-c {
+  0%, 100% { opacity: 0; transform: translate(-50%, -50%) rotate(0deg) translateX(0) scaleX(0.35); }
+  50%      { opacity: 0.85; transform: translate(-50%, -50%) rotate(0deg) translateX(17px) scaleX(0.9); }
+  68%      { opacity: 0; transform: translate(-50%, -50%) rotate(0deg) translateX(25px) scaleX(0.2); }
+}
+
+@keyframes voltia-label-flicker {
+  0%, 72%, 100% { text-shadow: 0 0 10px rgba(248, 113, 113, 0.28); }
+  73%           { text-shadow: 0 0 16px rgba(248, 250, 252, 0.8), 0 0 28px rgba(220, 38, 38, 0.55); }
+  75%           { text-shadow: 0 0 8px rgba(248, 113, 113, 0.22); }
+}
+
+.voltia-working {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  min-width: 11rem;
+  height: 3.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  background:
+    radial-gradient(circle at 22% 50%, rgba(220, 38, 38, 0.34), transparent 30%),
+    linear-gradient(135deg, #09090b 0%, #18181b 48%, #320202 100%);
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.32),
+    0 0 26px rgba(213, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  padding: 0 1rem 0 0.75rem;
+}
+
+.voltia-working::before {
+  content: "";
+  position: absolute;
+  inset: -40% auto -40% -30%;
+  z-index: -1;
+  width: 70%;
+  background: linear-gradient(90deg, transparent, rgba(248, 250, 252, 0.20), rgba(220, 38, 38, 0.34), transparent);
+  animation: voltia-current-sweep 1.45s var(--ease-out) infinite;
+}
+
+.voltia-working::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  border-radius: inherit;
+  box-shadow: inset 0 0 18px rgba(248, 113, 113, 0.16);
+}
+
+.voltia-working__icon {
+  position: relative;
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 9999px;
+  color: white;
+  background:
+    radial-gradient(circle, rgba(248, 250, 252, 0.22), transparent 36%),
+    radial-gradient(circle, rgba(213, 0, 0, 0.6), rgba(127, 29, 29, 0.22) 62%, transparent 70%);
+}
+
+.voltia-working__ring {
+  position: absolute;
+  inset: 0.18rem;
+  border-radius: inherit;
+  border: 1px solid rgba(248, 250, 252, 0.34);
+  animation: voltia-ring-pulse 1.25s var(--ease-in-out) infinite;
+}
+
+.voltia-working__bolt {
+  position: relative;
+  z-index: 1;
+  width: 1.45rem;
+  height: 1.45rem;
+  filter: drop-shadow(0 0 7px rgba(248, 250, 252, 0.75)) drop-shadow(0 0 12px rgba(220, 38, 38, 0.78));
+  transform-origin: center;
+  animation: voltia-bolt-strike 1.15s steps(1, end) infinite;
+}
+
+.voltia-working__spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 2px;
+  border-radius: 9999px;
+  background: rgba(248, 250, 252, 0.95);
+  box-shadow: 0 0 10px rgba(248, 250, 252, 0.85), 0 0 16px rgba(220, 38, 38, 0.75);
+  transform-origin: left center;
+}
+
+.voltia-working__spark--a { animation: voltia-spark-a 1.15s ease-out infinite; }
+.voltia-working__spark--b { animation: voltia-spark-b 1.15s ease-out infinite; }
+.voltia-working__spark--c { animation: voltia-spark-c 1.15s ease-out infinite; }
+
+.voltia-working__label {
+  position: relative;
+  z-index: 1;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  animation: voltia-label-flicker 2.4s steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voltia-working,
+  .voltia-working::before,
+  .voltia-working__ring,
+  .voltia-working__bolt,
+  .voltia-working__spark,
+  .voltia-working__label {
+    animation: none;
+  }
+}
+
 /* Anima el ángulo del conic-gradient sin mover ningún elemento del DOM */
 @property --chat-border-angle {
   syntax: '<angle>';

@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { X, Send, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AISparkle } from "./AISparkle"
+import { WorkingIndicator } from "./WorkingIndicator"
 
 export type Message = {
   id: string
@@ -170,34 +171,34 @@ export default function ChatPanel({
                 {/* Messages */}
                 <div className="min-h-0 flex-1 overflow-y-auto p-5">
                   <div className="space-y-4">
-                    {messages.map((m) => (
-                      <div key={m.id} className={cn("flex gap-3", m.role === "user" ? "justify-end" : "justify-start")}>
-                        {m.role === "assistant" && (
-                          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
-                            <AISparkle size={24} strokeWidth={1.8} duration={2.4} />
-                          </div>
-                        )}
-                        <div className="flex flex-col gap-2 max-w-[78%]">
-                          <div className={cn(
-                            "rounded-2xl px-4 py-3 text-sm leading-relaxed",
-                            m.role === "user"
-                              ? "rounded-br-sm bg-brand-700 text-white"
-                              : "rounded-bl-sm bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
-                          )}>
-                            {m.content || (
-                              <span className="flex flex-col gap-1 text-zinc-400 dark:text-zinc-500">
-                                <span className="flex items-center gap-1.5">
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                  Procesando…
-                                </span>
-                                <span className="text-[11px] text-zinc-500">Esto puede tardar hasta 30 segundos</span>
-                              </span>
+                    {messages.map((m) => {
+                      const isWorking = m.role === "assistant" && !m.content
+
+                      return (
+                        <div key={m.id} className={cn("flex gap-3", m.role === "user" ? "justify-end" : "justify-start")}>
+                          {m.role === "assistant" && (
+                            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
+                              <AISparkle size={24} strokeWidth={1.8} duration={2.4} />
+                            </div>
+                          )}
+                          <div className="flex flex-col gap-2 max-w-[78%]">
+                            {isWorking ? (
+                              <WorkingIndicator />
+                            ) : (
+                              <div className={cn(
+                                "rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                                m.role === "user"
+                                  ? "rounded-br-sm bg-brand-700 text-white"
+                                  : "rounded-bl-sm bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
+                              )}>
+                                {m.content}
+                              </div>
                             )}
+                            {m.action}
                           </div>
-                          {m.action}
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
 
                     {!hasUserMessages && (
                       <div className="space-y-2 pt-1">
