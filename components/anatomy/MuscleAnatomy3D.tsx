@@ -3,7 +3,7 @@
 import { Component, Suspense, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { motion } from "framer-motion"
-import { Canvas, useFrame, useThree } from "@react-three/fiber"
+import { Canvas, type ThreeEvent, useFrame, useThree } from "@react-three/fiber"
 import { CameraControls, useGLTF, Html, Text } from "@react-three/drei"
 import * as THREE from "three"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
@@ -109,7 +109,7 @@ function MuscleMarker({ entry, onSelect, showCallout }: { entry: MuscleAnatomyEn
         <line>
           <bufferGeometry
             attach="geometry"
-            onUpdate={(geometry) => geometry.setFromPoints([
+            onUpdate={(geometry: THREE.BufferGeometry) => geometry.setFromPoints([
               new THREE.Vector3(x, y, z),
               new THREE.Vector3(...markerPosition),
               new THREE.Vector3(...labelPosition),
@@ -121,7 +121,7 @@ function MuscleMarker({ entry, onSelect, showCallout }: { entry: MuscleAnatomyEn
       <group
         ref={labelRef}
         position={labelPosition}
-        onClick={(event) => {
+        onClick={(event: ThreeEvent<MouseEvent>) => {
           event.stopPropagation()
           onSelect(entry.zone)
         }}
