@@ -126,8 +126,8 @@ export default async function EntrenamientoPage({
     const planSelect = `id, name, description, created_at, assigned_to, level, workout_plan_days(id, day_of_week, workout_plan_exercises(id))`
     type MemberRow = { id: string; full_name: string | null }
     const [{ data: rawTemplates }, { data: rawMemberPlans }, { data: rawMembers }] = await Promise.all([
-      supabase.from("workout_plans").select(planSelect).eq("is_template", true).order("created_at"),
-      supabase.from("workout_plans").select(planSelect).eq("is_template", false).order("created_at", { ascending: false }),
+      supabase.from("workout_plans").select(planSelect).eq("gym_id", gymId).eq("is_template", true).order("created_at"),
+      supabase.from("workout_plans").select(planSelect).eq("gym_id", gymId).eq("is_template", false).order("created_at", { ascending: false }),
       supabase.from("profiles").select("id, full_name").eq("gym_id", gymId).eq("role", "member").order("full_name"),
     ])
     content = (

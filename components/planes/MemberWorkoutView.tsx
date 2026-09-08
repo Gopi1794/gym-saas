@@ -179,7 +179,7 @@ function DayDetail({
             </div>
           </div>
         </div>
-        {/* Image â€” z-10, overlays card */}
+        {/* Image — z-10, overlays card */}
         <div
           className="pointer-events-none absolute bottom-0 right-0 w-[62%] z-10"
           style={{ height: "calc(100% + 8px)" }}
@@ -192,7 +192,7 @@ function DayDetail({
             className="object-contain object-bottom"
           />
         </div>
-        {/* Exercise dots â€” z-20, visible above image */}
+        {/* Exercise dots — z-20, visible above image */}
         <div
           className="pointer-events-none absolute right-6 z-20 flex flex-col justify-center gap-2"
           style={{ top: 36, bottom: 0 }}
@@ -296,6 +296,16 @@ type ActiveWorkout = {
 
 const STORAGE_KEY = "voltia_active_workout"
 
+function plannedSetCount(exercise: PlanExercise): number {
+  return exercise.set_configs?.length > 0 ? exercise.set_configs.length : exercise.sets
+}
+
+function isDraftCompatible(draft: WorkoutDraft, exercises: PlanExercise[]): boolean {
+  const exercise = exercises[draft.exercise_idx]
+  if (!exercise) return false
+  return draft.current_set >= 1 && draft.current_set <= plannedSetCount(exercise)
+}
+
 export default function MemberWorkoutView({
   plan,
   days,
@@ -321,7 +331,7 @@ export default function MemberWorkoutView({
       if (saved) {
         const { dayOfWeek, dayName } = JSON.parse(saved) as { dayOfWeek: number; dayName: string }
         const day = days.find(d => d.day_of_week === dayOfWeek)
-        if (day) {
+        if (day && day.workout_plan_exercises.length > 0) {
           const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
           setActiveWorkout({ exercises: sorted, dayName, dayOfWeek })
           return // sessionStorage found, skip DB check
@@ -335,7 +345,10 @@ export default function MemberWorkoutView({
     loadWorkoutDraft(plan.id).then((draft) => {
       if (!draft) return
       const day = days.find(d => d.day_of_week === draft.day_of_week)
-      if (day) setPendingDraft(draft)
+      if (!day) return
+      const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
+      if (isDraftCompatible(draft, sorted)) setPendingDraft(draft)
+      else deleteWorkoutDraft(draft.plan_id, draft.day_of_week).catch(() => {})
     }).catch(() => {})
   }, [days, plan.id])
 
@@ -409,6 +422,11 @@ export default function MemberWorkoutView({
     const day = days.find(d => d.day_of_week === pendingDraft.day_of_week)
     if (!day) return
     const sorted = [...day.workout_plan_exercises].sort((a, b) => a.order_index - b.order_index)
+    if (!isDraftCompatible(pendingDraft, sorted)) {
+      deleteWorkoutDraft(pendingDraft.plan_id, pendingDraft.day_of_week).catch(() => {})
+      setPendingDraft(null)
+      return
+    }
     setActiveDraft(pendingDraft)
     setActiveWorkout({ exercises: sorted, dayName: pendingDraft.day_name, dayOfWeek: pendingDraft.day_of_week })
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ dayOfWeek: pendingDraft.day_of_week, dayName: pendingDraft.day_name }))

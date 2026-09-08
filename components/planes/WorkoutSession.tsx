@@ -17,7 +17,6 @@ import { saveWorkoutDraft, deleteWorkoutDraft, type WorkoutDraft } from "@/app/a
 import type { CompleteSessionResult, SessionSet } from "@/lib/achievements/types";
 import WorkoutResults from "@/components/planes/WorkoutResults";
 import RestTimerKnob from "@/components/ui/rest-timer-knob";
-import LottiePlayer from "@/components/ui/lottie-player";
 
 type Exercise = {
   id: string;
@@ -56,6 +55,26 @@ const PHASE_LABEL: Record<string, string> = {
   warmup: "Precalentamiento",
   main: "Principal",
   cooldown: "Estiramiento",
+};
+
+const EMPTY_EXERCISE: PlanExercise = {
+  id: "__empty__",
+  sets: 1,
+  reps: 0,
+  reps_max: null,
+  rest_seconds: 0,
+  order_index: 0,
+  notes: null,
+  duration_seconds: null,
+  phase: "main",
+  set_configs: [],
+  exercises: {
+    id: "__empty__",
+    name: "Sin ejercicios",
+    category: "strength",
+    image_url: null,
+    muscle_groups: [],
+  },
 };
 
 type Phase = "exercising" | "resting" | "finished";
@@ -101,46 +120,41 @@ function calcCalories(
   return Math.round(met * weightKg * (durationSeconds / 3600));
 }
 
-/* ── Finished screen (error fallback) ── */
-function WorkoutFinished({
-  dayName,
-  total,
-  onClose,
+/* ── Finished screen (completion error) ── */
+function WorkoutCompletionError({
+  error,
+  onRetry,
 }: {
-  dayName: string;
-  total: number;
-  onClose: () => void;
+  error: string;
+  onRetry: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-8 overflow-hidden bg-zinc-950 px-6 text-center">
       <div className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 h-72 w-72 rounded-full bg-brand-700/20 blur-[100px]" />
 
-      <LottiePlayer
-        src="/animations/success.lottie"
-        style={{ width: 160, height: 160 }}
-      />
+      <div className="flex h-24 w-24 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10">
+        <X className="h-10 w-10 text-red-500" />
+      </div>
 
       <div>
-        <p className="font-heading text-xs tracking-widest text-brand-500">
-          Completado
+        <p className="font-heading text-xs tracking-widest text-red-500">
+          No se pudo guardar
         </p>
-        <h1 className="mt-2 font-display text-4xl text-zinc-50">¡Excelente!</h1>
+        <h1 className="mt-2 font-display text-4xl text-zinc-50">No cierres todavía</h1>
         <p className="mt-2 text-zinc-400">
-          Terminaste el entrenamiento de{" "}
-          <span className="font-semibold text-zinc-200">{dayName}</span>
+          Tu progreso sigue guardado. Reintentá para completar el entrenamiento.
         </p>
         <p className="mt-1 text-sm text-zinc-600">
-          {total} ejercicio{total !== 1 ? "s" : ""} completado
-          {total !== 1 ? "s" : ""}
+          {error}
         </p>
       </div>
 
       <button
-        onClick={onClose}
+        onClick={onRetry}
         className="rounded-full bg-brand-700 px-12 py-4 text-sm font-bold text-white shadow-lg shadow-brand-700/40 transition-all hover:bg-brand-700 active:scale-[0.97]"
         style={{ transition: "transform 150ms cubic-bezier(0.16,1,0.3,1)" }}
       >
-        Volver a mi rutina
+        Reintentar guardado
       </button>
     </div>
   );
@@ -199,6 +213,7 @@ export default function WorkoutSession({
   const [completing, setCompleting] = useState(false);
   const [sessionResult, setSessionResult] =
     useState<CompleteSessionResult | null>(null);
+  const [completionAttempt, setCompletionAttempt] = useState(0);
 
   // Per-set tracking
   const [collectedSets, setCollectedSets] = useState<SessionSet[]>(() => initialDraft?.collected_sets ?? loadSaved("collectedSets", []));
@@ -220,10 +235,14 @@ export default function WorkoutSession({
   // viejo aunque la serie 1 ya hubiera guardado uno nuevo.
   const [localExerciseMaxes, setLocalExerciseMaxes] = useState(exerciseMaxes);
 
-  const current = sortedExercises[exerciseIdx];
+  const hasExercises = sortedExercises.length > 0;
+  const safeExerciseIdx = hasExercises
+    ? Math.min(Math.max(exerciseIdx, 0), sortedExercises.length - 1)
+    : 0;
+  const current = sortedExercises[safeExerciseIdx] ?? EMPTY_EXERCISE;
   const effectiveSets = current.set_configs?.length > 0 ? current.set_configs.length : current.sets;
   const isLastSet = currentSet === effectiveSets;
-  const isLastExercise = exerciseIdx === sortedExercises.length - 1;
+  const isLastExercise = safeExerciseIdx === sortedExercises.length - 1;
   const category = current.exercises.category;
   const isStrengthLike = category === "strength" || category === "hiit";
   const isCardio = category === "cardio";
@@ -236,6 +255,44 @@ export default function WorkoutSession({
 
   const [durationLeft, setDurationLeft] = useState<number>(currentDuration ?? 0);
   const [durationStarted, setDurationStarted] = useState(false);
+
+  useEffect(() => {
+    if (!hasExercises) return;
+    if (exerciseIdx !== safeExerciseIdx) setExerciseIdx(safeExerciseIdx);
+    if (currentSet < 1) setCurrentSet(1);
+    if (currentSet > effectiveSets) setCurrentSet(effectiveSets);
+  }, [hasExercises, exerciseIdx, safeExerciseIdx, currentSet, effectiveSets]);
+
+  async function finishWorkout() {
+    setCompleting(true);
+    try {
+      const durationSeconds = Math.round((Date.now() - sessionStartedAtRef.current) / 1000);
+      const result = await completeWorkoutSession({
+        plan_id: planId,
+        day_of_week: dayOfWeek,
+        day_name: dayName,
+        exercises_count: sortedExercises.length,
+        rest_skips: restSkips,
+        sets: collectedSets,
+        duration_seconds: durationSeconds,
+      });
+
+      if (result.ok) {
+        try { sessionStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
+        await deleteWorkoutDraft(planId, dayOfWeek).catch(() => {})
+      }
+
+      setSessionResult(result);
+    } catch (err) {
+      console.error("[completeWorkoutSession]", err);
+      setSessionResult({
+        ok: false,
+        error: err instanceof Error ? err.message : "Error inesperado al guardar la sesión",
+      });
+    } finally {
+      setCompleting(false);
+    }
+  }
 
   // Persist progress so tab kills don't lose workout
   useEffect(() => {
@@ -291,27 +348,8 @@ export default function WorkoutSession({
     if (phase !== "finished" || savedRef.current) return;
     savedRef.current = true;
 
-    try { sessionStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
-    deleteWorkoutDraft(planId, dayOfWeek).catch(() => {})
-
-    async function finish() {
-      setCompleting(true);
-      const durationSeconds = Math.round((Date.now() - sessionStartedAtRef.current) / 1000);
-      const result = await completeWorkoutSession({
-        plan_id: planId,
-        day_of_week: dayOfWeek,
-        day_name: dayName,
-        exercises_count: sortedExercises.length,
-        rest_skips: restSkips,
-        sets: collectedSets,
-        duration_seconds: durationSeconds,
-      });
-      setSessionResult(result);
-      setCompleting(false);
-    }
-
-    finish();
-  }, [phase, planId, dayOfWeek, dayName, sortedExercises.length, restSkips, collectedSets]);
+    finishWorkout();
+  }, [phase, completionAttempt]);
 
   // Rest countdown
   useEffect(() => {
@@ -440,17 +478,43 @@ export default function WorkoutSession({
     }
 
     return (
-      <WorkoutFinished
-        dayName={dayName}
-        total={sortedExercises.length}
-        onClose={onClose}
+      <WorkoutCompletionError
+        error={sessionResult.error}
+        onRetry={() => {
+          savedRef.current = false;
+          setSessionResult(null);
+          setCompletionAttempt((n) => n + 1);
+        }}
       />
     );
   }
 
   /* ── Resting view ── */
+  if (!hasExercises) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 overflow-hidden bg-zinc-950 px-6 text-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900">
+          <Dumbbell className="h-9 w-9 text-zinc-500" />
+        </div>
+        <div>
+          <p className="font-heading text-xs tracking-widest text-zinc-500">Sin ejercicios</p>
+          <h1 className="mt-2 font-display text-3xl text-zinc-50">Este día ya no tiene ejercicios</h1>
+          <p className="mt-2 max-w-sm text-sm text-zinc-400">
+            El plan pudo haber sido editado por tu trainer. Volvé a la rutina y elegí un día actualizado.
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="rounded-full bg-brand-700 px-10 py-3 text-sm font-bold text-white shadow-lg shadow-brand-700/40 transition-all hover:bg-brand-700 active:scale-[0.97]"
+        >
+          Volver a mi rutina
+        </button>
+      </div>
+    );
+  }
+
   if (phase === "resting") {
-    const nextEx = isLastSet ? sortedExercises[exerciseIdx + 1] : null;
+    const nextEx = isLastSet ? sortedExercises[safeExerciseIdx + 1] : null;
     const nextLabel = isLastSet
       ? nextEx?.exercises.name
       : `${current.exercises.name} — serie ${currentSet + 1}`;
