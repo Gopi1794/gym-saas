@@ -8,12 +8,12 @@ type PREntry = {
 export default function PersonalRecordsCard({ records }: { records: PREntry[] }) {
   if (records.length === 0) {
     return (
-      <div className="rounded-2xl border border-zinc-200 dark:border-white/[6%] bg-white dark:bg-zinc-900/50 p-4">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-white/[6%] dark:bg-zinc-900/50">
         <div className="mb-1 flex items-center gap-2">
           <Trophy className="h-4 w-4 text-amber-500" />
           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Récords personales</p>
         </div>
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs leading-snug text-zinc-500">
           Todavía no tenés PRs registrados. El trainer los puede cargar desde el chat.
         </p>
       </div>
@@ -21,7 +21,7 @@ export default function PersonalRecordsCard({ records }: { records: PREntry[] })
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-200 dark:border-white/[6%] bg-white dark:bg-zinc-900/50 p-4">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-white/[6%] dark:bg-zinc-900/50">
       <div className="mb-3 flex items-center gap-2">
         <Trophy className="h-4 w-4 text-amber-500" />
         <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Récords personales</p>

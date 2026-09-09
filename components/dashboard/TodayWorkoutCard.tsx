@@ -36,9 +36,9 @@ export default function TodayWorkoutCard({
     return (
       <Link
         href="/planes"
-        className="relative block overflow-hidden rounded-2xl border border-zinc-200 dark:border-none bg-white dark:bg-brand-950 p-6 active:scale-[0.99] transition-transform"
+        className="relative block overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 transition-transform duration-150 ease-out active:scale-[0.99] dark:border-none dark:bg-brand-950"
       >
-        {/* Radial glow — solo dark, es donde vive la referencia */}
+        {/* Radial glow: solo dark, es donde vive la referencia */}
         <div className="pointer-events-none absolute inset-0 hidden dark:block dark:bg-[radial-gradient(circle_at_75%_75%,rgba(213,0,0,0.55),transparent_60%)]" />
 
         <div className="relative z-10 flex items-start justify-between">
@@ -71,20 +71,18 @@ export default function TodayWorkoutCard({
   return (
     <Link
       href="/exercises"
-      className="block active:scale-[0.99] transition-transform"
+      className="block transition-transform duration-150 ease-out active:scale-[0.99]"
     >
-      {/* Wrapper — overflow visible so image can stick out above */}
+      {/* Wrapper: overflow visible so image can stick out above */}
       <div className="relative" style={{ paddingTop: 40 }}>
-        {/* ── Card ── */}
         <div
-          className="relative overflow-hidden rounded-2xl bg-brand-800"
+          className="relative overflow-hidden rounded-2xl bg-brand-800 shadow-[0_20px_45px_rgba(213,0,0,0.18)]"
           style={{ minHeight: 160 }}
         >
-          {/* Gradient only covers the left half — right side stays clear for image & button */}
+          {/* Gradient only covers the left half; right side stays clear for image & button */}
           <div className="absolute inset-0 bg-gradient-to-r from-brand-950 via-brand-950/90 to-transparent" />
-          <div className="relative z-10 flex h-full min-h-[160px] sm:min-h-[190px] p-5">
-            {/* Left: text + exercises */}
-            <div className="flex flex-col justify-between max-w-[60%]">
+          <div className="relative z-10 flex h-full min-h-[160px] p-5 sm:min-h-[190px]">
+            <div className="flex max-w-[60%] flex-col justify-between">
               <div>
                 <span className="font-heading text-xs tracking-widest text-white/50">
                   Hoy · {dayName}
@@ -99,17 +97,17 @@ export default function TodayWorkoutCard({
               </div>
               <div className="mt-4 space-y-1.5">
                 {exercises.slice(0, 3).map((ex, i) => (
-                  <div key={i} className="flex items-center gap-2 min-w-0">
+                  <div key={i} className="flex min-w-0 items-center gap-2">
                     <Dumbbell className="h-3 w-3 shrink-0 text-brand-400" />
                     <span className="truncate text-sm capitalize text-white/90">
                       {ex.name}
                     </span>
                     <span className="shrink-0 font-heading text-xs tracking-wider text-white/50">
                       {ex.duration_seconds != null
-                        ? `${ex.sets}×${ex.duration_seconds}s`
+                        ? `${ex.sets}x${ex.duration_seconds}s`
                         : ex.reps_max != null
-                          ? `${ex.sets}×${ex.reps}–${ex.reps_max}`
-                          : `${ex.sets}×${ex.reps}`}
+                          ? `${ex.sets}x${ex.reps}-${ex.reps_max}`
+                          : `${ex.sets}x${ex.reps}`}
                     </span>
                   </div>
                 ))}
@@ -120,7 +118,7 @@ export default function TodayWorkoutCard({
                 )}
               </div>
             </div>
-            {/* Arrow */}
+
             <div className="ml-auto flex items-start pb-1">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
                 <ChevronRight className="h-5 w-5 text-brand-500" />
@@ -129,7 +127,6 @@ export default function TodayWorkoutCard({
           </div>
         </div>
 
-        {/* ── Image div — sibling of card, overlaid on top ── */}
         <div
           className="pointer-events-none absolute bottom-0 right-0 w-[62%] sm:w-[68%]"
           style={{ height: "calc(100% + 8px)" }}

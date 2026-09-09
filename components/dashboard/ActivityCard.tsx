@@ -12,8 +12,20 @@ interface ActivityCardProps {
   color?: MonoKpiColor
   data?: number[]
   progress?: number
+  compact?: boolean
 }
 
-export default function ActivityCard({ label, value, unit, chart, color = "violet", data, progress }: ActivityCardProps) {
-  return <MonoRoundedKpiCard label={label} value={value} unit={unit} chart={chart} color={color} data={data} progress={progress} />
+export default function ActivityCard({ label, value, unit, chart, color = "violet", data, progress, compact = false }: ActivityCardProps) {
+  return (
+    <MonoRoundedKpiCard
+      label={label}
+      value={value}
+      unit={unit}
+      chart={chart}
+      color={color}
+      data={data}
+      progress={progress}
+      compact={compact}
+    />
+  )
 }
