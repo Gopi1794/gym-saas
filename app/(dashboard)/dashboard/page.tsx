@@ -110,7 +110,7 @@ export default async function DashboardPage() {
       .eq("gym_id", p?.gym_id ?? "")
       .eq("role", "member")
       .order("total_xp", { ascending: false })
-      .limit(10) as unknown as Promise<{ data: LeaderboardRow[] | null }>,
+      .limit(5) as unknown as Promise<{ data: LeaderboardRow[] | null }>,
     supabase
       .from("profiles")
       .select("*", { count: "exact", head: true })
@@ -359,7 +359,7 @@ export default async function DashboardPage() {
   const productReportResult = productReportPromise ? await productReportPromise : null
 
   return (
-    <div className="space-y-5 pb-2">
+    <div className="space-y-5 pb-32 md:pb-2">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -462,12 +462,15 @@ export default async function DashboardPage() {
 
       {/* Activity section */}
       {memberActivity ? (
-        <div data-tour="activity-cards">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-100">Mi actividad</h2>
-            <span className="text-xs font-medium text-brand-500">Esta semana</span>
+        <section data-tour="activity-cards" className="rounded-2xl border border-white/[6%] bg-zinc-900/50 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-100">Mi actividad</h2>
+              <p className="text-[11px] text-zinc-500">Resumen rápido de entrenamiento.</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-brand-700/15 px-2 py-1 text-xs font-medium text-brand-400">Esta semana</span>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <ActivityCard
               label="Esta semana"
               value={memberActivity.completedThisWeek}
@@ -475,11 +478,12 @@ export default async function DashboardPage() {
               chart="ring"
               color="emerald"
               progress={memberActivity.trainingDaysThisWeek > 0 ? memberActivity.completedThisWeek / memberActivity.trainingDaysThisWeek : 0}
+              compact
             />
-            <ActivityCard label="Total" value={memberActivity.totalSessions} chart="bar" color="brand" data={memberActivity.sessionsByWeek} />
-            <ActivityCard label="Racha" value={memberActivity.streak} unit="días" chart="line" color="cyan" data={memberActivity.recentDays} />
+            <ActivityCard label="Total" value={memberActivity.totalSessions} chart="bar" color="brand" data={memberActivity.sessionsByWeek} compact />
+            <ActivityCard label="Racha" value={memberActivity.streak} unit="días" chart="line" color="cyan" data={memberActivity.recentDays} compact />
           </div>
-        </div>
+        </section>
       ) : p?.role !== "member" ? (
         <AdminActivityStrip
           totalMembers={totalMembers ?? 0}

@@ -6,7 +6,7 @@ const DAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
 type DayStatus = "completed" | "missed" | "rest" | "today-pending" | "future";
 
 interface Props {
-  trainingDows: number[]; // 0=Mon…6=Sun — days that have exercises in the plan
+  trainingDows: number[]; // 0=Mon ... 6=Sun; days that have exercises in the plan
   completedDows: number[]; // days this week where a session was completed
   todayDow: number;
 }
@@ -35,13 +35,13 @@ function DayDot({ label, status }: { label: string; status: DayStatus }) {
     <div className="flex flex-col items-center gap-1.5">
       <div
         className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full transition-all",
-          status === "completed" && "bg-emerald-500",
-          status === "missed" && "bg-red-500/80",
-          status === "rest" && "bg-red-500/80",
+          "flex h-8 w-8 items-center justify-center rounded-full transition-[transform,background-color,box-shadow] duration-200 ease-out active:scale-95",
+          status === "completed" && "bg-emerald-500 shadow-[0_0_18px_rgba(52,211,153,0.3)]",
+          status === "missed" && "bg-red-500/85",
+          status === "rest" && "bg-zinc-800/70 text-zinc-500",
           status === "today-pending" &&
-            "bg-emerald-500 ring-2 ring-emerald-400/40",
-          status === "future" && "bg-zinc-800/50",
+            "bg-emerald-500 ring-2 ring-emerald-400/40 shadow-[0_0_18px_rgba(52,211,153,0.35)]",
+          status === "future" && "bg-zinc-800/45",
         )}
       >
         {status === "completed" && (
@@ -50,7 +50,7 @@ function DayDot({ label, status }: { label: string; status: DayStatus }) {
         {status === "missed" && (
           <X className="h-4 w-4 text-white" strokeWidth={3} />
         )}
-        {status === "rest" && <Moon className="h-3.5 w-3.5 text-white/80" />}
+        {status === "rest" && <Moon className="h-3.5 w-3.5 text-zinc-500" />}
         {status === "today-pending" && (
           <span className="h-2 w-2 rounded-full bg-white" />
         )}
@@ -59,7 +59,11 @@ function DayDot({ label, status }: { label: string; status: DayStatus }) {
       <span
         className={cn(
           "text-[11px] font-semibold",
-          status === "future" ? "text-zinc-700" : "text-zinc-500",
+          status === "today-pending" && "text-emerald-300",
+          status === "completed" && "text-emerald-400/80",
+          status === "missed" && "text-red-300/90",
+          status === "rest" && "text-zinc-600",
+          status === "future" && "text-zinc-700",
         )}
       >
         {label}
@@ -73,7 +77,7 @@ export default function WeeklyTrainingSummary({
   completedDows,
   todayDow,
 }: Props) {
-  // Stats — count only elapsed days (0…todayDow inclusive)
+  // Stats: count only elapsed days (0...todayDow inclusive)
   const elapsedDays = todayDow + 1;
   const elapsedTraining = trainingDows.filter((d) => d <= todayDow).length;
   const elapsedRest = elapsedDays - elapsedTraining;
@@ -84,26 +88,35 @@ export default function WeeklyTrainingSummary({
     elapsedDays > 0 ? Math.round((onTrackDays / elapsedDays) * 100) : 100;
 
   const todayPending = trainingDows.includes(todayDow) && !completedDows.includes(todayDow)
+  const pendingTrainingDays = Math.max(elapsedTraining - completedThisWeek, 0)
+  const statusText = todayPending
+    ? "Hoy toca entrenar"
+    : pendingTrainingDays > 0
+      ? `${pendingTrainingDays} pendiente${pendingTrainingDays === 1 ? "" : "s"}`
+      : "Al día"
 
   return (
     <div className={cn(
-      "rounded-2xl border bg-zinc-900/60 p-4",
+      "rounded-2xl border bg-zinc-900/60 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
       todayPending
         ? "border-emerald-500/40 animate-border-glow-green"
         : "border-brand-700/20"
     )}>
-      {/* Header */}
-      <div className="mb-3 flex items-center justify-between">
-        <p className="font-heading text-sm tracking-widest text-brand-500">
-          Tu semana
-        </p>
-        <span className="relative flex h-2 w-2">
-          <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-60", todayPending ? "bg-emerald-400" : "bg-brand-500")} />
-          <span className={cn("relative inline-flex h-2 w-2 rounded-full", todayPending ? "bg-emerald-500" : "bg-brand-700")} />
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <p className="font-heading text-sm tracking-widest text-brand-500">
+            Tu semana
+          </p>
+          <p className="mt-0.5 text-xs text-zinc-500">Rutina, descanso y progreso real.</p>
+        </div>
+        <span className={cn(
+          "rounded-full px-2.5 py-1 text-[11px] font-black",
+          todayPending ? "bg-emerald-500/15 text-emerald-300" : "bg-brand-700/15 text-brand-400"
+        )}>
+          {statusText}
         </span>
       </div>
 
-      {/* Day dots */}
       <div className="flex items-end justify-between">
         {DAY_SHORT.map((label, dow) => (
           <DayDot
@@ -114,24 +127,22 @@ export default function WeeklyTrainingSummary({
         ))}
       </div>
 
-      {/* Stats */}
-      <div className="mt-4 flex items-center gap-3 border-t border-brand-700/10 pt-3">
-        <div className="flex-1">
+      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-brand-700/10 pt-3">
+        <div className="rounded-xl bg-black/15 px-3 py-2">
           <p className="font-display text-2xl tabular-nums text-zinc-50">
             {completedThisWeek}
             <span className="font-sans text-sm font-medium text-zinc-500">
               /{elapsedTraining || trainingDows.length}
             </span>
           </p>
-          <p className="font-heading text-xs tracking-wider text-zinc-500">Completados</p>
+          <p className="font-heading text-[11px] tracking-wider text-zinc-500">Completados</p>
         </div>
-        <div className="h-12 w-px bg-brand-700/15" />
-        <div className="flex-1 text-right">
+        <div className="rounded-xl bg-black/15 px-3 py-2 text-right">
           <p className="font-display text-2xl tabular-nums text-brand-500">
             {onTrackPct}
             <span className="font-sans text-sm font-medium text-brand-700/60">%</span>
           </p>
-          <p className="font-heading text-xs tracking-wider text-zinc-500">En camino</p>
+          <p className="font-heading text-[11px] tracking-wider text-zinc-500">En camino</p>
         </div>
       </div>
     </div>
