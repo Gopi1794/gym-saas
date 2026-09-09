@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { MessageCircle, X, Send, Loader2, Dumbbell, Apple, Target, Camera, CheckCircle2, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AISparkle } from "./AISparkle"
+import { WorkingIndicator } from "./WorkingIndicator"
 import { saveQuickLogEntry } from "@/app/actions/nutrition-tracking"
 
 type FoodLog = {
@@ -268,7 +269,7 @@ export default function MemberChat() {
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.92 }}
         className={cn(
-          "fixed bottom-[72px] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-[0_0_28px_rgba(213,0,0,0.55)] md:bottom-6 md:right-6",
+          "fixed bottom-[124px] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-[0_0_28px_rgba(213,0,0,0.55)] md:bottom-6 md:right-6",
           open && "pointer-events-none opacity-0"
         )}
         aria-label="Abrir asistente"
@@ -333,8 +334,11 @@ export default function MemberChat() {
                   {/* Messages */}
                   <div className="min-h-0 flex-1 overflow-y-auto p-5">
                     <div className="space-y-4">
-                      {messages.map((m) => (
-                        <div key={m.id} className={cn("flex gap-3", m.role === "user" ? "justify-end" : "justify-start")}>
+                      {messages.map((m) => {
+                        const isWorking = m.role === "assistant" && !m.content
+
+                        return (
+                          <div key={m.id} className={cn("flex gap-3", m.role === "user" ? "justify-end" : "justify-start")}>
                           {m.role === "assistant" && (
                             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
                               <AISparkle size={24} strokeWidth={1.8} duration={2.4} />
@@ -351,19 +355,16 @@ export default function MemberChat() {
                               />
                             )}
                             {/* Burbuja de texto */}
-                            {(m.content || !m.imageUrl) && (
+                            {isWorking ? (
+                              <WorkingIndicator />
+                            ) : (m.content || !m.imageUrl) && (
                               <div className={cn(
                                 "rounded-2xl px-4 py-3 text-sm leading-relaxed",
                                 m.role === "user"
                                   ? "rounded-br-sm bg-brand-700 text-white"
                                   : "rounded-bl-sm bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
                               )}>
-                                {m.content || (
-                                  <span className="flex items-center gap-1.5 text-zinc-400 dark:text-zinc-500">
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                    Escribiendo…
-                                  </span>
-                                )}
+                                {m.content}
                               </div>
                             )}
                             {/* Card de confirmación de food log */}
@@ -430,8 +431,9 @@ export default function MemberChat() {
                               </div>
                             )}
                           </div>
-                        </div>
-                      ))}
+                          </div>
+                        )
+                      })}
 
                       {!hasUserMessages && (
                         <div className="space-y-2 pt-1">

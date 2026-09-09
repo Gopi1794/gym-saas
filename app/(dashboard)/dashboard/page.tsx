@@ -31,7 +31,7 @@ import ProductCommerceKpi from "@/components/dashboard/ProductCommerceKpi"
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Dashboard" }
 
-const DAYS = ["Domingo", "Lunes", "Martes", "MiÃ©rcoles", "Jueves", "Viernes", "SÃ¡bado"]
+const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
 const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 export default async function DashboardPage() {
@@ -56,7 +56,7 @@ export default async function DashboardPage() {
 
   const p = profile as Profile | null
 
-  // Fire-and-forget: crea notificaciones de membresÃ­a por vencer (idempotente)
+  // Fire-and-forget: crea notificaciones de membresía por vencer (idempotente)
   supabase.rpc("notify_expiring_memberships" as never).then(() => {})
 
   const todayStr = todayAR()
@@ -130,8 +130,8 @@ export default async function DashboardPage() {
       .gte("checked_in_at", sevenDaysAgo),
   ])
 
-  // â”€â”€ Member: fetch today's workout + weekly summary â”€â”€
-  // JS getDay: 0=Sun â†’ app dow: 0=Monâ€¦6=Sun â†’ (jsDay + 6) % 7
+  // ── Member: fetch today's workout + weekly summary ──
+  // JS getDay: 0=Sun → app dow: 0=Mon…6=Sun → (jsDay + 6) % 7
   const todayDate = todayDateAR()
   const todayDow = (dayOfWeekAR() + 6) % 7
   let todayWorkout: { planName: string; dayName: string; exercises: { name: string; sets: number; reps: number }[] } | null = null
@@ -336,11 +336,11 @@ export default async function DashboardPage() {
     : revenueComparison.sameTramoLastMonth > 0
       ? `el mes pasado a esta altura: $${revenueComparison.sameTramoLastMonth.toLocaleString("es-AR")}`
       : revenueComparison.lastPaymentDate
-        ? `sin pagos â€” el Ãºltimo fue el ${new Date(revenueComparison.lastPaymentDate).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}`
-        : "sin pagos en los Ãºltimos 12 meses"
-  // % de socios (role='member') con membresÃ­a vigente hoy, sobre el total de socios.
-  // Sin componente de tiempo de pago â€” un socio con plan anual pagado en marzo
-  // cuenta como al dÃ­a en agosto.
+        ? `sin pagos — el último fue el ${new Date(revenueComparison.lastPaymentDate).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}`
+        : "sin pagos en los últimos 12 meses"
+  // % de socios (role='member') con membresía vigente hoy, sobre el total de socios.
+  // Sin componente de tiempo de pago — un socio con plan anual pagado en marzo
+  // cuenta como al día en agosto.
   const membersUpToDateRate = totalMembers
     ? Math.round(((activeMembers ?? 0) / totalMembers) * 100)
     : 0
@@ -353,7 +353,7 @@ export default async function DashboardPage() {
     return (checkInsLast7Days ?? []).filter(ci => ci.checked_in_at.startsWith(dayStr)).length
   })
   const hour = hourAR()
-  const greeting = hour < 12 ? "Buenos dÃ­as" : hour < 18 ? "Buenas tardes" : "Buenas noches"
+  const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches"
   const firstName = p?.full_name?.split(" ")[0] ?? ""
   const dateLabel = `${DAYS[dayOfWeekAR()]}, ${todayDate.getDate()} ${MONTHS[todayDate.getMonth()]}`
   const productReportResult = productReportPromise ? await productReportPromise : null
@@ -368,14 +368,14 @@ export default async function DashboardPage() {
           </Link>
           <div>
             <h1 className="font-display text-2xl text-white leading-tight">
-              {greeting}{firstName ? `, ${firstName}` : ""} ðŸ‘‹
+              {greeting}{firstName ? `, ${firstName}` : ""} 👋
             </h1>
             <p className="font-heading text-xs tracking-widest text-zinc-900 dark:text-white/80 uppercase">{dateLabel}</p>
           </div>
         </div>
       </div>
 
-      {/* Membership renewal â€” members expiring â‰¤7 days or already expired */}
+      {/* Membership renewal — members expiring ≤7 days or already expired */}
       {p?.role === "member" && (() => {
         const exp = p.membership_expires_at
         const daysLeft = exp ? daysUntilAR(exp) : null
@@ -396,12 +396,12 @@ export default async function DashboardPage() {
         <ProductPromotionsCarousel promotions={productPromotions} />
       )}
 
-      {/* Weight reminder â€” members only, when > 7 days or never logged */}
+      {/* Weight reminder — members only, when > 7 days or never logged */}
       {p?.role === "member" && (
         <WeightReminderBanner daysSinceLastLog={daysSinceLastWeightLog} />
       )}
 
-      {/* Today's workout â€” members only */}
+      {/* Today's workout — members only */}
       {todayWorkout && (
         <div data-tour="today-workout">
           <TodayWorkoutCard
@@ -413,7 +413,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Weekly training summary â€” members only */}
+      {/* Weekly training summary — members only */}
       {weeklySummary && (
         <div data-tour="weekly-summary">
           <WeeklyTrainingSummary
@@ -424,12 +424,12 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Nutrition summary â€” members only */}
+      {/* Nutrition summary — members only */}
       {p?.role === "member" && (
         <NutritionSummaryCard plan={memberNutritionPlan} streak={nutritionStreak} consumed={memberConsumed} waterGlasses={memberWaterGlasses} />
       )}
 
-      {/* KPI cards â€” admin only */}
+      {/* KPI cards — admin only */}
       {p?.role !== "member" && (
         <>
           <div data-tour="kpi-cards">
@@ -450,7 +450,7 @@ export default async function DashboardPage() {
         </>
       )}
 
-      {/* Featured card â€” admin/trainer only */}
+      {/* Featured card — admin/trainer only */}
       {p?.role !== "member" && (
         <FeaturedCard
           value={totalCheckIns ?? 0}
@@ -477,7 +477,7 @@ export default async function DashboardPage() {
               progress={memberActivity.trainingDaysThisWeek > 0 ? memberActivity.completedThisWeek / memberActivity.trainingDaysThisWeek : 0}
             />
             <ActivityCard label="Total" value={memberActivity.totalSessions} chart="bar" color="brand" data={memberActivity.sessionsByWeek} />
-            <ActivityCard label="Racha" value={memberActivity.streak} unit="dÃ­as" chart="line" color="cyan" data={memberActivity.recentDays} />
+            <ActivityCard label="Racha" value={memberActivity.streak} unit="días" chart="line" color="cyan" data={memberActivity.recentDays} />
           </div>
         </div>
       ) : p?.role !== "member" ? (
@@ -490,7 +490,7 @@ export default async function DashboardPage() {
         />
       ) : null}
 
-      {/* Badge strip â€” members only */}
+      {/* Badge strip — members only */}
       {p?.role === "member" && (
         <BadgeStrip badges={recentBadges ?? []} />
       )}
@@ -510,14 +510,14 @@ export default async function DashboardPage() {
       {/* Leaderboard */}
       <LeaderboardCard rows={leaderboardRows ?? []} viewerId={user!.id} />
 
-      {/* Recent check-ins â€” admin/trainer only */}
+      {/* Recent check-ins — admin/trainer only */}
       {p?.role !== "member" && (
         <div data-tour="recent-checkins">
           <RecentCheckIns checkIns={recentCheckIns ?? []} />
         </div>
       )}
 
-      {/* Onboarding tour â€” solo en el primer login */}
+      {/* Onboarding tour — solo en el primer login */}
       {!p?.onboarding_seen && p?.role && (
         <OnboardingTour role={p.role} />
       )}

@@ -368,13 +368,15 @@ export default function PlanEditor({ plan, initialDays, allExercises, readOnly =
         reps_max: pe.reps_max,
         rest_seconds: pe.rest_seconds,
         duration_seconds: pe.duration_seconds,
+        notes: pe.notes,
+        phase: pe.phase ?? "main",
         order_index: startOrder + i,
       }))
 
       const { data, error } = (await supabase
         .from("workout_plan_exercises")
         .insert(inserts)
-        .select("id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds, exercise_id")
+        .select("id, sets, reps, reps_max, rest_seconds, order_index, notes, duration_seconds, phase, exercise_id")
       ) as unknown as { data: (Omit<PlanExercise, "exercises"> & { exercise_id: string })[] | null; error: unknown }
 
       if (!error && data) {

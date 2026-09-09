@@ -28,6 +28,85 @@ type GeneratedPlan = {
   days: GeneratedDay[]
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function asNullableNonNegativeInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null
+}
+
+function asNullableString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+function validateGeneratedPlan(value: unknown, validIds: Set<string>): GeneratedPlan | null {
+  if (!isRecord(value)) return null
+  if (typeof value.plan_name !== "string" || !value.plan_name.trim()) return null
+  if (!Array.isArray(value.days) || value.days.length === 0) return null
+
+  const days: GeneratedDay[] = []
+  const seenDays = new Set<number>()
+
+  for (const rawDay of value.days) {
+    if (!isRecord(rawDay)) return null
+    const dayOfWeek = rawDay.day_of_week
+    if (typeof dayOfWeek !== "number" || !Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6 || seenDays.has(dayOfWeek)) return null
+    if (!Array.isArray(rawDay.exercises) || rawDay.exercises.length === 0) return null
+
+    const exercises: GeneratedExercise[] = []
+    for (const rawExercise of rawDay.exercises) {
+      if (!isRecord(rawExercise)) return null
+      if (typeof rawExercise.exercise_id !== "string" || !validIds.has(rawExercise.exercise_id)) return null
+
+      const sets = typeof rawExercise.sets === "number" && Number.isInteger(rawExercise.sets) && rawExercise.sets > 0 ? rawExercise.sets : 3
+      const reps = typeof rawExercise.reps === "number" && Number.isInteger(rawExercise.reps) && rawExercise.reps >= 0 ? rawExercise.reps : 10
+      const repsMax = asNullableNonNegativeInteger(rawExercise.reps_max)
+      const restSeconds = typeof rawExercise.rest_seconds === "number" && Number.isInteger(rawExercise.rest_seconds) && rawExercise.rest_seconds >= 0 ? rawExercise.rest_seconds : 90
+      const durationSeconds = asNullableNonNegativeInteger(rawExercise.duration_seconds)
+
+      exercises.push({
+        exercise_id: rawExercise.exercise_id,
+        sets,
+        reps,
+        reps_max: repsMax,
+        rest_seconds: restSeconds,
+        duration_seconds: durationSeconds,
+        notes: asNullableString(rawExercise.notes),
+      })
+    }
+
+    seenDays.add(dayOfWeek)
+    days.push({ day_of_week: dayOfWeek, exercises })
+  }
+
+  return {
+    plan_name: value.plan_name.trim(),
+    description: typeof value.description === "string" ? value.description.trim() : "",
+    days,
+  }
+}
+
+async function cleanupGeneratedPlan(supabase: ReturnType<typeof createClient>, planId: string): Promise<void> {
+  // workout_plan_days -> workout_plans does not cascade in the current schema,
+  // so clean children explicitly before deleting the parent plan.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: days } = await (supabase as any)
+    .from("workout_plan_days")
+    .select("id")
+    .eq("plan_id", planId) as { data: { id: string }[] | null }
+
+  const dayIds = (days ?? []).map((d) => d.id)
+  if (dayIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from("workout_plan_exercises").delete().in("day_id", dayIds)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from("workout_plan_days").delete().in("id", dayIds)
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase as any).from("workout_plans").delete().eq("id", planId)
+}
 export type GeneratePlanInput =
   | {
       mode: "describe"
@@ -173,7 +252,7 @@ export async function generatePlan(input: GeneratePlanInput): Promise<GeneratePl
   const exerciseList = buildExerciseList(exercises)
   const prompt = buildPrompt(input, exerciseList)
 
-  let generated: GeneratedPlan
+  let parsed: unknown
   try {
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
@@ -184,20 +263,15 @@ export async function generatePlan(input: GeneratePlanInput): Promise<GeneratePl
     const text = response.content[0].type === "text" ? response.content[0].text : ""
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) return { ok: false, error: "La IA no devolvió JSON válido" }
-    generated = JSON.parse(jsonMatch[0])
+    parsed = JSON.parse(jsonMatch[0])
   } catch (err) {
     console.error("generatePlan: error al llamar a Anthropic", err)
     return { ok: false, error: "Error al generar el plan con IA" }
   }
 
-  // Validate exercise IDs — drop any hallucinated ones
   const validIds = new Set(exercises.map((e) => e.id))
-  for (const day of generated.days) {
-    day.exercises = day.exercises.filter((ex) => validIds.has(ex.exercise_id))
-  }
-  generated.days = generated.days.filter((d) => d.exercises.length > 0)
-
-  if (!generated.days.length) return { ok: false, error: "La IA no pudo mapear ejercicios del catálogo" }
+  const generated = validateGeneratedPlan(parsed, validIds)
+  if (!generated) return { ok: false, error: "La IA devolvió un plan inválido o con ejercicios fuera del catálogo" }
 
   // Create plan
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -216,30 +290,40 @@ export async function generatePlan(input: GeneratePlanInput): Promise<GeneratePl
 
   if (planError || !plan) return { ok: false, error: "No se pudo crear el plan" }
 
-  // Create days and exercises
-  for (const day of generated.days) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: planDay } = await (supabase as any)
-      .from("workout_plan_days")
-      .insert({ plan_id: plan.id, day_of_week: day.day_of_week })
-      .select("id")
-      .single() as { data: { id: string } | null }
+  try {
+    // Create days and exercises. Without a DB transaction/RPC here, every intermediate
+    // write is checked and the newly created plan is removed on any failure.
+    for (const day of generated.days) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: planDay, error: dayError } = await (supabase as any)
+        .from("workout_plan_days")
+        .insert({ plan_id: plan.id, day_of_week: day.day_of_week })
+        .select("id")
+        .single() as { data: { id: string } | null; error: unknown }
 
-    if (!planDay) continue
+      if (dayError || !planDay) throw new Error("No se pudo crear un día del plan")
 
-    await (supabase as any).from("workout_plan_exercises").insert(
-      day.exercises.map((ex, i) => ({
-        day_id: planDay.id,
-        exercise_id: ex.exercise_id,
-        sets: ex.sets ?? 3,
-        reps: ex.reps ?? 10,
-        reps_max: ex.reps_max ?? null,
-        rest_seconds: ex.rest_seconds ?? 90,
-        duration_seconds: ex.duration_seconds ?? null,
-        notes: ex.notes ?? null,
-        order_index: i,
-      }))
-    )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: exercisesError } = await (supabase as any).from("workout_plan_exercises").insert(
+        day.exercises.map((ex, i) => ({
+          day_id: planDay.id,
+          exercise_id: ex.exercise_id,
+          sets: ex.sets,
+          reps: ex.reps,
+          reps_max: ex.reps_max,
+          rest_seconds: ex.rest_seconds,
+          duration_seconds: ex.duration_seconds,
+          notes: ex.notes,
+          order_index: i,
+        }))
+      ) as { error: unknown }
+
+      if (exercisesError) throw new Error("No se pudieron crear los ejercicios del plan")
+    }
+  } catch (err) {
+    console.error("generatePlan: plan parcial revertido", err)
+    await cleanupGeneratedPlan(supabase, plan.id)
+    return { ok: false, error: err instanceof Error ? err.message : "No se pudo crear el plan completo" }
   }
 
   return { ok: true, planId: plan.id }
