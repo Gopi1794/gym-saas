@@ -11,21 +11,21 @@ const bebas  = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font
 
 export const metadata: Metadata = {
   title: {
-    default: "Voltia — The gym OS built for growth",
+    default: "Voltia — El sistema operativo para gimnasios",
     template: "%s | Voltia",
   },
   description:
-    "Manage members, track check-ins with QR codes, and build an exercise library — all in one modern platform.",
+    "Gestioná socios, check-ins QR, entrenamientos, nutrición, pagos y reportes en una sola plataforma moderna para gimnasios.",
   openGraph: {
-    title: "Voltia — The gym OS built for growth",
-    description: "Manage members, track check-ins with QR codes, and build an exercise library — all in one modern platform.",
+    title: "Voltia — El sistema operativo para gimnasios",
+    description: "Gestioná socios, check-ins QR, entrenamientos, nutrición, pagos y reportes en una sola plataforma moderna para gimnasios.",
     siteName: "Voltia",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Voltia — The gym OS built for growth",
-    description: "Manage members, track check-ins with QR codes, and build an exercise library — all in one modern platform.",
+    title: "Voltia — El sistema operativo para gimnasios",
+    description: "Gestioná socios, check-ins QR, entrenamientos, nutrición, pagos y reportes en una sola plataforma moderna para gimnasios.",
   },
   appleWebApp: {
     capable: true,
