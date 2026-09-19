@@ -43,3 +43,6 @@ Thumbs.db
 # pnpm (project uses npm)
 pnpm-lock.yaml
 .next-dev.log
+
+# Local source files used to generate the ARGENFOODS migration.
+data/argenfoods-source/

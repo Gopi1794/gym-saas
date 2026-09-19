@@ -6,6 +6,7 @@ import { createFood, updateFood, deleteFood } from "@/app/actions/nutrition"
 import { searchUSDA } from "@/app/actions/usda"
 import type { Food } from "@/app/actions/nutrition"
 import type { USDAResult } from "@/app/actions/usda"
+import { matchesFoodQuery } from "@/lib/food-search"
 
 interface Props {
   gymId: string
@@ -78,7 +79,7 @@ export default function FoodLibraryPanel({ gymId, initialFoods }: Props) {
     }
   }
 
-  const filtered = foods.filter(f => f.name.toLowerCase().includes(query.toLowerCase()))
+  const filtered = foods.filter(food => matchesFoodQuery(food, query))
 
   function openCreate() { setForm(EMPTY); setEditing(null); setCreating(true) }
 
@@ -180,7 +181,12 @@ export default function FoodLibraryPanel({ gymId, initialFoods }: Props) {
               <tr key={food.id} onClick={() => setDetail(food)} className="cursor-pointer border-b border-zinc-100 last:border-0 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
                 <td className="px-4 py-3">
                   <span className="font-medium text-zinc-900 hover:text-brand-500 dark:text-zinc-50 dark:hover:text-brand-400 transition-colors">{food.name}</span>
-                  {!isCustom(food) && <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800">global</span>}
+                  {!isCustom(food) && (
+                    <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800">
+                      {food.source === "argenfoods" ? "ARGENFOODS" : "global"}
+                    </span>
+                  )}
+                  {food.subcategory && <p className="mt-0.5 text-xs text-zinc-500">{food.subcategory}</p>}
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{food.calories}</td>
                 <td className="px-4 py-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{food.protein}g</td>
@@ -363,6 +369,11 @@ export default function FoodLibraryPanel({ gymId, initialFoods }: Props) {
               <div>
                 <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{detail.name}</h2>
                 <p className="text-xs text-zinc-500">Valores por 100g</p>
+                {detail.source === "argenfoods" && (
+                  <p className="mt-1 text-xs text-zinc-500">
+                    ARGENFOODS · {detail.category}{detail.subcategory ? ` · ${detail.subcategory}` : ""}
+                  </p>
+                )}
               </div>
               <button onClick={() => setDetail(null)} className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50"><X className="h-4 w-4" /></button>
             </div>

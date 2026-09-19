@@ -15,8 +15,8 @@ export type Food = {
   protein: number
   carbs: number
   fat: number
-  fiber: number
-  sodium: number
+  fiber: number | null
+  sodium: number | null
   household_unit: string | null
   grams_per_unit: number | null
   sugars: number | null
@@ -27,6 +27,25 @@ export type Food = {
   zinc: number | null
   iron: number | null
   vitamin_b12: number | null
+  source?: string
+  source_code?: string | null
+  category?: string | null
+  subcategory?: string | null
+  scientific_name?: string | null
+  data_quality?: "complete" | "trace_values" | "inferred_zero" | "incomplete"
+  source_url?: string | null
+  source_updated_at?: string | null
+  cholesterol?: number | null
+  monounsaturated_fat?: number | null
+  polyunsaturated_fat?: number | null
+  trans_fat?: number | null
+  omega_3?: number | null
+  omega_6?: number | null
+  phosphorus?: number | null
+  vitamin_c?: number | null
+  thiamin?: number | null
+  riboflavin?: number | null
+  niacin?: number | null
 }
 
 export type MealItem = {
