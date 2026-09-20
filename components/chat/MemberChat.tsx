@@ -504,7 +504,7 @@ export default function MemberChat() {
                         </button>
                       </div>
                     )}
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                       {/* File input oculto */}
                       <input
                         ref={fileInputRef}
@@ -539,12 +539,13 @@ export default function MemberChat() {
                         onKeyDown={handleKeyDown}
                         placeholder={pendingImage ? "Agregá un comentario (opcional)…" : "Escribe tu pregunta..."}
                         disabled={streaming}
-                        className="flex-1 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/40 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                        className="min-w-0 flex-1 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/40 disabled:opacity-50 sm:px-4 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500"
                       />
                       <button
                         onClick={() => sendMessage()}
                         disabled={(!input.trim() && !pendingImage) || streaming}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-700 text-white shadow-[0_0_16px_rgba(213,0,0,0.4)] transition-all hover:bg-brand-600 disabled:opacity-40 disabled:shadow-none"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-700 text-white shadow-[0_0_16px_rgba(213,0,0,0.4)] transition-[background-color,box-shadow,opacity,transform] duration-150 hover:bg-brand-600 active:scale-[0.97] disabled:opacity-40 disabled:shadow-none"
+                        aria-label="Enviar mensaje"
                       >
                         {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       </button>
