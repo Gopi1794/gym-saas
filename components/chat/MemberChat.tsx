@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { MessageCircle, X, Send, Loader2, Dumbbell, Apple, Target, Camera, CheckCircle2, XCircle } from "lucide-react"
+import { MessageCircle, X, Send, Loader2, Dumbbell, Apple, Target, Camera, CheckCircle2, XCircle, ScanBarcode } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AISparkle } from "./AISparkle"
 import { WorkingIndicator } from "./WorkingIndicator"
 import { saveQuickLogEntry } from "@/app/actions/nutrition-tracking"
+import { FoodBarcodeScanner, type ScannedProductResult } from "./FoodBarcodeScanner"
 
 type FoodLog = {
   description: string
@@ -123,6 +124,7 @@ export default function MemberChat() {
   ])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
+  const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false)
   const [pendingImage, setPendingImage] = useState<{ data: string; mediaType: string; previewUrl: string } | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -259,6 +261,30 @@ export default function MemberChat() {
     } else {
       inputRef.current?.focus()
     }
+  }
+
+  function handleScannedProduct(result: ScannedProductResult) {
+    const brand = result.product.brand ? ` · ${result.product.brand}` : ""
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: `Escaneé ${result.product.name}${brand} y consumí ${result.quantity} g/ml.`,
+    }
+    const assistantMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: "Calculé lo consumido usando la información nutricional por 100 g/ml de Open Food Facts. Confirmá antes de registrarlo.",
+      foodLog: {
+        description: [result.product.name, result.product.brand].filter(Boolean).join(" · "),
+        calories: result.macros.calories,
+        protein: result.macros.protein,
+        carbs: result.macros.carbs,
+        fat: result.macros.fat,
+      },
+      mealMatch: result.mealMatch,
+      linkedMealId: result.mealMatch.mealId,
+    }
+    setMessages((previous) => [...previous, userMessage, assistantMessage])
   }
 
   return (
@@ -490,6 +516,15 @@ export default function MemberChat() {
                       />
                       {/* Botón cámara */}
                       <button
+                        onClick={() => setBarcodeScannerOpen(true)}
+                        disabled={streaming}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 transition-[color,background-color,transform] duration-150 hover:bg-zinc-100 hover:text-zinc-700 active:scale-[0.97] disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                        aria-label="Escanear código de barras"
+                        title="Escanear producto"
+                      >
+                        <ScanBarcode className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={streaming}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
@@ -534,6 +569,12 @@ export default function MemberChat() {
           </>
         )}
       </AnimatePresence>
+      {barcodeScannerOpen && (
+        <FoodBarcodeScanner
+          onClose={() => setBarcodeScannerOpen(false)}
+          onConfirm={handleScannedProduct}
+        />
+      )}
     </>
   )
 }
