@@ -17,6 +17,7 @@ import { saveWorkoutDraft, deleteWorkoutDraft, type WorkoutDraft } from "@/app/a
 import type { CompleteSessionResult, SessionSet } from "@/lib/achievements/types";
 import WorkoutResults from "@/components/planes/WorkoutResults";
 import RestTimerKnob from "@/components/ui/rest-timer-knob";
+import { emitWorkoutSessionVisibility } from "@/lib/workout-session-ui";
 
 type Exercise = {
   id: string;
@@ -214,6 +215,11 @@ export default function WorkoutSession({
   const [sessionResult, setSessionResult] =
     useState<CompleteSessionResult | null>(null);
   const [completionAttempt, setCompletionAttempt] = useState(0);
+
+  useEffect(() => {
+    emitWorkoutSessionVisibility(true)
+    return () => emitWorkoutSessionVisibility(false)
+  }, [])
 
   // Per-set tracking
   const [collectedSets, setCollectedSets] = useState<SessionSet[]>(() => initialDraft?.collected_sets ?? loadSaved("collectedSets", []));

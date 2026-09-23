@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { ElementType } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -10,6 +10,7 @@ import {
   TrendingUp, Dumbbell, Apple, MoreHorizontal, X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { WORKOUT_SESSION_VISIBILITY_EVENT } from "@/lib/workout-session-ui"
 
 interface MobileNavProps {
   role: string
@@ -66,11 +67,23 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 export default function MobileNav({ role }: MobileNavProps) {
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
+  const [workoutActive, setWorkoutActive] = useState(false)
   const items = ITEMS_BY_ROLE[role] ?? ITEMS_BY_ROLE.member
   const isMember = role === "member"
   const moreActive = isMember && MEMBER_MORE.some(i => pathname === i.href)
   const leadingItems = isMember ? items.slice(0, 2) : items
   const trailingItems = isMember ? items.slice(2) : []
+
+  useEffect(() => {
+    const handleWorkoutVisibility = (event: Event) => {
+      const active = (event as CustomEvent<boolean>).detail === true
+      setWorkoutActive(active)
+      if (active) setMoreOpen(false)
+    }
+
+    window.addEventListener(WORKOUT_SESSION_VISIBILITY_EVENT, handleWorkoutVisibility)
+    return () => window.removeEventListener(WORKOUT_SESSION_VISIBILITY_EVENT, handleWorkoutVisibility)
+  }, [])
 
   return (
     <>
@@ -98,7 +111,7 @@ export default function MobileNav({ role }: MobileNavProps) {
         </div>
       </nav>
 
-      {isMember && (
+      {isMember && !workoutActive && (
         <div className="pointer-events-none fixed bottom-3 left-1/2 z-50 h-40 w-64 -translate-x-1/2 md:hidden">
           <Liquid
             blur={8}
