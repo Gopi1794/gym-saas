@@ -10,8 +10,12 @@ import ImportExercisesPanel from "@/components/exercises/ImportExercisesPanel"
 import MachinesPanel from "@/components/machines/MachinesPanel"
 import { getMachines } from "@/app/actions/machines"
 import { Dumbbell } from "lucide-react"
+import type { ExerciseCategory } from "@/types"
 
 export const metadata: Metadata = { title: "Entrenamiento" }
+
+const EXERCISE_PAGE_SIZE = 24
+const EXERCISE_CATEGORIES: ExerciseCategory[] = ["strength", "cardio", "hiit", "flexibility", "balance"]
 
 type Plan = {
   id: string; name: string; description: string | null
@@ -35,7 +39,13 @@ type PlanRow = {
 export default async function EntrenamientoPage({
   searchParams,
 }: {
-  searchParams: { tab?: string }
+  searchParams: {
+    tab?: string
+    page?: string
+    q?: string
+    category?: string
+    favorites?: string
+  }
 }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -154,15 +164,42 @@ export default async function EntrenamientoPage({
   } else if (tab === "importar" && isAdmin) {
     content = <ImportExercisesPanel />
   } else {
-    const [exercisesRes, favoritesRes] = await Promise.all([
-      supabase.from("exercises").select("*").order("name"),
-      supabase.from("exercise_favorites").select("exercise_id").eq("user_id", user!.id),
-    ])
+    const pageNumber = Number.parseInt(searchParams.page ?? "1", 10)
+    const currentPage = Number.isInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1
+    const query = (searchParams.q ?? "").trim().slice(0, 100)
+    const category = EXERCISE_CATEGORIES.includes(searchParams.category as ExerciseCategory)
+      ? searchParams.category as ExerciseCategory
+      : "all"
+    const showFavorites = searchParams.favorites === "1"
+
+    const { data: favoritesData } = await supabase
+      .from("exercise_favorites")
+      .select("exercise_id")
+      .eq("user_id", user!.id)
+    const favoriteIds = (favoritesData ?? []).map((favorite) => favorite.exercise_id)
+
+    let exercisesRes: { data: unknown[] | null; count: number | null }
+    if (showFavorites && favoriteIds.length === 0) {
+      exercisesRes = { data: [], count: 0 }
+    } else {
+      let exercisesQuery = supabase
+        .from("exercises")
+        .select("*", { count: "exact" })
+        .order("name")
+        .range((currentPage - 1) * EXERCISE_PAGE_SIZE, currentPage * EXERCISE_PAGE_SIZE - 1)
+
+      if (query) exercisesQuery = exercisesQuery.ilike("name", `%${query}%`)
+      if (category !== "all") exercisesQuery = exercisesQuery.eq("category", category)
+      if (showFavorites) exercisesQuery = exercisesQuery.in("id", favoriteIds)
+
+      exercisesRes = await exercisesQuery
+    }
+
     const exercises = exercisesRes.data ?? []
-    const favoriteIds = new Set((favoritesRes.data ?? []).map((f) => (f as { exercise_id: string }).exercise_id))
+    const favoriteIdSet = new Set(favoriteIds)
     const exercisesWithFavorite = exercises.map((ex) => ({
       ...(ex as object),
-      is_favorite: favoriteIds.has((ex as { id: string }).id),
+      is_favorite: favoriteIdSet.has((ex as { id: string }).id),
     }))
     content = (
       <div className="space-y-4">
@@ -171,7 +208,17 @@ export default async function EntrenamientoPage({
             <AddExerciseDialog />
           </div>
         )}
-        <ExerciseGrid exercises={exercisesWithFavorite as never} userId={user!.id} isAdmin={isAdmin} />
+        <ExerciseGrid
+          exercises={exercisesWithFavorite as never}
+          userId={user!.id}
+          isAdmin={isAdmin}
+          page={currentPage}
+          pageSize={EXERCISE_PAGE_SIZE}
+          total={exercisesRes.count ?? 0}
+          initialQuery={query}
+          initialCategory={category}
+          initialShowFavorites={showFavorites}
+        />
       </div>
     )
   }

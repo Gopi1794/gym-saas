@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import ExerciseCard from "./ExerciseCard";
@@ -64,26 +65,62 @@ interface ExerciseGridProps {
   exercises: ExerciseWithFavorite[];
   userId: string;
   isAdmin?: boolean;
+  page: number;
+  pageSize: number;
+  total: number;
+  initialQuery: string;
+  initialCategory: ExerciseCategory | "all";
+  initialShowFavorites: boolean;
 }
 
 export default function ExerciseGrid({
   exercises,
   userId,
   isAdmin,
+  page,
+  pageSize,
+  total,
+  initialQuery,
+  initialCategory,
+  initialShowFavorites,
 }: ExerciseGridProps) {
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<ExerciseCategory | "all">("all");
-  const [showFavorites, setShowFavorites] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [query, setQuery] = useState(initialQuery);
   const [items, setItems] = useState(exercises);
+  const [queryReady, setQueryReady] = useState(false);
+  const category = initialCategory;
+  const showFavorites = initialShowFavorites;
+
+  useEffect(() => setItems(exercises), [exercises]);
+  useEffect(() => setQuery(initialQuery), [initialQuery]);
+  useEffect(() => {
+    if (!queryReady) {
+      setQueryReady(true);
+      return;
+    }
+    const timeout = window.setTimeout(() => updateParams({ q: query.trim() || null, page: "1" }), 300);
+    return () => window.clearTimeout(timeout);
+  }, [query]);
 
   const heroImage = "/img_bliblioteca.png";
 
-  const filtered = items.filter((ex) => {
-    const matchesQuery = ex.name.toLowerCase().includes(query.toLowerCase());
-    const matchesCategory = category === "all" || ex.category === category;
-    const matchesFavorites = !showFavorites || ex.is_favorite;
-    return matchesQuery && matchesCategory && matchesFavorites;
-  });
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  function updateParams(updates: Record<string, string | null>) {
+    const params = new URLSearchParams(window.location.search);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null) params.delete(key);
+      else params.set(key, value);
+    });
+    router.replace(`${pathname}?${params.toString()}`);
+  }
+
+  function goToPage(nextPage: number) {
+    if (nextPage < 1 || nextPage > totalPages) return;
+    updateParams({ page: String(nextPage) });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   return (
     <div className="space-y-5">
@@ -116,13 +153,13 @@ export default function ExerciseGrid({
               </h2>
               <p className="mt-4 max-w-xs text-sm font-medium leading-relaxed !text-white">
                 Más de{" "}
-                <span className="font-bold !text-white">{items.length} ejercicios</span>{" "}
+                <span className="font-bold !text-white">{total} ejercicios</span>{" "}
                 para todos tus objetivos
               </p>
 
               <div className="mt-6 grid max-w-[340px] grid-cols-3 gap-1.5 rounded-2xl border border-red-300/25 bg-black/30 p-2 shadow-2xl shadow-black/35 backdrop-blur-xl">
                 {[
-                  { Icon: LayoutGrid, value: `${items.length}+`, label: "Ejercicios" },
+                  { Icon: LayoutGrid, value: `${total}+`, label: "Ejercicios" },
                   { Icon: SlidersHorizontal, value: "Filtros", label: "avanzados" },
                   { Icon: FileText, value: "Instrucciones", label: "detalladas" },
                 ].map((s) => (
@@ -170,7 +207,7 @@ export default function ExerciseGrid({
           />
         </div>
         <button
-          onClick={() => setShowFavorites(!showFavorites)}
+          onClick={() => updateParams({ favorites: showFavorites ? null : "1", page: "1" })}
           className={cn(
             "flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors",
             showFavorites
@@ -197,7 +234,7 @@ export default function ExerciseGrid({
             {CATEGORIES.map((cat) => (
               <button
                 key={cat.value}
-                onClick={() => setCategory(cat.value)}
+                onClick={() => updateParams({ category: cat.value === "all" ? null : cat.value, page: "1" })}
                 className={cn(
                   BASE_TAB,
                   "relative cursor-pointer transition-colors duration-200",
@@ -222,16 +259,16 @@ export default function ExerciseGrid({
       </div>
 
       <p className="text-sm text-zinc-500">
-        {filtered.length} ejercicio{filtered.length !== 1 ? "s" : ""}
+        {total} ejercicio{total !== 1 ? "s" : ""}
       </p>
 
-      {filtered.length === 0 ? (
+      {items.length === 0 ? (
         <div className="py-20 text-center text-zinc-500">
           Ningún ejercicio coincide con los filtros
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((exercise, index) => (
+          {items.map((exercise, index) => (
             <div
               key={exercise.id}
               className="animate-fade-up"
@@ -247,6 +284,28 @@ export default function ExerciseGrid({
               />
             </div>
           ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => goToPage(page - 1)}
+            disabled={page <= 1}
+            className="rounded-full border border-zinc-300 px-4 py-2 text-sm text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-zinc-200"
+          >
+            Anterior
+          </button>
+          <span className="text-sm text-zinc-500">Página {page} de {totalPages}</span>
+          <button
+            type="button"
+            onClick={() => goToPage(page + 1)}
+            disabled={page >= totalPages}
+            className="rounded-full border border-zinc-300 px-4 py-2 text-sm text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-zinc-200"
+          >
+            Siguiente
+          </button>
         </div>
       )}
     </div>
