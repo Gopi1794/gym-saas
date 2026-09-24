@@ -5,7 +5,6 @@ import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generatePlan } from "@/app/actions/generate-plan"
-import { getUsdaCoreNutrients, type UsdaFoodNutrient } from "@/lib/usda-nutrients"
 import { addNutritionTotals, emptyNutritionTotals, getMissingNutritionProfileFields, nutritionTotalsForFood, validateNutritionTarget, type FoodNutrition, type NutritionTotals } from "@/lib/nutrition-target-validation"
 
 const anthropic = new Anthropic()
@@ -94,7 +93,7 @@ Cuando el usuario pide crear un plan a partir de una descripción corta (no un d
 3. Para crear un plan nuevo, mostrás los macros calculados y pedís confirmación antes de crear.
 4. Para armar o completar comidas, usás las kcal restantes informadas por la tool. Mostrás alimentos, cantidades y total estimado del día; el total debe quedar dentro de ±4% (mínimo 75 kcal) del target. Pedís confirmación antes de ejecutar add_meals_to_plan.
 5. Si add_meals_to_plan informa una diferencia fuera del rango, NO se guardó nada: corregís cantidades, mostrás el nuevo total y pedís una nueva confirmación.
-6. Para cada alimento usás food_name en inglés (búsqueda USDA) y food_name_es en español.
+6. Para cada alimento usás food_name_es con el nombre en español tal como figura en la biblioteca de alimentos del gym.
 </flujo_nutricion>
 
 <flujo_eliminar>
@@ -176,11 +175,9 @@ function calculateNutritionTargets(
   const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4))
   return { calories: Math.round(calories), protein, carbs, fat }
 }
-// ── USDA food import ──────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function findOrImportFood(supabase: any, gymId: string, foodNameEn: string, foodNameEs: string): Promise<string | null> {
-  // 1. Search gym library by Spanish name
+async function findFoodInLibrary(supabase: any, gymId: string, foodNameEs: string): Promise<string | null> {
   const { data: existing } = await supabase
     .from("foods")
     .select("id")
@@ -189,56 +186,9 @@ async function findOrImportFood(supabase: any, gymId: string, foodNameEn: string
     .limit(1)
     .maybeSingle()
 
-  if (existing) return (existing as { id: string }).id
-
-  // SR Legacy retains the USDA nutrient IDs consumed by our nutrition model.
-  const apiKey = process.env.USDA_API_KEY ?? ""
-  if (!apiKey) {
-    console.warn("[trainer-chat] USDA import skipped: missing API key")
-    return null
-  }
-
-  try {
-    const res = await fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: foodNameEn, dataType: ["SR Legacy"], pageSize: 1 }),
-    })
-    if (!res.ok) {
-      console.warn("[trainer-chat] USDA search failed", { status: res.status, query: foodNameEn })
-      return null
-    }
-
-    const data = await res.json() as { foods?: { foodNutrients?: UsdaFoodNutrient[] }[] }
-    const nutrients = getUsdaCoreNutrients(data.foods?.[0]?.foodNutrients ?? [])
-    if (!nutrients) {
-      console.warn("[trainer-chat] USDA returned incomplete nutrients", { query: foodNameEn })
-      return null
-    }
-
-    const { data: newFood, error } = await supabase
-      .from("foods")
-      .insert({
-        gym_id: gymId,
-        name: foodNameEs,
-        ...nutrients,
-      })
-      .select("id")
-      .single()
-
-    if (error || !newFood) {
-      console.error("[trainer-chat] USDA food insert failed", { query: foodNameEn })
-      return null
-    }
-    return (newFood as { id: string }).id
-  } catch (error) {
-    console.error("[trainer-chat] USDA import failed", {
-      query: foodNameEn,
-      message: error instanceof Error ? error.message : "unknown error",
-    })
-    return null
-  }
+  return existing ? (existing as { id: string }).id : null
 }
+
 type NutritionPlanRow = {
   id: string
   name: string
@@ -584,7 +534,7 @@ export async function POST(req: NextRequest) {
       },
       {
         name: "add_meals_to_plan",
-        description: "Agrega comidas estructuradas a un plan nutricional. Busca los alimentos en la biblioteca del gym y si no existen los importa desde USDA automáticamente.",
+        description: "Agrega comidas estructuradas a un plan nutricional. Busca los alimentos en la biblioteca del gym; los que no existen se informan como no encontrados y no se guarda nada.",
         input_schema: {
           type: "object" as const,
           properties: {
@@ -602,11 +552,10 @@ export async function POST(req: NextRequest) {
                     items: {
                       type: "object",
                       properties: {
-                        food_name: { type: "string", description: "Nombre en inglés para buscar en USDA (ej: chicken breast, oats, egg)" },
                         food_name_es: { type: "string", description: "Nombre en español para mostrar (ej: Pechuga de pollo, Avena, Huevo)" },
                         quantity_grams: { type: "number", description: "Cantidad en gramos" },
                       },
-                      required: ["food_name", "food_name_es", "quantity_grams"],
+                      required: ["food_name_es", "quantity_grams"],
                     },
                   },
                 },
@@ -728,7 +677,7 @@ export async function POST(req: NextRequest) {
 
       // add_meals_to_plan
       if (name === "add_meals_to_plan") {
-        const i = input as { plan_id: string; meals: { name: string; time_label?: string; items: { food_name: string; food_name_es: string; quantity_grams: number }[] }[] }
+        const i = input as { plan_id: string; meals: { name: string; time_label?: string; items: { food_name_es: string; quantity_grams: number }[] }[] }
         const { data: plan } = await (adminDb.from("nutrition_plans" as never)
           .select("id, target_calories")
           .eq("id", i.plan_id)
@@ -742,7 +691,7 @@ export async function POST(req: NextRequest) {
         for (const meal of i.meals) {
           const resolvedItems: Array<{ foodId: string; quantityGrams: number }> = []
           for (const item of meal.items) {
-            const foodId = await findOrImportFood(adminDb as never, profile.gym_id, item.food_name, item.food_name_es)
+            const foodId = await findFoodInLibrary(adminDb as never, profile.gym_id, item.food_name_es)
             if (!foodId) { unresolvedFoods.push(item.food_name_es); continue }
             const { data: food } = await (adminDb.from("foods" as never)
               .select("calories, protein, carbs, fat")
@@ -755,7 +704,7 @@ export async function POST(req: NextRequest) {
           resolvedMeals.push({ name: meal.name, timeLabel: meal.time_label, items: resolvedItems })
         }
         if (unresolvedFoods.length > 0) {
-          return { text: `No se guardó ninguna comida: no pude obtener la información nutricional de ${[...new Set(unresolvedFoods)].join(", ")}.` }
+          return { text: `No se guardó ninguna comida: no encontré en la biblioteca del gym ${[...new Set(unresolvedFoods)].join(", ")}. Buscá otro nombre o pedile que lo cargue en Alimentos.` }
         }
 
         const currentTotals = await getNutritionPlanTotals(adminDb, plan.id)

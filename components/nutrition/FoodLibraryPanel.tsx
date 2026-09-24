@@ -1,11 +1,9 @@
 "use client"
 
-import { useState, useTransition, useRef } from "react"
-import { Plus, Pencil, Trash2, Search, X, Download } from "lucide-react"
+import { useState, useTransition } from "react"
+import { Plus, Pencil, Trash2, Search, X } from "lucide-react"
 import { createFood, updateFood, deleteFood } from "@/app/actions/nutrition"
-import { searchUSDA } from "@/app/actions/usda"
 import type { Food } from "@/app/actions/nutrition"
-import type { USDAResult } from "@/app/actions/usda"
 import { matchesFoodQuery } from "@/lib/food-search"
 
 interface Props {
@@ -28,56 +26,6 @@ export default function FoodLibraryPanel({ gymId, initialFoods }: Props) {
   const [form, setForm] = useState<Omit<Food, "id" | "gym_id">>(EMPTY)
   const [isPending, startTransition] = useTransition()
   const [detail, setDetail] = useState<Food | null>(null)
-
-  // USDA import
-  const [usdaOpen, setUsdaOpen] = useState(false)
-  const [usdaQuery, setUsdaQuery] = useState("")
-  const [usdaResults, setUsdaResults] = useState<USDAResult[]>([])
-  const [usdaSearching, setUsdaSearching] = useState(false)
-  const [usdaError, setUsdaError] = useState("")
-  const [imported, setImported] = useState<Set<number>>(new Set())
-  const [editedNames, setEditedNames] = useState<Record<number, string>>({})
-  const usdaInputRef = useRef<HTMLInputElement>(null)
-
-  function openUSDA() { setUsdaOpen(true); setUsdaQuery(""); setUsdaResults([]); setUsdaError(""); setImported(new Set()); setEditedNames({}) }
-  function closeUSDA() { setUsdaOpen(false) }
-
-  function handleUsdaSearch() {
-    if (!usdaQuery.trim()) return
-    setUsdaSearching(true)
-    setUsdaError("")
-    startTransition(async () => {
-      try {
-        const results = await searchUSDA(usdaQuery.trim())
-        setUsdaResults(results)
-        if (results.length === 0) setUsdaError("Sin resultados. Probá en inglés (ej: chicken breast, oats, egg).")
-      } catch {
-        setUsdaError("Error al conectar con USDA. Verificá la API key.")
-      } finally {
-        setUsdaSearching(false)
-      }
-    })
-  }
-
-  async function handleImport(food: USDAResult & { editedName: string }) {
-    try {
-      const f: Omit<Food, "id" | "gym_id"> = {
-        name: food.editedName.trim() || food.name,
-        calories: food.calories, protein: food.protein,
-        carbs: food.carbs, fat: food.fat, fiber: food.fiber,
-        sodium: food.sodium, household_unit: null, grams_per_unit: null,
-        sugars: food.sugars, saturated_fat: food.saturated_fat,
-        potassium: food.potassium, calcium: food.calcium,
-        magnesium: food.magnesium, zinc: food.zinc,
-        iron: food.iron, vitamin_b12: food.vitamin_b12,
-      }
-      const created = await createFood(gymId, f)
-      setFoods(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
-      setImported(prev => new Set([...prev, food.fdcId]))
-    } catch (e) {
-      console.error("Error al importar alimento:", e)
-    }
-  }
 
   const filtered = foods.filter(food => matchesFoodQuery(food, query))
 
@@ -149,9 +97,6 @@ export default function FoodLibraryPanel({ gymId, initialFoods }: Props) {
             className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-9 pr-4 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
           />
         </div>
-        <button onClick={openUSDA} className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors">
-          <Download className="h-4 w-4" />Importar USDA
-        </button>
         <button onClick={openCreate} className="flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 transition-colors">
           <Plus className="h-4 w-4" />Agregar
         </button>
@@ -210,87 +155,6 @@ export default function FoodLibraryPanel({ gymId, initialFoods }: Props) {
           </tbody>
         </table>
       </div>
-
-      {/* USDA Import Modal */}
-      {usdaOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={closeUSDA}>
-          <div className="flex w-full max-w-2xl flex-col max-h-[85vh] rounded-2xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
-              <div>
-                <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">Importar desde USDA</h2>
-                <p className="text-xs text-zinc-500">Buscá en inglés para mejores resultados (ej: chicken breast, oats, egg)</p>
-              </div>
-              <button onClick={closeUSDA} className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50"><X className="h-4 w-4" /></button>
-            </div>
-
-            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                  <input
-                    ref={usdaInputRef}
-                    value={usdaQuery}
-                    onChange={e => setUsdaQuery(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleUsdaSearch()}
-                    placeholder="pechuga de pollo, avena, salmón…"
-                    autoFocus
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-9 pr-4 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-brand-500/50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
-                  />
-                </div>
-                <button
-                  onClick={handleUsdaSearch}
-                  disabled={usdaSearching || !usdaQuery.trim()}
-                  className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 transition-colors"
-                >
-                  {usdaSearching ? "Buscando…" : "Buscar"}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-              {usdaError && <p className="text-center text-sm text-zinc-500 py-6">{usdaError}</p>}
-              {!usdaError && usdaResults.length === 0 && !usdaSearching && (
-                <p className="text-center text-sm text-zinc-500 py-10">Ingresá un alimento y presioná Buscar</p>
-              )}
-              <div className="space-y-2">
-                {usdaResults.map(food => {
-                  const done = imported.has(food.fdcId)
-                  return (
-                    <div key={food.fdcId} className="flex items-center gap-3 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-800/50">
-                      <div className="flex-1 min-w-0">
-                        <input
-                          value={editedNames[food.fdcId] ?? food.name}
-                          onChange={e => setEditedNames(prev => ({ ...prev, [food.fdcId]: e.target.value }))}
-                          disabled={done}
-                          className="w-full bg-transparent font-medium text-zinc-900 dark:text-zinc-50 focus:outline-none focus:border-b focus:border-brand-500 disabled:opacity-60"
-                        />
-                        <p className="text-xs text-zinc-500 mt-0.5">
-                          <span className="text-brand-400 font-semibold">{food.calories} kcal</span>
-                          <span className="mx-1.5">·</span>P {food.protein}g
-                          <span className="mx-1.5">·</span>C {food.carbs}g
-                          <span className="mx-1.5">·</span>G {food.fat}g
-                          {food.fiber > 0 && <><span className="mx-1.5">·</span>F {food.fiber}g</>}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => !done && handleImport({ ...food, editedName: editedNames[food.fdcId] ?? food.name })}
-                        disabled={done || isPending}
-                        className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                          done
-                            ? "bg-emerald-500/10 text-emerald-400 cursor-default"
-                            : "bg-brand-600 text-white hover:bg-brand-500 disabled:opacity-50"
-                        }`}
-                      >
-                        {done ? "Importado ✓" : "Importar"}
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Manual create/edit Modal */}
       {(creating || editing) && (
@@ -418,7 +282,7 @@ export default function FoodLibraryPanel({ gymId, initialFoods }: Props) {
                   ))}
                 </div>
                 {[detail.sugars, detail.saturated_fat, detail.potassium, detail.calcium, detail.magnesium, detail.zinc, detail.iron, detail.vitamin_b12].every(v => !v) && (
-                  <p className="text-center text-xs text-zinc-500 py-3">Sin datos extendidos — importá desde USDA para obtenerlos</p>
+                  <p className="text-center text-xs text-zinc-500 py-3">Sin datos extendidos para este alimento</p>
                 )}
               </div>
 
