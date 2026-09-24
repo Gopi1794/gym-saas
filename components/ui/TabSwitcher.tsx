@@ -23,8 +23,8 @@ export default function TabSwitcher({ tabs, activeTab }: { tabs: TabItem[]; acti
   return (
     <div className="relative">
       <GooeyFilter id={filterId} strength={8} />
-      <div className="relative overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/50 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="relative flex min-w-max gap-1 p-1 md:min-w-0 md:w-full">
+      <div className="relative overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/50 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex md:gap-1 md:overflow-visible md:p-1">
+        <div className="relative flex min-w-max gap-1 p-1 md:min-w-0 md:w-full md:p-0">
           {/* Ghost layer — lleva el indicador rojo con filtro gooey */}
           <div
             aria-hidden
