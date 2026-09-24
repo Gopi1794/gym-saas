@@ -23,8 +23,8 @@ export default function TabSwitcher({ tabs, activeTab }: { tabs: TabItem[]; acti
   return (
     <div className="relative">
       <GooeyFilter id={filterId} strength={8} />
-      <div className="relative overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/50 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex md:gap-1 md:overflow-visible md:p-1">
-        <div className="relative flex min-w-max gap-1 p-1 md:min-w-0 md:w-full md:p-0">
+      <div className="relative overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/50 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative flex min-w-max gap-1 p-1">
           {/* Ghost layer — lleva el indicador rojo con filtro gooey */}
           <div
             aria-hidden
@@ -34,8 +34,9 @@ export default function TabSwitcher({ tabs, activeTab }: { tabs: TabItem[]; acti
             {tabs.map((tab) => (
               <div
                 key={tab.key}
-                className="invisible relative shrink-0 rounded-lg px-4 py-2 text-sm font-medium md:flex-1"
+                className="invisible relative shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium md:flex-1"
               >
+                {tab.label}
                 {activeTab === tab.key && (
                   <motion.div
                     layoutId={layoutId}
@@ -54,7 +55,7 @@ export default function TabSwitcher({ tabs, activeTab }: { tabs: TabItem[]; acti
               ref={activeTab === tab.key ? activeTabRef : undefined}
               href={`${pathname}?tab=${tab.key}`}
               className={cn(
-                "relative z-10 flex shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium transition-colors md:flex-1",
+                "relative z-10 shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium transition-colors md:flex-1",
                 activeTab === tab.key ? "text-[#ffffff]" : "text-zinc-500 hover:text-zinc-300"
               )}
             >
