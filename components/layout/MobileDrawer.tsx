@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   PanelLeftOpen, PanelLeftClose, LogOut, LayoutDashboard, Users, QrCode,
-  User, TrendingUp, Trophy, Settings, Dumbbell, BarChart2,
+  User, TrendingUp, Trophy, Settings, Dumbbell, BarChart2, Apple,
 } from "lucide-react"
 import NotificationBell from "@/components/notifications/NotificationBell"
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { href: "/dashboard",     label: "Dashboard",     icon: LayoutDashboard },
   { href: "/personas",      label: "Personas",      icon: Users,         staffOnly: true },
   { href: "/entrenamiento", label: "Entrenamiento", icon: Dumbbell },
+  { href: "/nutricion",     label: "Nutrición",     icon: Apple },
   { href: "/progress",      label: "Progreso",      icon: TrendingUp,    memberOnly: true },
   { href: "/achievements",  label: "Logros",        icon: Trophy,        staffOnly: true },
   { href: "/check-in",      label: "Check-in",      icon: QrCode },
