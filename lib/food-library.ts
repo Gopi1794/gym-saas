@@ -159,3 +159,44 @@ export function getTotalPages(total: number, pageSize = FOOD_PAGE_SIZE): number 
 export function clampPage(page: number, totalPages: number): number {
   return Math.min(sanitizePage(page), Math.max(1, totalPages))
 }
+
+export type FoodLibraryHrefPatch = {
+  q?: string | null
+  cat?: FoodChipSlug | null
+  page?: number | null
+}
+
+// Builds the URL for a library state change while keeping every unrelated param
+// (e.g. ?tab=alimentos). A null value removes its key, defaults are never written,
+// and changing the query or the chip drops the page so the list restarts at page 1.
+export function buildFoodLibraryHref(
+  pathname: string,
+  currentParams: string | { toString(): string },
+  patch: FoodLibraryHrefPatch
+): string {
+  const params = new URLSearchParams(currentParams.toString())
+
+  if (patch.q !== undefined) {
+    const query = patch.q?.trim() ?? ""
+    if (query) params.set("q", query)
+    else params.delete("q")
+  }
+
+  if (patch.cat !== undefined) {
+    if (patch.cat && patch.cat !== "todos") params.set("cat", patch.cat)
+    else params.delete("cat")
+  }
+
+  if (patch.page !== undefined) {
+    if (patch.page !== null && Number.isInteger(patch.page) && patch.page > 1) {
+      params.set("page", String(patch.page))
+    } else {
+      params.delete("page")
+    }
+  } else if (patch.q !== undefined || patch.cat !== undefined) {
+    params.delete("page")
+  }
+
+  const search = params.toString()
+  return search ? `${pathname}?${search}` : pathname
+}

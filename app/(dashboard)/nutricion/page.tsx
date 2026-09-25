@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { getNutritionPlans, getMemberNutritionPlan, getFoods } from "@/app/actions/nutrition"
+import { getNutritionPlans, getMemberNutritionPlan, getFoodsPage } from "@/app/actions/nutrition"
+import { parseFoodLibraryParams } from "@/lib/food-library"
 import { todayAR } from "@/lib/date-ar"
 import { getMealLogsForDate, getWaterToday, getNutritionStreak, getAdherenceReport, getWeightHistory, getQuickLogsForDate } from "@/app/actions/nutrition-tracking"
 import TabSwitcher from "@/components/ui/TabSwitcher"
@@ -15,7 +16,7 @@ export const metadata: Metadata = { title: "Nutrición" }
 export default async function NutricionPage({
   searchParams,
 }: {
-  searchParams: { tab?: string }
+  searchParams: { tab?: string; q?: string | string[]; cat?: string | string[]; page?: string | string[] }
 }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -76,8 +77,9 @@ export default async function NutricionPage({
   let content: React.ReactNode
 
   if (tab === "alimentos") {
-    const foods = await getFoods(gymId)
-    content = <FoodLibraryPanel gymId={gymId} initialFoods={foods} />
+    const params = parseFoodLibraryParams(searchParams)
+    const foodsPage = await getFoodsPage(gymId, params)
+    content = <FoodLibraryPanel gymId={gymId} foodsPage={foodsPage} query={params.query} chip={params.chip} />
   } else if (tab === "adherencia") {
     const entries = await getAdherenceReport(gymId)
     content = <NutritionAdherencePanel entries={entries} />
