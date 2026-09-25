@@ -5,6 +5,7 @@ import {
   FOOD_CHIPS,
   FOOD_PAGE_SIZE,
   buildFoodChipCounts,
+  buildFoodLibraryHref,
   clampPage,
   getFoodChip,
   getTotalPages,
@@ -392,5 +393,126 @@ describe("clampPage", () => {
 describe("EMPTY_FOOD_FACETS", () => {
   it("is all zeros with no categories", () => {
     expect(EMPTY_FOOD_FACETS).toEqual({ all: 0, mine: 0, uncategorized: 0, categories: {} })
+  })
+})
+
+describe("buildFoodLibraryHref", () => {
+  const path = "/nutricion"
+
+  it("keeps unrelated params and appends the new one", () => {
+    expect(buildFoodLibraryHref(path, "tab=alimentos", { cat: "carnes" })).toBe("/nutricion?tab=alimentos&cat=carnes")
+  })
+
+  it("accepts a URLSearchParams as the current params", () => {
+    const current = new URLSearchParams("tab=alimentos&q=pollo")
+    expect(buildFoodLibraryHref(path, current, { cat: "carnes" })).toBe("/nutricion?tab=alimentos&q=pollo&cat=carnes")
+  })
+
+  it("tolerates a leading question mark in a string", () => {
+    expect(buildFoodLibraryHref(path, "?tab=alimentos", { q: "pollo" })).toBe("/nutricion?tab=alimentos&q=pollo")
+  })
+
+  it("does not mutate the params it was given", () => {
+    const current = new URLSearchParams("tab=alimentos&page=3")
+    buildFoodLibraryHref(path, current, { q: "pollo" })
+    expect(current.toString()).toBe("tab=alimentos&page=3")
+  })
+
+  it("returns the bare pathname when no params are left", () => {
+    expect(buildFoodLibraryHref("/admin/alimentos", "q=pollo", { q: null })).toBe("/admin/alimentos")
+    expect(buildFoodLibraryHref("/admin/alimentos", "", {})).toBe("/admin/alimentos")
+  })
+
+  describe("removing keys", () => {
+    it("removes a key patched with null and keeps the rest", () => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos&q=pollo&cat=carnes", { q: null })).toBe(
+        "/nutricion?tab=alimentos&cat=carnes"
+      )
+    })
+
+    it("clears q, cat and page together but keeps the tab", () => {
+      expect(
+        buildFoodLibraryHref(path, "tab=alimentos&q=pollo&cat=carnes&page=4", { q: null, cat: null, page: null })
+      ).toBe("/nutricion?tab=alimentos")
+    })
+
+    it("treats a blank query as no query", () => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos&q=pollo", { q: "" })).toBe("/nutricion?tab=alimentos")
+      expect(buildFoodLibraryHref(path, "tab=alimentos&q=pollo", { q: "   " })).toBe("/nutricion?tab=alimentos")
+    })
+
+    it("does not write the default todos chip", () => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos&cat=carnes", { cat: "todos" })).toBe("/nutricion?tab=alimentos")
+    })
+  })
+
+  describe("query", () => {
+    it("trims the query before writing it", () => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos", { q: "  pollo asado " })).toBe(
+        "/nutricion?tab=alimentos&q=pollo+asado"
+      )
+    })
+
+    it("encodes accents and reserved characters", () => {
+      const href = buildFoodLibraryHref(path, "tab=alimentos", { q: "leche & miel ñ" })
+      expect(href).toBe("/nutricion?tab=alimentos&q=leche+%26+miel+%C3%B1")
+      expect(new URL(href, "http://x").searchParams.get("q")).toBe("leche & miel ñ")
+    })
+
+    it("replaces an existing q in place", () => {
+      expect(buildFoodLibraryHref(path, "q=pollo&tab=alimentos", { q: "queso" })).toBe("/nutricion?q=queso&tab=alimentos")
+    })
+  })
+
+  describe("page reset", () => {
+    it("drops the page when the query changes", () => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos&page=3", { q: "pollo" })).toBe("/nutricion?tab=alimentos&q=pollo")
+    })
+
+    it("drops the page when the query is cleared", () => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos&q=pollo&page=3", { q: null })).toBe("/nutricion?tab=alimentos")
+    })
+
+    it("drops the page when the chip changes", () => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos&page=3", { cat: "frutas" })).toBe(
+        "/nutricion?tab=alimentos&cat=frutas"
+      )
+    })
+
+    it("honors an explicit page sent together with a query or chip change", () => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos&page=3", { q: "pollo", page: 2 })).toBe(
+        "/nutricion?tab=alimentos&page=2&q=pollo"
+      )
+    })
+  })
+
+  describe("page", () => {
+    it("writes pages after the first", () => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos", { page: 2 })).toBe("/nutricion?tab=alimentos&page=2")
+      expect(buildFoodLibraryHref(path, "tab=alimentos&page=2", { page: 18 })).toBe("/nutricion?tab=alimentos&page=18")
+    })
+
+    it("omits page 1", () => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos&page=2", { page: 1 })).toBe("/nutricion?tab=alimentos")
+    })
+
+    it("keeps the other filters when only the page changes", () => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos&q=pollo&cat=carnes", { page: 2 })).toBe(
+        "/nutricion?tab=alimentos&q=pollo&cat=carnes&page=2"
+      )
+    })
+
+    it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])("drops the invalid page %s", (page) => {
+      expect(buildFoodLibraryHref(path, "tab=alimentos&page=3", { page })).toBe("/nutricion?tab=alimentos")
+    })
+  })
+
+  it("only touches the params present in the patch", () => {
+    expect(buildFoodLibraryHref(path, "tab=alimentos&q=pollo&cat=carnes&page=3", {})).toBe(
+      "/nutricion?tab=alimentos&q=pollo&cat=carnes&page=3"
+    )
+    expect(buildFoodLibraryHref(path, "tab=alimentos&q=pollo&cat=carnes&page=3", { page: 4 })).toBe(
+      "/nutricion?tab=alimentos&q=pollo&cat=carnes&page=4"
+    )
   })
 })
