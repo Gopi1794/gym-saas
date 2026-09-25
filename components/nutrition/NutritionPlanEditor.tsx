@@ -4,18 +4,16 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
   Plus, Trash2, X, Search, Utensils,
-  Copy, Pencil, Check, Upload,
+  Copy, Pencil, Check,
 } from "lucide-react"
 import { sileo } from "sileo"
 import {
   addMeal, updateMeal, deleteMeal,
   addMealItem, updateMealItem, deleteMealItem,
-  updateNutritionPlan, createFood,
+  updateNutritionPlan,
   addFoodFavorite, removeFoodFavorite,
   recalculateNutritionPlanTargets,
 } from "@/app/actions/nutrition"
-import { searchUSDA } from "@/app/actions/usda"
-import type { USDAResult } from "@/app/actions/usda"
 import { calcMacros, calcPlanMacros, calcNutritionTargets, missingTargetFields, CALORIE_MISMATCH_THRESHOLD, NUTRITION_GOAL_LABELS as GOAL_LABELS, defaultNutritionSettingsForGoal } from "@/lib/nutrition"
 import type { NutritionPlan, Meal, MealItem, Food } from "@/app/actions/nutrition"
 import {
@@ -614,7 +612,7 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
   )
 
   // Right panel search state
-  const [localFoods, setLocalFoods] = useState<Food[]>(foods)
+  const [localFoods] = useState<Food[]>(foods)
   const [query, setQuery] = useState("")
   const [searchGrams, setSearchGrams] = useState(100)
   const [selectedFood, setSelectedFood] = useState<Food | null>(null)
@@ -648,48 +646,6 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
   })()
   const favoriteFoods = localFoods.filter(f => favorites.has(f.id))
   const myFoods = localFoods.filter(f => f.gym_id !== null)
-
-  // USDA import state
-  const [usdaOpen, setUsdaOpen] = useState(false)
-  const [usdaQuery, setUsdaQuery] = useState("")
-  const [usdaResults, setUsdaResults] = useState<USDAResult[]>([])
-  const [usdaSearching, setUsdaSearching] = useState(false)
-  const [usdaError, setUsdaError] = useState("")
-  const [usdaImported, setUsdaImported] = useState<Set<number>>(new Set())
-
-  function openUSDA() { setUsdaOpen(true); setUsdaQuery(""); setUsdaResults([]); setUsdaError(""); setUsdaImported(new Set()) }
-
-  function handleUsdaSearch() {
-    if (!usdaQuery.trim()) return
-    setUsdaSearching(true); setUsdaError("")
-    startTransition(async () => {
-      try {
-        const results = await searchUSDA(usdaQuery.trim())
-        setUsdaResults(results)
-        if (results.length === 0) setUsdaError("Sin resultados. Probá otro término.")
-      } catch {
-        setUsdaError("Error al conectar con USDA. Verificá la API key.")
-      } finally { setUsdaSearching(false) }
-    })
-  }
-
-  function handleUsdaImport(food: USDAResult) {
-    startTransition(async () => {
-      try {
-        const created = await createFood(plan.gym_id, {
-          name: food.name, calories: food.calories, protein: food.protein,
-          carbs: food.carbs, fat: food.fat, fiber: food.fiber, sodium: food.sodium,
-          household_unit: null, grams_per_unit: null,
-          sugars: food.sugars, saturated_fat: food.saturated_fat,
-          potassium: food.potassium, calcium: food.calcium, magnesium: food.magnesium,
-          zinc: food.zinc, iron: food.iron, vitamin_b12: food.vitamin_b12,
-        })
-        setLocalFoods(prev => [...prev, created])
-        setUsdaImported(prev => new Set([...prev, food.fdcId]))
-        sileo.success({ title: `${food.name} agregado`, description: "Ya está disponible en tu biblioteca de alimentos.", duration: 2000 })
-      } catch { sileo.error({ title: "Error al importar", description: "Verificá la conexión con USDA e intentá de nuevo.", duration: 2000 }) }
-    })
-  }
 
   const tabPool = searchTab === "recientes" ? recentFoods : searchTab === "favoritos" ? favoriteFoods : myFoods
   const filtered = query
@@ -1112,7 +1068,7 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
                     <p className="py-4 text-center text-[11px] text-zinc-600">
                       {searchTab === "recientes" && "Agregá alimentos al plan para verlos acá"}
                       {searchTab === "favoritos" && "Marcá alimentos con ★ para guardarlos acá"}
-                      {searchTab === "mis" && "Importá desde USDA para ver tus alimentos acá"}
+                      {searchTab === "mis" && "Los alimentos que crees en tu biblioteca aparecen acá"}
                     </p>
                   )
                 )}
@@ -1157,10 +1113,6 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
               <button onClick={handleDuplicateMeal} disabled={!activeMeal}
                 className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-40 transition-colors">
                 <Copy className="h-4 w-4 shrink-0 text-zinc-500" /> Duplicar día
-              </button>
-              <button onClick={openUSDA}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors">
-                <Upload className="h-4 w-4 shrink-0 text-zinc-500" /> Importar alimentos
               </button>
               <button
                 onClick={() => { if (meals.length > 0) setClearingPlan(true) }}
@@ -1279,75 +1231,6 @@ export default function NutritionPlanEditor({ plan, foods, userId, initialFavori
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* USDA Import Modal */}
-      {usdaOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-150" onClick={() => setUsdaOpen(false)}>
-          <div className="flex w-full max-w-2xl flex-col max-h-[85vh] rounded-2xl border border-zinc-700 bg-zinc-900 shadow-xl animate-in fade-in duration-200" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
-              <div>
-                <h2 className="text-lg font-bold text-zinc-50">Importar desde USDA</h2>
-                <p className="text-xs text-zinc-500">Buscá en español — traducimos automáticamente</p>
-              </div>
-              <button onClick={() => setUsdaOpen(false)} className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-50 transition-colors"><X className="h-4 w-4" /></button>
-            </div>
-
-            <div className="border-b border-zinc-800 px-6 py-4">
-              <div className="flex gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                  <input
-                    value={usdaQuery}
-                    onChange={e => setUsdaQuery(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleUsdaSearch()}
-                    placeholder="pechuga de pollo, avena, salmón…"
-                    autoFocus
-                    className="w-full rounded-xl border border-zinc-700 bg-zinc-800 py-2.5 pl-9 pr-4 text-sm text-zinc-50 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
-                  />
-                </div>
-                <button
-                  onClick={handleUsdaSearch}
-                  disabled={usdaSearching || !usdaQuery.trim()}
-                  className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 disabled:opacity-50 transition-colors"
-                >
-                  {usdaSearching ? "Buscando…" : "Buscar"}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-              {usdaError && <p className="text-center text-sm text-zinc-500 py-6">{usdaError}</p>}
-              {!usdaError && usdaResults.length === 0 && !usdaSearching && (
-                <p className="text-center text-sm text-zinc-500 py-10">Ingresá un alimento y presioná Buscar</p>
-              )}
-              <div className="space-y-2">
-                {usdaResults.map(food => {
-                  const done = usdaImported.has(food.fdcId)
-                  return (
-                    <div key={food.fdcId} className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-800/40 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-zinc-100 truncate">{food.name}</p>
-                        <p className="text-xs text-zinc-500 mt-0.5">
-                          {food.calories} kcal · P {food.protein}g · C {food.carbs}g · G {food.fat}g
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => !done && handleUsdaImport(food)}
-                        disabled={done}
-                        className={`shrink-0 rounded-lg px-4 py-1.5 text-xs font-semibold transition-colors ${
-                          done ? "bg-zinc-700 text-zinc-500 cursor-default" : "bg-brand-600 text-white hover:bg-brand-500"
-                        }`}
-                      >
-                        {done ? "Importado ✓" : "Importar"}
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
