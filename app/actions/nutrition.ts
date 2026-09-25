@@ -4,6 +4,15 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { calcTmb, calcNutritionTargets, missingTargetFields, validateNutritionSafety, defaultNutritionSettingsForGoal } from "@/lib/nutrition"
+import {
+  EMPTY_FOOD_FACETS,
+  FOOD_PAGE_SIZE,
+  clampPage,
+  getTotalPages,
+  toSearchFoodsArgs,
+  type FoodFacets,
+  type FoodLibraryParams,
+} from "@/lib/food-library"
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -117,6 +126,67 @@ export async function getFoods(gymId: string): Promise<Food[]> {
     .or(`gym_id.is.null,gym_id.eq.${gymId}`)
     .order("name")
   return (data ?? []) as unknown as Food[]
+}
+
+export type FoodsPage = {
+  foods: Food[]
+  total: number
+  facets: FoodFacets
+  page: number
+  pageSize: number
+}
+
+type SearchFoodsResult = { foods: Food[]; total: number; facets: FoodFacets }
+
+function readCount(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {}
+}
+
+function parseSearchFoodsPayload(data: unknown): SearchFoodsResult {
+  const payload = asRecord(data)
+  const facets = asRecord(payload.facets)
+  const categories: Record<string, number> = {}
+  for (const [name, count] of Object.entries(asRecord(facets.categories))) {
+    categories[name] = readCount(count, 0)
+  }
+  return {
+    foods: Array.isArray(payload.rows) ? (payload.rows as Food[]) : [],
+    total: readCount(payload.total, 0),
+    facets: {
+      all: readCount(facets.all, EMPTY_FOOD_FACETS.all),
+      mine: readCount(facets.mine, EMPTY_FOOD_FACETS.mine),
+      uncategorized: readCount(facets.uncategorized, EMPTY_FOOD_FACETS.uncategorized),
+      categories,
+    },
+  }
+}
+
+export async function getFoodsPage(gymId: string, params: FoodLibraryParams): Promise<FoodsPage> {
+  const supabase = createClient()
+
+  async function fetchPage(page: number): Promise<SearchFoodsResult> {
+    const { data, error } = await (supabase.rpc(
+      "search_foods" as never,
+      toSearchFoodsArgs(gymId, { ...params, page }) as never
+    ) as unknown as Promise<{ data: unknown; error: { message: string } | null }>)
+    if (error) throw new Error(error.message)
+    return parseSearchFoodsPayload(data)
+  }
+
+  let result = await fetchPage(params.page)
+
+  // A stale ?page= past the end (rows deleted, filters changed) matches no rows
+  // even though the filter has results: serve the last page instead.
+  const page = clampPage(params.page, getTotalPages(result.total))
+  if (result.foods.length === 0 && result.total > 0 && page !== params.page) {
+    result = await fetchPage(page)
+  }
+
+  return { ...result, page, pageSize: FOOD_PAGE_SIZE }
 }
 
 export async function createFood(gymId: string, food: Omit<Food, "id" | "gym_id">): Promise<Food> {
