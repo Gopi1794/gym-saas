@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { createMockSupabase } from "@/lib/test-utils/supabase-mock"
+import { EMPTY_FOOD_FACETS } from "@/lib/food-library"
 
 const mockCreateClient = vi.fn()
 const mockCreateAdminClient = vi.fn()
@@ -18,6 +19,7 @@ vi.mock("next/cache", () => ({
 // de nutrition.ts tienen que resolver a los mocks de arriba, no a los
 // módulos reales (que necesitan cookies()/env vars que no existen en test).
 import {
+  getFoodsPage,
   getMemberProfileForPlan,
   createNutritionPlan,
   recalculateNutritionPlanTargets,
@@ -370,5 +372,178 @@ describe("setMemberMetabolicReference", () => {
     mockCreateClient.mockReturnValue(supabase)
 
     expect(await setMemberMetabolicReference("member-1", "male")).toEqual({ error: "Sin permiso" })
+  })
+})
+
+describe("getFoodsPage", () => {
+  const FACETS = {
+    all: 60,
+    mine: 5,
+    uncategorized: 2,
+    categories: { "Carnes y derivados": 10, "Misceláneos": 3 },
+  }
+  const row = (id: string) => ({ id, gym_id: null, name: `Food ${id}`, calories: 100 })
+
+  it("calls the search_foods RPC with the args derived from the params and returns the parsed page", async () => {
+    const supabase = createMockSupabase()
+    supabase.rpc.mockResolvedValueOnce({
+      data: { total: 60, rows: [row("f1"), row("f2")], facets: FACETS },
+      error: null,
+    })
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getFoodsPage("gym-1", { query: "pollo", chip: "otros", page: 2 })
+
+    expect(supabase.rpc).toHaveBeenCalledTimes(1)
+    expect(supabase.rpc).toHaveBeenCalledWith("search_foods", {
+      p_gym_id: "gym-1",
+      p_query: "pollo",
+      p_categories: ["Misceláneos"],
+      p_include_uncategorized: true,
+      p_scope: "all",
+      p_limit: 24,
+      p_offset: 24,
+    })
+    expect(supabase.from).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      foods: [row("f1"), row("f2")],
+      total: 60,
+      facets: FACETS,
+      page: 2,
+      pageSize: 24,
+    })
+  })
+
+  it("scopes the mios chip to the gym's own foods and sends a null query when it is empty", async () => {
+    const supabase = createMockSupabase()
+    supabase.rpc.mockResolvedValueOnce({ data: { total: 1, rows: [row("f1")], facets: FACETS }, error: null })
+    mockCreateClient.mockReturnValue(supabase)
+
+    await getFoodsPage("gym-9", { query: "", chip: "mios", page: 1 })
+
+    expect(supabase.rpc).toHaveBeenCalledWith("search_foods", {
+      p_gym_id: "gym-9",
+      p_query: null,
+      p_categories: null,
+      p_include_uncategorized: false,
+      p_scope: "mine",
+      p_limit: 24,
+      p_offset: 0,
+    })
+  })
+
+  it("clamps an out-of-range page to the last page and re-queries once", async () => {
+    const supabase = createMockSupabase()
+    supabase.rpc
+      .mockResolvedValueOnce({ data: { total: 50, rows: [], facets: FACETS }, error: null })
+      .mockResolvedValueOnce({ data: { total: 50, rows: [row("f49"), row("f50")], facets: FACETS }, error: null })
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getFoodsPage("gym-1", { query: "", chip: "todos", page: 9 })
+
+    expect(supabase.rpc).toHaveBeenCalledTimes(2)
+    expect(supabase.rpc).toHaveBeenNthCalledWith(1, "search_foods", expect.objectContaining({ p_offset: 192 }))
+    expect(supabase.rpc).toHaveBeenNthCalledWith(2, "search_foods", expect.objectContaining({ p_offset: 48 }))
+    expect(result).toEqual({
+      foods: [row("f49"), row("f50")],
+      total: 50,
+      facets: FACETS,
+      page: 3,
+      pageSize: 24,
+    })
+  })
+
+  it("does not re-query when the requested page has rows", async () => {
+    const supabase = createMockSupabase()
+    supabase.rpc.mockResolvedValueOnce({ data: { total: 50, rows: [row("f49")], facets: FACETS }, error: null })
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getFoodsPage("gym-1", { query: "", chip: "todos", page: 3 })
+
+    expect(supabase.rpc).toHaveBeenCalledTimes(1)
+    expect(result.page).toBe(3)
+  })
+
+  it("returns page 1 without re-querying when the filters match nothing, even from a stale page", async () => {
+    const supabase = createMockSupabase()
+    supabase.rpc.mockResolvedValueOnce({ data: { total: 0, rows: [], facets: FACETS }, error: null })
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getFoodsPage("gym-1", { query: "zzz", chip: "carnes", page: 4 })
+
+    expect(supabase.rpc).toHaveBeenCalledTimes(1)
+    expect(result).toEqual({ foods: [], total: 0, facets: FACETS, page: 1, pageSize: 24 })
+  })
+
+  it("throws the RPC error message without retrying", async () => {
+    const supabase = createMockSupabase()
+    supabase.rpc.mockResolvedValueOnce({ data: null, error: { message: "permission denied for function search_foods" } })
+    mockCreateClient.mockReturnValue(supabase)
+
+    await expect(getFoodsPage("gym-1", { query: "", chip: "todos", page: 1 })).rejects.toThrow(
+      "permission denied for function search_foods"
+    )
+    expect(supabase.rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it("falls back to fresh empty facets when the payload has none", async () => {
+    const supabase = createMockSupabase()
+    supabase.rpc.mockResolvedValueOnce({ data: { total: 1, rows: [row("f1")] }, error: null })
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getFoodsPage("gym-1", { query: "", chip: "todos", page: 1 })
+
+    expect(result.foods).toEqual([row("f1")])
+    expect(result.facets).toEqual(EMPTY_FOOD_FACETS)
+    expect(result.facets).not.toBe(EMPTY_FOOD_FACETS)
+    expect(result.facets.categories).not.toBe(EMPTY_FOOD_FACETS.categories)
+  })
+
+  it("keeps valid facet counts and zeroes the malformed ones", async () => {
+    const supabase = createMockSupabase()
+    supabase.rpc.mockResolvedValueOnce({
+      data: {
+        total: 1,
+        rows: [row("f1")],
+        facets: {
+          all: 7,
+          mine: "x",
+          uncategorized: null,
+          categories: { "Carnes y derivados": 4, "Misceláneos": "n/a" },
+        },
+      },
+      error: null,
+    })
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getFoodsPage("gym-1", { query: "", chip: "todos", page: 1 })
+
+    expect(result.facets).toEqual({
+      all: 7,
+      mine: 0,
+      uncategorized: 0,
+      categories: { "Carnes y derivados": 4, "Misceláneos": 0 },
+    })
+  })
+
+  it("returns an empty first page when the RPC returns no payload", async () => {
+    const supabase = createMockSupabase()
+    supabase.rpc.mockResolvedValueOnce({ data: null, error: null })
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getFoodsPage("gym-1", { query: "", chip: "todos", page: 1 })
+
+    expect(result).toEqual({ foods: [], total: 0, facets: EMPTY_FOOD_FACETS, page: 1, pageSize: 24 })
+  })
+
+  it("ignores non-array rows and a non-numeric total", async () => {
+    const supabase = createMockSupabase()
+    supabase.rpc.mockResolvedValueOnce({ data: { total: "12", rows: "nope", facets: FACETS }, error: null })
+    mockCreateClient.mockReturnValue(supabase)
+
+    const result = await getFoodsPage("gym-1", { query: "", chip: "todos", page: 1 })
+
+    expect(result.foods).toEqual([])
+    expect(result.total).toBe(0)
   })
 })
