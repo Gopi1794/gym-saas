@@ -8,6 +8,7 @@ import {
 import { saveMembershipPlan, type MembershipPlanInput } from "@/app/actions/membership-plans"
 import { cn } from "@/lib/utils"
 import { Alert } from "@/components/ui/alert"
+import { MetalPlanCard } from "@/components/admin/MetalPlanCard"
 
 type PlanType = "basic" | "premium" | "vip"
 
@@ -382,13 +383,14 @@ export default function MembershipPlansPanel({ initialPlans, memberCounts }: Pro
       </p>
       <div className="grid gap-4 sm:grid-cols-3">
         {plans.map(plan => (
-          <PlanCard
-            key={plan.type}
-            plan={plan}
-            memberCount={counts[plan.type]}
-            totalMembers={total}
-            onSaved={handleSaved}
-          />
+          <MetalPlanCard key={plan.type} plan={plan.type}>
+            <PlanCard
+              plan={plan}
+              memberCount={counts[plan.type]}
+              totalMembers={total}
+              onSaved={handleSaved}
+            />
+          </MetalPlanCard>
         ))}
       </div>
     </div>
