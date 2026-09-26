@@ -380,3 +380,53 @@ html:not(.dark) :is(
 ) :is(.text-white, .text-zinc-50, .text-zinc-100, .text-zinc-200, .text-zinc-300, .text-zinc-400) {
   color: #ffffff;
 }
+
+/* ── Plan cards with the metal-fx ring (components/admin/MetalPlanCard.tsx) ──
+   metal-fx tints its ring with a single global shader color, so each plan is
+   tinted here by filtering the library's canvas instead. The class names
+   below (.metal-fx-root, .metal-fx-canvas, .metal-fx-content) and the
+   data-theme attribute are internal to metal-fx: re-check them whenever the
+   pinned version changes. */
+.metal-fx-root.metal-plan {
+  align-items: stretch;
+}
+/* The library's default fill (#272727 / #fff) would wash out the card. */
+.metal-fx-root.metal-plan[data-theme] {
+  background: transparent;
+}
+/* Ring above the card fill so it reads as the card's border. */
+.metal-plan .metal-fx-canvas {
+  z-index: 6;
+}
+/* Keep the card full width and equal height inside the plans grid. */
+.metal-plan > .metal-fx-content {
+  align-items: stretch;
+}
+.metal-plan > .metal-fx-content > *,
+.metal-plan.metal-fx-fallback > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.metal-plan[data-metal-plan="basic"] {
+  --metal-hue: grayscale(1);
+  --metal-rim: #a1a1aa;
+}
+.metal-plan[data-metal-plan="premium"] {
+  --metal-hue: sepia(1) saturate(2.4);
+  --metal-rim: #f59e0b;
+}
+.metal-plan[data-metal-plan="vip"] {
+  --metal-hue: sepia(1) saturate(3) hue-rotate(215deg);
+  --metal-rim: #8b5cf6;
+}
+/* drop-shadow(0 0 0 ...) paints the ring's own silhouette underneath it, which
+   thickens the faint shader ring so it reads as a metallic border. The light
+   shader is mostly white, so it takes one more pass to show on a light card. */
+.metal-plan .metal-fx-canvas {
+  filter: var(--metal-hue) drop-shadow(0 0 0 var(--metal-rim)) drop-shadow(0 0 0 var(--metal-rim));
+}
+.metal-plan[data-theme="light"] .metal-fx-canvas {
+  filter: var(--metal-hue) drop-shadow(0 0 0 var(--metal-rim)) drop-shadow(0 0 0 var(--metal-rim))
+    drop-shadow(0 0 0 var(--metal-rim));
+}
