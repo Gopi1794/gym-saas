@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { X, Send, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AISparkle } from "./AISparkle"
-import { WorkingIndicator } from "./WorkingIndicator"
+import { ThinkingIndicator } from "./ThinkingIndicator"
 
 export type Message = {
   id: string
@@ -183,7 +183,7 @@ export default function ChatPanel({
                           )}
                           <div className="flex flex-col gap-2 max-w-[78%]">
                             {isWorking ? (
-                              <WorkingIndicator />
+                              <ThinkingIndicator />
                             ) : (
                               <div className={cn(
                                 "rounded-2xl px-4 py-3 text-sm leading-relaxed",

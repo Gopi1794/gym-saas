@@ -53,6 +53,7 @@
     "sileo": "^0.1.5",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
+    "thinking-orbs": "^0.3.2",
     "three": "^0.185.1"
   },
   "devDependencies": {
