@@ -91,7 +91,7 @@ export default function InviteMemberCard({ inviteCode }: Props) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/60">
-      <div className="grid gap-6 p-5 sm:grid-cols-2 sm:divide-x sm:divide-zinc-200 sm:dark:divide-zinc-800">
+      <div className="grid grid-cols-1 gap-6 p-5 sm:grid-cols-2 sm:divide-x sm:divide-zinc-200 sm:dark:divide-zinc-800">
         {/* Columna izquierda — qué es esto */}
         <div className="space-y-4 sm:pr-6">
           <div className="flex items-start gap-3">
