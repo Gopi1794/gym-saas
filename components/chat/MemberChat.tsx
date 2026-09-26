@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { MessageCircle, X, Send, Loader2, Dumbbell, Apple, Target, Camera, CheckCircle2, XCircle, ScanBarcode } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AISparkle } from "./AISparkle"
-import { WorkingIndicator } from "./WorkingIndicator"
+import { ThinkingIndicator } from "./ThinkingIndicator"
 import { saveQuickLogEntry } from "@/app/actions/nutrition-tracking"
 import { FoodBarcodeScanner, type ScannedProductResult } from "./FoodBarcodeScanner"
 
@@ -382,7 +382,7 @@ export default function MemberChat() {
                             )}
                             {/* Burbuja de texto */}
                             {isWorking ? (
-                              <WorkingIndicator />
+                              <ThinkingIndicator />
                             ) : (m.content || !m.imageUrl) && (
                               <div className={cn(
                                 "rounded-2xl px-4 py-3 text-sm leading-relaxed",
