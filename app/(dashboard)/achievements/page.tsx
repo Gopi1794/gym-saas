@@ -51,11 +51,13 @@ export default async function AchievementsPage() {
   }>)
 
   return (
-    <div className="space-y-5 pb-2">
+    <div className="space-y-6 pb-2">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50">Logros del gimnasio</h1>
-          <p className="text-sm text-zinc-400">
+          <h1 className="font-heading text-3xl font-normal tracking-wide text-foreground">
+            Logros del gimnasio
+          </h1>
+          <p className="text-muted-foreground">
             Configurá los logros que pueden ganar tus miembros
           </p>
         </div>

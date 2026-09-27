@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import type { AchievementInput } from "@/lib/achievements/types"
+import { validateAchievementInput } from "@/lib/achievements/validation"
 
 export async function saveAchievement(
   input: AchievementInput
@@ -36,25 +37,20 @@ export async function saveAchievement(
     return { ok: false, error: "Tu cuenta no está asociada a un gimnasio" }
   }
 
-  // Server-side validation
-  const xpReward = Number(input.xp_reward)
-  if (!Number.isInteger(xpReward) || xpReward < 1 || xpReward > 1000) {
-    return { ok: false, error: "xp_reward debe ser un número entero entre 1 y 1000" }
-  }
-
-  const conditionValue = Number(input.condition_value)
-  if (!Number.isInteger(conditionValue) || conditionValue < 1) {
-    return { ok: false, error: "condition_value debe ser un número entero mayor o igual a 1" }
+  // Server-side validation (the form runs the same check for instant feedback)
+  const validationError = validateAchievementInput(input)
+  if (validationError) {
+    return { ok: false, error: validationError }
   }
 
   // gym_id is ALWAYS derived from the authenticated user's profile — never from input
   const payload = {
-    name: input.name,
+    name: input.name.trim(),
     description: input.description ?? null,
     icon: input.icon ?? null,
-    xp_reward: xpReward,
+    xp_reward: Number(input.xp_reward),
     condition_type: input.condition_type,
-    condition_value: conditionValue,
+    condition_value: Number(input.condition_value),
     condition_target: input.condition_target ?? null,
     gym_id: profile.gym_id,
   }
