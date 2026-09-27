@@ -9,6 +9,9 @@ const SIZES = {
   sm: { box: "h-10 w-10 rounded-xl", emoji: "text-xl" },
   md: { box: "h-12 w-12 rounded-xl", emoji: "text-2xl" },
   lg: { box: "h-16 w-16 rounded-2xl", emoji: "text-3xl" },
+  // Member-facing medals: the profile grid hexagon and the detail panel.
+  xl: { box: "h-[76px] w-[76px] rounded-2xl", emoji: "text-[46px]" },
+  hero: { box: "h-[134px] w-[134px] rounded-full", emoji: "text-5xl" },
 } as const
 
 type Props = {

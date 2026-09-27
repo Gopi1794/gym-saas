@@ -53,5 +53,11 @@ describe("AchievementMedal", () => {
     rerender(<AchievementMedal icon="🔥" size="sm" tile={false} />)
     expect(container.firstElementChild).toHaveClass("h-10", "w-10")
     expect(container.firstElementChild).not.toHaveClass("ring-1")
+
+    rerender(<AchievementMedal icon="🔥" size="xl" tile={false} />)
+    expect(container.firstElementChild).toHaveClass("h-[76px]", "w-[76px]")
+
+    rerender(<AchievementMedal icon="🔥" size="hero" tile={false} />)
+    expect(container.firstElementChild).toHaveClass("h-[134px]", "w-[134px]")
   })
 })
