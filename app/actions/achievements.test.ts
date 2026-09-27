@@ -95,6 +95,22 @@ describe("saveAchievement writes", () => {
     )
   })
 
+  it("persists the numeric condition value and a category trimmed like the validation checks it", async () => {
+    const supabase = setup()
+
+    const result = await saveAchievement({
+      ...VALID,
+      condition_type: "sessions_category",
+      condition_value: 10,
+      condition_target: "  strength  ",
+    })
+
+    expect(result).toEqual({ ok: true })
+    expect(supabase.chains[1].insert).toHaveBeenCalledWith(
+      expect.objectContaining({ condition_value: 10, condition_target: "strength" }),
+    )
+  })
+
   it("accepts a 365-day streak", async () => {
     setup()
 

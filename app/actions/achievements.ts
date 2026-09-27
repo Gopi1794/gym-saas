@@ -51,7 +51,7 @@ export async function saveAchievement(
     xp_reward: Number(input.xp_reward),
     condition_type: input.condition_type,
     condition_value: Number(input.condition_value),
-    condition_target: input.condition_target ?? null,
+    condition_target: input.condition_target?.trim() || null,
     gym_id: profile.gym_id,
   }
 
