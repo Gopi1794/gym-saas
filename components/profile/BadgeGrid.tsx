@@ -1,34 +1,40 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
-import { Trophy, Calendar, TrendingUp, Lock } from "lucide-react"
+import { Trophy, Calendar, TrendingUp, Lock, Zap } from "lucide-react"
 import { motion } from "framer-motion"
 import type { Achievement } from "@/types"
 import AchievementBadge from "@/components/achievements/AchievementBadge"
+import AchievementMedal from "@/components/achievements/AchievementMedal"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { describeCondition, formatCount } from "@/lib/achievements/describe"
+import {
+  formatProgress,
+  formatProgressValue,
+  getAchievementProgress,
+  type AchievementMetrics,
+  type AchievementProgress,
+} from "@/lib/achievements/progress"
+import { formatInstantAR } from "@/lib/date-ar"
 import { cn } from "@/lib/utils"
 
 type Props = {
   all: Achievement[]
   earned: Map<string, string>
-  totalCheckIns?: number
+  /** Real member metrics. Null/undefined: locked achievements show no numbers. */
+  metrics?: AchievementMetrics | null
+  /** Display streak (see currentStreakFromDates). Null/undefined: unknown. */
+  streak?: number | null
   userName?: string
 }
 
 type Selected = { achievement: Achievement; earnedAt?: string }
 
-function formatDate(iso?: string) {
-  if (!iso) return ""
-  const d = new Date(iso)
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`
+function formatDate(iso: string) {
+  return formatInstantAR(iso, { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
-function isImagePath(icon: string): boolean {
-  return /\.(png|jpg|jpeg|svg|webp|avif)$/i.test(icon)
-}
-
-function HexIcon({ icon, name, earned }: { icon: string; name: string; earned: boolean }) {
+function HexIcon({ icon, name, earned }: { icon: string | null; name: string; earned: boolean }) {
   const hexId = `hex-${name.replace(/\s+/g, "-")}`
   return (
     <div className="relative flex h-44 w-44 items-center justify-center">
@@ -67,26 +73,13 @@ function HexIcon({ icon, name, earned }: { icon: string; name: string; earned: b
         />
       </svg>
 
-      <div className="relative z-10 flex h-[68px] w-[68px] items-center justify-center">
-        {isImagePath(icon) ? (
-          <Image
-            src={icon}
-            alt={name}
-            width={62}
-            height={62}
-            className={cn(
-              "object-contain drop-shadow-[0_0_16px_rgba(213,0,0,0.55)]",
-              !earned && "grayscale opacity-25",
-            )}
-          />
-        ) : (
-          <span
-            className={cn("text-[46px] leading-none", !earned && "grayscale opacity-25")}
-            style={{ filter: earned ? "drop-shadow(0 0 10px rgba(213,0,0,0.6))" : undefined }}
-          >
-            {icon}
-          </span>
-        )}
+      <div className="relative z-10 flex h-[76px] w-[76px] items-center justify-center">
+        <AchievementMedal
+          icon={icon}
+          size="xl"
+          tile={false}
+          className={earned ? "drop-shadow-[0_0_14px_rgba(213,0,0,0.55)]" : "grayscale opacity-25"}
+        />
 
         {!earned && (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -101,21 +94,21 @@ function HexIcon({ icon, name, earned }: { icon: string; name: string; earned: b
 function AchievementCard({
   achievement,
   earnedAt,
-  totalCheckIns,
+  progress,
   onClick,
   index,
 }: {
   achievement: Achievement
   earnedAt?: string
-  totalCheckIns: number
+  progress: AchievementProgress | null
   onClick: () => void
   index: number
 }) {
   const earned = earnedAt !== undefined
-  const icon = achievement.icon ?? "/badges/default.webp"
-  const progress = Math.min(totalCheckIns, achievement.condition_value ?? 0)
-  const target = achievement.condition_value ?? 1
-  const pct = Math.min((progress / target) * 100, 100)
+  const sentence = describeCondition(achievement)
+  // Earned: the admin's own text when there is one. Locked: what it takes.
+  const detail = earned ? achievement.description || sentence : sentence
+  const reward = achievement.xp_reward > 0 ? achievement.xp_reward : null
 
   return (
     <motion.button
@@ -124,7 +117,11 @@ function AchievementCard({
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06, duration: 0.35, ease: "easeOut" }}
-      aria-label={`${achievement.name}${earned ? " — desbloqueado" : " — bloqueado"}`}
+      aria-label={
+        earned
+          ? `${achievement.name} — desbloqueado`
+          : `${achievement.name} — bloqueado${progress ? `, ${formatProgress(progress)}` : ""}`
+      }
       className={cn(
         "group relative flex flex-col items-center rounded-2xl border p-5 text-left outline-none ring-brand-500/40",
         "transition-all duration-150 focus-visible:ring-2",
@@ -141,7 +138,7 @@ function AchievementCard({
         </div>
       )}
 
-      <HexIcon icon={icon} name={achievement.name} earned={earned} />
+      <HexIcon icon={achievement.icon} name={achievement.name} earned={earned} />
 
       <p className={cn(
         "mt-3 text-center text-[15px] font-bold leading-snug",
@@ -150,34 +147,41 @@ function AchievementCard({
         {achievement.name}
       </p>
 
-      {achievement.description && (
-        <p className="mt-2 line-clamp-2 text-center text-[13px] leading-relaxed text-zinc-500">
-          {achievement.description}
-        </p>
+      <p className="mt-2 line-clamp-2 text-center text-[13px] leading-relaxed text-zinc-500">
+        {detail}
+      </p>
+
+      {!earned && reward !== null && (
+        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-brand-500/10 px-2.5 py-1 text-[12px] font-bold text-brand-700 dark:text-brand-300">
+          <Zap className="h-3 w-3" aria-hidden="true" />
+          +{formatCount(reward)} XP
+        </span>
       )}
 
-      <div className="mt-4 w-full">
-        {earned ? (
-          <div className="flex items-center justify-center gap-2 rounded-full border border-brand-500/35 bg-brand-500/[0.08] px-4 py-2">
-            <Calendar className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
-            <span className="text-[13px] font-semibold text-brand-600 dark:text-brand-400">
-              {formatDate(earnedAt)}
-            </span>
-          </div>
-        ) : target > 0 ? (
-          <div className="space-y-2">
-            <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-[#2a2a30]">
-              <div
-                className="h-full rounded-full bg-brand-500 transition-all duration-700"
-                style={{ width: `${pct}%` }}
-              />
+      {(earned || progress) && (
+        <div className="mt-4 w-full">
+          {earnedAt !== undefined ? (
+            <div className="flex items-center justify-center gap-2 rounded-full border border-brand-500/35 bg-brand-500/[0.08] px-4 py-2">
+              <Calendar className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
+              <span className="text-[13px] font-semibold text-brand-600 dark:text-brand-400">
+                {formatDate(earnedAt)}
+              </span>
             </div>
-            <p className="text-center text-[13px] font-medium text-zinc-500">
-              {progress} / {target}
-            </p>
-          </div>
-        ) : null}
-      </div>
+          ) : progress ? (
+            <div className="space-y-2">
+              <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-[#2a2a30]">
+                <div
+                  className="h-full rounded-full bg-brand-500 transition-all duration-700"
+                  style={{ width: `${progress.pct}%` }}
+                />
+              </div>
+              <p className="text-center text-[13px] font-medium text-zinc-500">
+                <span className="whitespace-nowrap">{formatProgressValue(progress)}</span> {progress.unit}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      )}
     </motion.button>
   )
 }
@@ -185,12 +189,17 @@ function AchievementCard({
 export default function BadgeGrid({
   all,
   earned,
-  totalCheckIns = 0,
+  metrics = null,
+  streak = null,
   userName = "campeón",
 }: Props) {
   const [selected, setSelected] = useState<Selected | null>(null)
   const earnedCount = all.filter((a) => earned.has(a.id)).length
   const progressPct = all.length > 0 ? Math.round((earnedCount / all.length) * 100) : 0
+  const progressFor = (a: Achievement) => getAchievementProgress(a, metrics, streak)
+  // Streak achievements only need the dates, the rest need the metrics.
+  const progressUnavailable =
+    (metrics === null || streak === null) && all.some((a) => !earned.has(a.id) && progressFor(a) === null)
 
   return (
     <>
@@ -221,6 +230,12 @@ export default function BadgeGrid({
           )}
         </div>
 
+        {progressUnavailable && (
+          <p className="text-[13px] text-zinc-500">
+            Por ahora no podemos mostrar tu progreso. Igual ves qué hace falta para cada logro.
+          </p>
+        )}
+
         {all.length === 0 ? (
           <p className="py-4 text-center text-sm text-zinc-500">
             Este gimnasio aún no configuró logros
@@ -232,7 +247,7 @@ export default function BadgeGrid({
                 key={a.id}
                 achievement={a}
                 earnedAt={earned.get(a.id)}
-                totalCheckIns={totalCheckIns}
+                progress={progressFor(a)}
                 onClick={() => setSelected({ achievement: a, earnedAt: earned.get(a.id) })}
                 index={i}
               />
@@ -287,6 +302,7 @@ export default function BadgeGrid({
               variant={selected.earnedAt ? "earned" : "locked"}
               achievement={selected.achievement}
               earned_at={selected.earnedAt}
+              progress={selected.earnedAt ? null : progressFor(selected.achievement)}
               onClose={() => setSelected(null)}
             />
           )}

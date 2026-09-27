@@ -6,6 +6,7 @@ import BadgeGrid from "@/components/profile/BadgeGrid"
 import NotificationPreferences from "@/components/profile/NotificationPreferences"
 import MembershipStatusCard from "@/components/profile/MembershipStatusCard"
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
+import { loadMemberAchievementProgress } from "@/lib/achievements/member-progress"
 import type { Achievement, Profile } from "@/types"
 
 export const metadata: Metadata = { title: "Profile" }
@@ -88,6 +89,13 @@ export default async function ProfilePage() {
         .eq("gym_id", p.gym_id) as unknown as { data: MembershipPlanRow[] | null }
     : { data: null }
 
+  // Real progress numbers for the achievement grid. Each half degrades to null
+  // on failure and the grid then shows no numbers (never check-ins as a stand-in).
+  const achievementProgress =
+    p.role === "member"
+      ? await loadMemberAchievementProgress(supabase, user!.id)
+      : { metrics: null, streak: null }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -125,7 +133,8 @@ export default async function ProfilePage() {
         <BadgeGrid
           all={gymAchievements ?? []}
           earned={earnedMap}
-          totalCheckIns={totalCheckIns ?? 0}
+          metrics={achievementProgress.metrics}
+          streak={achievementProgress.streak}
           userName={p.full_name?.split(" ")[0] ?? undefined}
         />
       )}

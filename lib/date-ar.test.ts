@@ -2,7 +2,7 @@
 // van acá una sola vez, como referencia — no se repiten en los tests que
 // sigan.
 import { describe, it, expect, afterEach, vi } from "vitest"
-import { daysUntilAR, formatDayAR, nowMinutesOfDayAR } from "./date-ar"
+import { dayAR, daysUntilAR, formatDayAR, nowMinutesOfDayAR } from "./date-ar"
 
 // `describe` agrupa los tests de una misma función bajo un nombre común.
 // Es solo organización: no cambia si un test pasa o falla, pero hace que el
@@ -194,5 +194,13 @@ describe("formatDayAR", () => {
 
   it("con un string sin formato de fecha también devuelve 'Invalid Date', no excepción", () => {
     expect(formatDayAR("no-es-una-fecha")).toBe("Invalid Date")
+  })
+})
+
+describe("dayAR", () => {
+  it("reads the Argentina calendar day of an instant, not the UTC one", () => {
+    // 02:30 UTC of the 4th is 23:30 of the 3rd in Argentina.
+    expect(dayAR("2026-08-04T02:30:00Z")).toBe("2026-08-03")
+    expect(dayAR(new Date("2026-08-04T03:00:00Z"))).toBe("2026-08-04")
   })
 })
