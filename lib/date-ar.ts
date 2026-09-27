@@ -1,8 +1,13 @@
 const TZ = "America/Argentina/Buenos_Aires"
 
+/** Argentina calendar day (YYYY-MM-DD) of a real instant (created_at, completed_at...). */
+export function dayAR(instant: Date | string): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: TZ }).format(new Date(instant))
+}
+
 /** Today's date string (YYYY-MM-DD) in Argentina timezone. */
 export function todayAR(): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: TZ }).format(new Date())
+  return dayAR(new Date())
 }
 
 /**
