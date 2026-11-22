@@ -8,7 +8,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { isMembershipActive } from "@/lib/utils"
-import { formatInstantAR } from "@/lib/date-ar"
+import { formatInstantAR, daysAgoDateAR } from "@/lib/date-ar"
 import {
   PAYMENT_STATUS_LABELS, PAYMENT_STATUS_CLASSES,
   PAYMENT_METHOD_LABELS, PAYMENT_METHOD_CLASSES,
@@ -92,7 +92,7 @@ export default async function MemberDetailPage({ params }: Props) {
 
   const planSelect = `id, name, description, created_at, assigned_to, workout_plan_days(id, day_of_week, workout_plan_exercises(id))`
 
-  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0]
+  const sevenDaysAgo = daysAgoDateAR(7)
 
   const [
     { data: rawPlan },
