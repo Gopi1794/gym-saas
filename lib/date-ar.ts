@@ -82,6 +82,17 @@ export function daysAgoAR(n: number): string {
 }
 
 /**
+ * Fecha calendario en Argentina (YYYY-MM-DD) N días antes de hoy AR. A
+ * diferencia de daysAgoAR (que da un instante en UTC, pensado para
+ * `.gte()`/`.lte()` sobre columnas timestamptz), esto devuelve un string de
+ * fecha listo para comparar contra una columna `date` pura como
+ * nutrition_logs.log_date.
+ */
+export function daysAgoDateAR(n: number): string {
+  return dayAR(daysAgoAR(n))
+}
+
+/**
  * Días de diferencia entre expiresAt (timestamptz ISO) y "hoy" en Argentina,
  * por día calendario — no por instante. Negativo si ya pasó.
  *

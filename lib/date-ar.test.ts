@@ -2,7 +2,7 @@
 // van acá una sola vez, como referencia — no se repiten en los tests que
 // sigan.
 import { describe, it, expect, afterEach, vi } from "vitest"
-import { dayAR, daysUntilAR, formatDayAR, nowMinutesOfDayAR } from "./date-ar"
+import { dayAR, daysAgoDateAR, daysUntilAR, formatDayAR, nowMinutesOfDayAR } from "./date-ar"
 
 // `describe` agrupa los tests de una misma función bajo un nombre común.
 // Es solo organización: no cambia si un test pasa o falla, pero hace que el
@@ -202,5 +202,29 @@ describe("dayAR", () => {
     // 02:30 UTC of the 4th is 23:30 of the 3rd in Argentina.
     expect(dayAR("2026-08-04T02:30:00Z")).toBe("2026-08-03")
     expect(dayAR(new Date("2026-08-04T03:00:00Z"))).toBe("2026-08-04")
+  })
+})
+
+describe("daysAgoDateAR", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("la franja del bug: a las 01:30 UTC (22:30 del día anterior en Argentina), n=0 da el día AR, no el día UTC", () => {
+    // 2026-09-28T01:30:00Z son las 22:30 del 27/09 en Argentina — "hoy" AR
+    // es el 27, no el 28 que marcaría un reloj UTC crudo.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-09-28T01:30:00Z"))
+
+    expect(daysAgoDateAR(0)).toBe("2026-09-27")
+    expect(daysAgoDateAR(1)).toBe("2026-09-26")
+  })
+
+  it("caso de control: mediodía en Argentina, día UTC y día AR coinciden", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-09T15:30:00Z"))
+
+    expect(daysAgoDateAR(0)).toBe("2026-08-09")
+    expect(daysAgoDateAR(7)).toBe("2026-08-02")
   })
 })

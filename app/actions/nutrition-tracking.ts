@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { calcNutritionTargets, CALORIE_MISMATCH_THRESHOLD } from "@/lib/nutrition"
 import { getMemberProfileForPlan, getMemberNutritionPlan } from "@/app/actions/nutrition"
-import { todayAR, hourAR } from "@/lib/date-ar"
+import { todayAR, hourAR, daysAgoDateAR } from "@/lib/date-ar"
 import { computeDailyTotals } from "@/lib/nutrition-totals"
 import type { NutritionPlan } from "@/app/actions/nutrition"
 
@@ -135,14 +135,14 @@ export async function getNutritionStreak(memberId: string): Promise<number> {
     .from("nutrition_logs" as never)
     .select("log_date")
     .eq("member_id", memberId)
-    .gte("log_date", new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split("T")[0])
+    .gte("log_date", daysAgoDateAR(60))
     .order("log_date", { ascending: false })
 
   if (!data || (data as { log_date: string }[]).length === 0) return 0
 
   const dates = [...new Set((data as { log_date: string }[]).map(r => r.log_date))].sort().reverse()
-  const today = new Date().toISOString().split("T")[0]
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0]
+  const today = todayAR()
+  const yesterday = daysAgoDateAR(1)
 
   // Streak must include today or yesterday
   if (dates[0] !== today && dates[0] !== yesterday) return 0
@@ -195,7 +195,7 @@ export async function getTodayConsumedMacros(
 
 export async function getWaterToday(memberId: string): Promise<number> {
   const supabase = createClient()
-  const today = new Date().toISOString().split("T")[0]
+  const today = todayAR()
   const { data } = await supabase
     .from("water_logs" as never)
     .select("glasses")
@@ -209,7 +209,7 @@ export async function setWaterToday(glasses: number): Promise<void> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
-  const today = new Date().toISOString().split("T")[0]
+  const today = todayAR()
   await supabase
     .from("water_logs" as never)
     .upsert({ member_id: user.id, log_date: today, glasses } as never, { onConflict: "member_id,log_date" })
@@ -336,7 +336,7 @@ export async function logWeight(weightKg: number, notes?: string): Promise<void>
   const profileBefore = needsDriftCheck ? await getMemberProfileForPlan(user.id) : null
   const oldWeight = profileBefore?.weight_kg ?? null
 
-  const today = new Date().toISOString().split("T")[0]
+  const today = todayAR()
   await supabase
     .from("weight_logs" as never)
     .upsert({ member_id: user.id, log_date: today, weight_kg: weightKg, notes: notes ?? null } as never, { onConflict: "member_id,log_date" })
@@ -379,7 +379,7 @@ export type AdherenceEntry = {
 
 export async function getAdherenceReport(gymId: string): Promise<AdherenceEntry[]> {
   const supabase = createClient()
-  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0]
+  const sevenDaysAgo = daysAgoDateAR(7)
 
   const { data: plans } = await supabase
     .from("nutrition_plans" as never)
