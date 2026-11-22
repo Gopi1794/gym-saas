@@ -22,7 +22,8 @@ import { getNutritionStreak, getTodayConsumedMacros, getWaterToday } from "@/app
 import WeightReminderBanner from "@/components/dashboard/WeightReminderBanner"
 import MonthlyTrainingCalendar from "@/components/dashboard/MonthlyTrainingCalendar"
 import PersonalRecordsCard from "@/components/dashboard/PersonalRecordsCard"
-import { todayAR, todayDateAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, startOfTodayAR } from "@/lib/date-ar"
+import { todayAR, todayDateAR, dayAR, hourAR, dayOfWeekAR, mondayOfWeekAR, firstOfMonthAR, firstOfMonthsAgoAR, daysAgoAR, startOfTodayAR } from "@/lib/date-ar"
+import { streakFromInstants, countsByDayAR, countsByWeekAR } from "@/lib/activity-days"
 import { computeMonthToDateRevenue } from "@/lib/revenue"
 import { getMemberProductPromotions, getProductReport } from "@/app/actions/products"
 import ProductPromotionsCarousel from "@/components/dashboard/ProductPromotionsCarousel"
@@ -167,8 +168,8 @@ export default async function DashboardPage() {
 
 
     if (plan) {
-      const jsDay = dayOfWeekAR()
       const monday = mondayOfWeekAR()
+      const mondayStr = dayAR(monday)
 
       type RecentSessionRow = { completed_at: string }
 
@@ -215,36 +216,17 @@ export default async function DashboardPage() {
 
       weeklySummary = { trainingDows, completedDows }
 
-      // Consecutive day streak
-      const sessionDays = new Set((recentSessions ?? []).map((s) => s.completed_at.split("T")[0]))
-      let streak = 0
-      const cursor = new Date(`${todayAR()}T00:00:00Z`)
-      while (sessionDays.has(cursor.toISOString().split("T")[0])) {
-        streak++
-        cursor.setUTCDate(cursor.getUTCDate() - 1)
-      }
+      // Consecutive day streak — agrupa cada sesión por su día calendario AR
+      // (dayAR), no por el día UTC crudo del timestamp.
+      const sessionInstants = (recentSessions ?? []).map((s) => s.completed_at)
+      const streak = streakFromInstants(sessionInstants, todayStr)
 
-      // Sessions per week for the last 7 weeks (bar chart)
-      const daysToMonday = jsDay === 0 ? 6 : jsDay - 1
-      const sessionsByWeek = Array.from({ length: 7 }, (_, wi) => {
-        const wMonday = new Date(todayDate)
-        wMonday.setDate(todayDate.getDate() - daysToMonday - (6 - wi) * 7)
-        wMonday.setHours(0, 0, 0, 0)
-        const wSunday = new Date(wMonday)
-        wSunday.setDate(wMonday.getDate() + 7)
-        return (recentSessions ?? []).filter(s => {
-          const d = new Date(s.completed_at)
-          return d >= wMonday && d < wSunday
-        }).length
-      })
+      // Sessions per week for the last 7 weeks (bar chart) — semana AR
+      // (lunes a domingo), no un rango de instantes cortado a medianoche UTC.
+      const sessionsByWeek = countsByWeekAR(sessionInstants, mondayStr)
 
       // Last 7 days: 1 = trained, 0 = not (line/sparkline chart)
-      const recentDays = Array.from({ length: 7 }, (_, i) => {
-        const day = new Date(todayDate)
-        day.setDate(todayDate.getDate() - (6 - i))
-        const dayStr = day.toISOString().split("T")[0]
-        return (recentSessions ?? []).some(s => s.completed_at.startsWith(dayStr)) ? 1 : 0
-      })
+      const recentDays = countsByDayAR(sessionInstants, todayStr).map((c) => (c > 0 ? 1 : 0))
 
       memberActivity = {
         completedThisWeek: completedDows.length,
@@ -345,13 +327,9 @@ export default async function DashboardPage() {
     ? Math.round(((activeMembers ?? 0) / totalMembers) * 100)
     : 0
 
-  // Admin chart data
-  const checkInWeekData = Array.from({ length: 7 }, (_, i) => {
-    const day = new Date(todayDate)
-    day.setDate(todayDate.getDate() - (6 - i))
-    const dayStr = day.toISOString().split("T")[0]
-    return (checkInsLast7Days ?? []).filter(ci => ci.checked_in_at.startsWith(dayStr)).length
-  })
+  // Admin chart data — agrupa cada check-in por su día calendario AR, no por
+  // el día UTC crudo del timestamp.
+  const checkInWeekData = countsByDayAR((checkInsLast7Days ?? []).map((ci) => ci.checked_in_at), todayStr)
   const hour = hourAR()
   const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches"
   const firstName = p?.full_name?.split(" ")[0] ?? ""
